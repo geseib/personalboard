@@ -2,22 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { jsPDF } from 'jspdf';
 import { connectionLevels } from './utils.js';
-import slide1 from './images/Slide1.png';
-import slide2 from './images/Slide2.png';
-import slide3 from './images/Slide3.png';
-import slide4 from './images/Slide4.png';
-import slide5 from './images/Slide5.png';
-import slide6 from './images/Slide6.png';
-import slide7 from './images/Slide7.png';
+// use direct paths so images resolve without a bundler
+
 
 const pages = [
-  { key: 'intro', title: 'Intro', image: slide1, quote: 'Your journey begins.' },
-  { key: 'mentors', title: 'Mentors', image: slide2, quote: 'A mentor opens doors.' },
-  { key: 'coaches', title: 'Coaches', image: slide3, quote: 'Coaches refine potential.' },
-  { key: 'connectors', title: 'Connectors', image: slide4, quote: 'Connections spark growth.' },
-  { key: 'sponsors', title: 'Sponsors', image: slide5, quote: 'Sponsorship elevates.' },
-  { key: 'peers', title: 'Peers', image: slide6, quote: 'Peers share the path.' },
-  { key: 'board', title: 'Board', image: slide7, quote: 'Build your board.' }
+  { key: 'intro', title: 'Intro', image: 'images/Slide1.png', quote: 'Your journey begins.' },
+  { key: 'mentors', title: 'Mentors', image: 'images/Slide2.png', quote: 'A mentor opens doors.' },
+  { key: 'coaches', title: 'Coaches', image: 'images/Slide3.png', quote: 'Coaches refine potential.' },
+  { key: 'connectors', title: 'Connectors', image: 'images/Slide4.png', quote: 'Connections spark growth.' },
+  { key: 'sponsors', title: 'Sponsors', image: 'images/Slide5.png', quote: 'Sponsorship elevates.' },
+  { key: 'peers', title: 'Peers', image: 'images/Slide6.png', quote: 'Peers share the path.' },
+  { key: 'board', title: 'Board', image: 'images/Slide7.png', quote: 'Build your board.' }
 ];
 
 function App() {
