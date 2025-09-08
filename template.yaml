@@ -21,11 +21,6 @@ Parameters:
       - production
     Description: The deployment environment
 
-Globals:
-  Function:
-    Timeout: 3
-    MemorySize: 128
-
 Resources:
   # S3 Bucket for website content
   WebsiteBucket:
@@ -58,23 +53,6 @@ Resources:
         OriginAccessControlOriginType: s3
         SigningBehavior: always
         SigningProtocol: sigv4
-
-  # S3 Bucket Policy to allow CloudFront access
-  WebsiteBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref WebsiteBucket
-      PolicyDocument:
-        Statement:
-          - Sid: AllowCloudFrontServicePrincipal
-            Effect: Allow
-            Principal:
-              Service: cloudfront.amazonaws.com
-            Action: s3:GetObject
-            Resource: !Sub '${WebsiteBucket}/*'
-            Condition:
-              StringEquals:
-                'AWS:SourceArn': !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}'
 
   # SSL Certificate
   SSLCertificate:
@@ -142,6 +120,7 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
 
+
   # Route 53 DNS record
   DNSRecord:
     Type: AWS::Route53::RecordSet
@@ -152,6 +131,7 @@ Resources:
       AliasTarget:
         DNSName: !GetAtt CloudFrontDistribution.DomainName
         HostedZoneId: Z2FDTNDATAQYW2  # CloudFront hosted zone ID
+
 
 Outputs:
   WebsiteURL:

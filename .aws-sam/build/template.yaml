@@ -18,10 +18,6 @@ Parameters:
     - development
     - production
     Description: The deployment environment
-Globals:
-  Function:
-    Timeout: 3
-    MemorySize: 128
 Resources:
   WebsiteBucket:
     Type: AWS::S3::Bucket
@@ -54,24 +50,6 @@ Resources:
         OriginAccessControlOriginType: s3
         SigningBehavior: always
         SigningProtocol: sigv4
-  WebsiteBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket:
-        Ref: WebsiteBucket
-      PolicyDocument:
-        Statement:
-        - Sid: AllowCloudFrontServicePrincipal
-          Effect: Allow
-          Principal:
-            Service: cloudfront.amazonaws.com
-          Action: s3:GetObject
-          Resource:
-            Fn::Sub: ${WebsiteBucket}/*
-          Condition:
-            StringEquals:
-              AWS:SourceArn:
-                Fn::Sub: arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}
   SSLCertificate:
     Type: AWS::CertificateManager::Certificate
     Properties:

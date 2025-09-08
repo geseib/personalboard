@@ -7,9 +7,10 @@ import { connectionLevels } from './utils.js';
 
 const pages = [
   { key: 'intro', title: 'Intro', image: '/images/Slide2.png', quote: '', quotePosition: 'center' },
-  { key: 'mentors', title: 'Mentors', image: '/images/Slide4.png', quote: 'A mentor opens doors.', quotePosition: 'bottom-right' },
+  { key: 'goals', title: 'Goals', image: '/images/Slide12.png', quote: 'Your vision shapes your board.', quotePosition: 'bottom-right' },
+  { key: 'mentors', title: 'Mentors', image: '/images/Slide7.png', quote: 'A mentor opens doors.', quotePosition: 'bottom-right' },
   { key: 'coaches', title: 'Coaches', image: '/images/Slide6.png', quote: 'Coaches refine potential.', quotePosition: 'bottom-left' },
-  { key: 'connectors', title: 'Connectors', image: '/images/Slide7.png', quote: 'Connections spark growth.', quotePosition: 'center' },
+  { key: 'connectors', title: 'Connectors', image: '/images/Slide4.png', quote: 'Connections spark growth.', quotePosition: 'center' },
   { key: 'sponsors', title: 'Sponsors', image: '/images/Slide8.png', quote: 'Sponsorship elevates.', quotePosition: 'bottom-right' },
   { key: 'peers', title: 'Peers', image: '/images/Slide9.png', quote: 'Peers share the path.', quotePosition: 'bottom-right' },
   { key: 'board', title: 'Board', image: '/images/Slide10.png', quote: '', quotePosition: 'center' }
@@ -17,8 +18,21 @@ const pages = [
 
 function App() {
   const [current, setCurrent] = useState('intro');
-  const [data, setData] = useState(() => JSON.parse(localStorage.getItem('boardData') || '{}'));
+  const [data, setData] = useState(() => {
+    const savedData = JSON.parse(localStorage.getItem('boardData') || '{}');
+    // Initialize goals if they don't exist
+    if (!savedData.goals) {
+      savedData.goals = [
+        { timeframe: '3 Month Goals', description: '', notes: '' },
+        { timeframe: '1 Year Goals', description: '', notes: '' },
+        { timeframe: '5 Year Goals', description: '', notes: '' },
+        { timeframe: 'Beyond', description: '', notes: '' }
+      ];
+    }
+    return savedData;
+  });
   const [showLearn, setShowLearn] = useState(false);
+  const [showIntroLearn, setShowIntroLearn] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [formType, setFormType] = useState('');
   const [editingItem, setEditingItem] = useState(null);
@@ -120,43 +134,17 @@ function App() {
     doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth / 2, currentY, { align: 'center' });
     currentY += 25;
     
-    // Timeline Section Background
-    doc.setFillColor(249, 250, 251);
-    doc.roundedRect(15, currentY - 5, pageWidth - 30, 55, 3, 3, 'F');
-    
-    // Timeline Header
-    doc.setFontSize(16);
-    doc.setFont(undefined, 'bold');
-    doc.setTextColor(17, 24, 39);
-    doc.text('Annual Meeting Timeline', 20, currentY + 5);
-    currentY += 15;
-    
-    // Draw timeline
-    const timelineY = currentY;
-    const timelineHeight = 25;
-    const monthWidth = (pageWidth - 50) / 12;
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    
-    // Timeline background
-    doc.setFillColor(255, 255, 255);
-    doc.roundedRect(25, timelineY, pageWidth - 50, timelineHeight, 2, 2, 'F');
-    doc.setDrawColor(229, 231, 235);
-    doc.roundedRect(25, timelineY, pageWidth - 50, timelineHeight, 2, 2, 'S');
-    
-    // Month labels
-    doc.setFontSize(8);
-    doc.setFont(undefined, 'bold');
-    doc.setTextColor(107, 114, 128);
-    months.forEach((month, idx) => {
-      doc.text(month, 25 + (idx * monthWidth) + monthWidth/2, timelineY - 3, { align: 'center' });
-      // Add vertical separator
-      if (idx > 0) {
-        doc.setDrawColor(243, 244, 246);
-        doc.line(25 + idx * monthWidth, timelineY, 25 + idx * monthWidth, timelineY + timelineHeight);
+    // Meeting Cadence Grid Section
+    const allMembers = [];
+    Object.keys(data).forEach(type => {
+      if (data[type] && type !== 'goals') {
+        data[type].forEach(person => {
+          allMembers.push({ ...person, type });
+        });
       }
     });
     
-    // Plot meetings based on cadence
+    // Define colors for all PDF sections
     const colors = {
       mentors: [16, 185, 129],
       coaches: [59, 130, 246],
@@ -165,34 +153,88 @@ function App() {
       peers: [239, 68, 68]
     };
     
-    let legendY = 5;
-    Object.keys(data).forEach((type, typeIdx) => {
-      if (data[type]) {
-        const color = colors[type] || [100, 100, 100];
-        doc.setFillColor(...color);
+    if (allMembers.length > 0) {
+      const gridHeight = 25 + (allMembers.length * 12) + 15; // Header + rows + padding
+      
+      // Grid Section Background
+      doc.setFillColor(249, 250, 251);
+      doc.roundedRect(15, currentY - 5, pageWidth - 30, gridHeight, 3, 3, 'F');
+      
+      // Grid Header
+      doc.setFontSize(16);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(17, 24, 39);
+      doc.text('Meeting Cadence Overview', 20, currentY + 5);
+      currentY += 20;
+      
+      // Grid column headers
+      const gridStartX = 25;
+      const nameColWidth = 60;
+      const cadenceColWidth = 20;
+      const cadenceColumns = ['Daily', 'Weekly', 'Monthly', 'Quarterly', 'Annually', 'Ad-hoc'];
+      
+      // Header row background
+      doc.setFillColor(37, 99, 235);
+      doc.rect(gridStartX, currentY - 3, nameColWidth + (cadenceColumns.length * cadenceColWidth), 12, 'F');
+      
+      // Header text
+      doc.setFontSize(9);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(255, 255, 255);
+      doc.text('Board Member', gridStartX + 2, currentY + 3);
+      
+      cadenceColumns.forEach((col, idx) => {
+        const x = gridStartX + nameColWidth + (idx * cadenceColWidth);
+        doc.text(col, x + cadenceColWidth/2, currentY + 3, { align: 'center' });
+      });
+      
+      currentY += 12;
+      
+      // Grid rows
+      
+      allMembers.forEach((member, idx) => {
+        // Alternating row background
+        if (idx % 2 === 1) {
+          doc.setFillColor(255, 255, 255);
+          doc.rect(gridStartX, currentY - 2, nameColWidth + (cadenceColumns.length * cadenceColWidth), 10, 'F');
+        }
         
-        data[type].forEach((person, personIdx) => {
-          const yPos = timelineY + 5 + (personIdx * 4);
+        // Member name with type indicator
+        doc.setFontSize(8);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(17, 24, 39);
+        const memberColor = colors[member.type] || [100, 100, 100];
+        doc.setFillColor(...memberColor);
+        doc.circle(gridStartX + 4, currentY + 2, 1.5, 'F');
+        
+        const memberText = `${member.name || 'Unknown'} (${member.type === 'coaches' ? 'coach' : member.type.slice(0, -1)})`;
+        doc.text(memberText.substring(0, 35), gridStartX + 8, currentY + 3);
+        
+        // Cadence dot in appropriate column
+        cadenceColumns.forEach((cadence, cadIdx) => {
+          const x = gridStartX + nameColWidth + (cadIdx * cadenceColWidth);
+          let showDot = false;
           
-          // Calculate meeting dots based on cadence
-          const meetingMonths = getMeetingMonths(person.cadence);
-          meetingMonths.forEach(month => {
-            const xPos = 25 + (month * monthWidth) + monthWidth/2;
-            doc.circle(xPos, yPos, 2, 'F');
-          });
+          if (cadence === 'Daily' && member.cadence === 'Daily') showDot = true;
+          else if (cadence === 'Weekly' && member.cadence === 'Weekly') showDot = true;
+          else if (cadence === 'Monthly' && (member.cadence === 'Monthly' || member.cadence === 'Bi-weekly')) showDot = true;
+          else if (cadence === 'Quarterly' && member.cadence === 'Quarterly') showDot = true;
+          else if (cadence === 'Annually' && member.cadence === 'Annually') showDot = true;
+          else if (cadence === 'Ad-hoc' && member.cadence === 'Ad-hoc') showDot = true;
           
-          // Legend item
-          if (personIdx === 0) {
-            doc.circle(pageWidth - 35, timelineY + legendY, 1.5, 'F');
-            doc.setFontSize(7);
-            doc.text(type, pageWidth - 30, timelineY + legendY + 1);
-            legendY += 5;
+          if (showDot) {
+            doc.setFillColor(...memberColor);
+            doc.circle(x + cadenceColWidth/2, currentY + 2, 2, 'F');
           }
         });
-      }
-    });
-    
-    currentY = timelineY + timelineHeight + 30;
+        
+        currentY += 10;
+      });
+      
+      currentY += 15;
+    } else {
+      currentY += 10;
+    }
     
     // Board Section Background
     doc.setFillColor(249, 250, 251);
@@ -225,16 +267,7 @@ function App() {
     doc.setTextColor(37, 99, 235);
     doc.text('YOUR BOARD', tableX, tableY, { align: 'center' });
     
-    // Position board members around table
-    const allMembers = [];
-    Object.keys(data).forEach(type => {
-      if (data[type]) {
-        data[type].forEach(person => {
-          allMembers.push({ ...person, type });
-        });
-      }
-    });
-    
+    // Position board members around table (reuse allMembers from cadence grid)
     const positions = [
       { x: 0, y: -45 }, // top center
       { x: 35, y: -30 }, // top-right
@@ -274,12 +307,12 @@ function App() {
       doc.setFont(undefined, 'bold');
       doc.setTextColor(17, 24, 39);
       doc.setFontSize(8);
-      doc.text(member.name.substring(0, 15), boxX, boxY + 2, { align: 'center' });
+      doc.text((member.name || 'Unknown').substring(0, 15), boxX, boxY + 2, { align: 'center' });
       
       doc.setFont(undefined, 'normal');
       doc.setTextColor(107, 114, 128);
       doc.setFontSize(7);
-      doc.text(member.role.substring(0, 20), boxX, boxY + 6, { align: 'center' });
+      doc.text((member.role || 'Unknown').substring(0, 20), boxX, boxY + 6, { align: 'center' });
     });
     
     currentY = tableY + tableHeight/2 + 65;
@@ -290,42 +323,82 @@ function App() {
       currentY = 20;
     }
     
-    // Role Descriptions Section
-    doc.setFillColor(249, 250, 251);
-    doc.roundedRect(15, currentY - 5, pageWidth - 30, 80, 3, 3, 'F');
+    // Define role descriptions first
+    const roleDescriptions = {
+      mentors: {
+        brief: 'Your Wisdom Guides',
+        detail: 'Mentors are experienced professionals who have walked the path you aspire to take. They provide strategic career advice, share lessons learned from their journeys, and help you navigate complex professional decisions. A mentor opens doors by sharing their network, institutional knowledge, and hard-earned wisdom.'
+      },
+      coaches: {
+        brief: 'Your Skill Developers',
+        detail: 'Coaches focus on helping you develop specific skills and capabilities. Unlike mentors who provide broad wisdom, coaches zero in on particular areas where you need improvement and push you to achieve your potential. They provide targeted feedback, skill development strategies, and accountability for improvement.'
+      },
+      connectors: {
+        brief: 'Your Network Expanders',
+        detail: 'Connectors are the social catalysts in your network – people who know everyone and love making introductions. They have extensive networks across industries and are generous with their connections. Connectors multiply your networking capacity exponentially by expanding your reach far beyond your immediate circle.'
+      },
+      sponsors: {
+        brief: 'Your Advocates',
+        detail: 'Sponsors are influential people who actively advocate for you in rooms where you\'re not present. They go beyond giving advice to actually using their political capital and influence to advance your career. While mentors give advice, sponsors take action on your behalf, recommending you for opportunities and speaking up for your contributions.'
+      },
+      peers: {
+        brief: 'Your Journey Companions',
+        detail: 'Peers are professionals at similar career stages who face comparable challenges and opportunities. They provide mutual support, shared problem-solving, and the camaraderie of people walking similar paths. Peers offer reciprocal relationships where you both give and receive support.'
+      }
+    };
     
-    // Role Descriptions
+    // Calculate height dynamically for role descriptions section
+    const roleStartY = currentY;
+    let roleHeight = 25; // Base height for title
+    
+    // Calculate total height needed for role descriptions
+    const activeRoles = Object.keys(roleDescriptions).filter(role => data[role] && data[role].length > 0);
+    activeRoles.forEach(role => {
+      const lines = doc.splitTextToSize(roleDescriptions[role].detail, pageWidth - 45);
+      roleHeight += 6 + (lines.length * 4) + 8; // Title height + text lines + spacing
+    });
+    
+    // Draw background with calculated height
+    doc.setFillColor(249, 250, 251);
+    doc.roundedRect(15, roleStartY - 5, pageWidth - 30, Math.min(roleHeight, pageHeight - roleStartY + 5), 3, 3, 'F');
+    
+    // Role Descriptions Title
     doc.setFontSize(16);
     doc.setFont(undefined, 'bold');
     doc.setTextColor(17, 24, 39);
     doc.text('Role Descriptions', 20, currentY + 5);
-    currentY += 15;
+    currentY += 20; // Increased spacing to prevent overlap
     
-    const roleDescriptions = {
-      mentors: 'Mentors provide wisdom, guidance, and share their experience to help navigate your career journey.',
-      coaches: 'Coaches help refine specific skills and provide tactical guidance for immediate challenges.',
-      connectors: 'Connectors introduce new opportunities and expand your professional network.',
-      sponsors: 'Sponsors advocate for your advancement and open doors to new positions and opportunities.',
-      peers: 'Peers share similar experiences and provide mutual support through common challenges.'
-    };
-    
-    doc.setFontSize(9);
+    doc.setFontSize(10);
     Object.keys(roleDescriptions).forEach(role => {
       if (data[role] && data[role].length > 0) {
-        doc.setFont(undefined, 'bold');
+        // Check if we need a new page
+        if (currentY > pageHeight - 40) {
+          doc.addPage();
+          currentY = 20;
+        }
+        
         const color = colors[role] || [0, 0, 0];
-        doc.setTextColor(...color);
+        
         // Add colored bullet
         doc.setFillColor(...color);
-        doc.circle(22, currentY - 1, 1.5, 'F');
+        doc.circle(22, currentY - 1, 2, 'F');
         
+        // Role name with brief title
+        doc.setFont(undefined, 'bold');
         doc.setTextColor(...color);
-        doc.text(`${role.charAt(0).toUpperCase() + role.slice(1)}:`, 27, currentY);
+        doc.setFontSize(11);
+        const roleTitle = `${role.charAt(0).toUpperCase() + role.slice(1)}: ${roleDescriptions[role].brief}`;
+        doc.text(roleTitle, 27, currentY);
+        currentY += 6;
+        
+        // Detailed description
         doc.setFont(undefined, 'normal');
         doc.setTextColor(75, 85, 99);
-        const lines = doc.splitTextToSize(roleDescriptions[role], pageWidth - 60);
-        doc.text(lines, 35, currentY);
-        currentY += lines.length * 4 + 5;
+        doc.setFontSize(9);
+        const lines = doc.splitTextToSize(roleDescriptions[role].detail, pageWidth - 45);
+        doc.text(lines, 27, currentY);
+        currentY += lines.length * 4 + 8;
       }
     });
     
@@ -346,7 +419,7 @@ function App() {
     currentY = 40;
     
     Object.keys(data).forEach(type => {
-      if (data[type] && data[type].length > 0) {
+      if (data[type] && data[type].length > 0 && type !== 'goals') {
         // Check if we need a new page
         if (currentY > pageHeight - 60) {
           doc.addPage();
@@ -371,32 +444,80 @@ function App() {
             currentY = 20;
           }
           
-          // Member card background
+          // Calculate content height before drawing the box
+          const contentStartY = currentY;
+          let contentHeight = 18; // Base height for name and basic info
+          
+          // Calculate height for additional fields
+          if (member.whatToLearn) {
+            const learnLines = doc.splitTextToSize(member.whatToLearn, pageWidth - 65);
+            contentHeight += 6 + (learnLines.length * 4);
+          }
+          
+          if (member.whatTheyGet) {
+            const getLines = doc.splitTextToSize(member.whatTheyGet, pageWidth - 65);
+            contentHeight += 6 + (getLines.length * 4);
+          }
+          
+          if (member.notes) {
+            const noteLines = doc.splitTextToSize(member.notes, pageWidth - 65);
+            contentHeight += 6 + (noteLines.length * 4);
+          }
+          
+          // Member card background with calculated height
           doc.setFillColor(255, 255, 255);
           doc.setDrawColor(229, 231, 235);
-          doc.roundedRect(25, currentY - 3, pageWidth - 50, 28, 2, 2, 'FD');
+          doc.roundedRect(25, currentY - 3, pageWidth - 50, contentHeight, 2, 2, 'FD');
           
-          // Colored sidebar
+          // Colored sidebar with calculated height
           doc.setFillColor(...color);
-          doc.rect(25, currentY - 3, 3, 28, 'F');
+          doc.rect(25, currentY - 3, 3, contentHeight, 'F');
           
           doc.setFontSize(11);
           doc.setFont(undefined, 'bold');
           doc.setTextColor(17, 24, 39);
-          doc.text(member.name, 32, currentY + 3);
+          doc.text(member.name || 'Unknown', 32, currentY + 3);
           currentY += 6;
           
           doc.setFontSize(9);
           doc.setFont(undefined, 'normal');
           doc.setTextColor(75, 85, 99);
-          doc.text(`Role: ${member.role}`, 35, currentY);
+          doc.text(`Role: ${member.role || 'Unknown'}`, 35, currentY);
           currentY += 4;
-          doc.text(`Connection: ${member.connection}`, 35, currentY);
+          doc.text(`Connection: ${member.connection || 'Unknown'}`, 35, currentY);
           currentY += 4;
-          doc.text(`Cadence: ${member.cadence}`, 35, currentY);
+          doc.text(`Cadence: ${member.cadence || 'Unknown'}`, 35, currentY);
           currentY += 4;
           
+          if (member.whatToLearn) {
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(16, 185, 129); // Green color
+            doc.text('What to Learn:', 35, currentY);
+            currentY += 4;
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(75, 85, 99);
+            const learnLines = doc.splitTextToSize(member.whatToLearn, pageWidth - 65);
+            doc.text(learnLines, 35, currentY);
+            currentY += learnLines.length * 4 + 2;
+          }
+          
+          if (member.whatTheyGet) {
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(139, 92, 246); // Purple color
+            doc.text('What They Get:', 35, currentY);
+            currentY += 4;
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(75, 85, 99);
+            const getLines = doc.splitTextToSize(member.whatTheyGet, pageWidth - 65);
+            doc.text(getLines, 35, currentY);
+            currentY += getLines.length * 4 + 2;
+          }
+          
           if (member.notes) {
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(75, 85, 99);
+            doc.text('Notes:', 35, currentY);
+            currentY += 4;
             doc.setFont(undefined, 'italic');
             doc.setTextColor(107, 114, 128);
             const noteLines = doc.splitTextToSize(member.notes, pageWidth - 65);
@@ -408,6 +529,135 @@ function App() {
         currentY += 5;
       }
     });
+    
+    // Goals Section
+    if (data.goals && data.goals.length > 0) {
+      // Check if we need a new page
+      if (currentY > pageHeight - 80) {
+        doc.addPage();
+        currentY = 20;
+      } else {
+        currentY += 20; // Add some spacing from previous section
+      }
+      
+      // Goals Section Header
+      doc.setFillColor(37, 99, 235);
+      doc.rect(0, currentY - 15, pageWidth, 25, 'F');
+      
+      doc.setFontSize(18);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(255, 255, 255);
+      doc.text('Your Goals & Vision', pageWidth / 2, currentY - 3, { align: 'center' });
+      currentY += 15;
+      
+      // Goals background section
+      const goalsStartY = currentY;
+      let goalsHeight = 10; // Base height
+      
+      // Calculate height needed for goals
+      data.goals.forEach(goal => {
+        goalsHeight += 35; // Approximate height per goal
+        if (goal.description) {
+          const descLines = doc.splitTextToSize(goal.description, pageWidth - 60);
+          goalsHeight += descLines.length * 4;
+        }
+        if (goal.notes) {
+          const noteLines = doc.splitTextToSize(goal.notes, pageWidth - 60);
+          goalsHeight += noteLines.length * 4;
+        }
+      });
+      
+      // Goals cards
+      data.goals.forEach((goal, index) => {
+        // Check if we need a new page for this goal
+        if (currentY > pageHeight - 40) {
+          doc.addPage();
+          currentY = 20;
+        }
+        
+        // Goal card background with timeline color coding
+        const goalColors = {
+          '3 Month Goals': [34, 197, 94], // Green
+          '1 Year Goals': [59, 130, 246], // Blue  
+          '5 Year Goals': [168, 85, 247], // Purple
+          'Beyond': [249, 115, 22] // Orange
+        };
+        
+        const color = goalColors[goal.timeframe] || [107, 114, 128];
+        
+        // Card background
+        doc.setFillColor(255, 255, 255);
+        doc.setDrawColor(229, 231, 235);
+        
+        const cardStartY = currentY;
+        let cardHeight = 25; // Base height
+        
+        // Calculate card height
+        if (goal.description) {
+          const descLines = doc.splitTextToSize(goal.description, pageWidth - 60);
+          cardHeight += descLines.length * 4 + 8;
+        }
+        if (goal.notes) {
+          const noteLines = doc.splitTextToSize(goal.notes, pageWidth - 60);
+          cardHeight += noteLines.length * 4 + 8;
+        }
+        
+        doc.roundedRect(25, cardStartY - 3, pageWidth - 50, cardHeight, 2, 2, 'FD');
+        
+        // Colored left border
+        doc.setFillColor(...color);
+        doc.rect(25, cardStartY - 3, 4, cardHeight, 'F');
+        
+        // Goal timeframe title
+        doc.setFontSize(13);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(...color);
+        doc.text(goal.timeframe, 35, currentY + 4);
+        currentY += 10;
+        
+        // Goal description
+        if (goal.description) {
+          doc.setFontSize(10);
+          doc.setFont(undefined, 'normal');
+          doc.setTextColor(17, 24, 39);
+          doc.text('Description:', 35, currentY);
+          currentY += 5;
+          
+          doc.setTextColor(75, 85, 99);
+          const descLines = doc.splitTextToSize(goal.description, pageWidth - 60);
+          doc.text(descLines, 35, currentY);
+          currentY += descLines.length * 4 + 5;
+        } else {
+          doc.setFontSize(9);
+          doc.setFont(undefined, 'italic');
+          doc.setTextColor(156, 163, 175);
+          doc.text('No description set', 35, currentY);
+          currentY += 8;
+        }
+        
+        // Goal notes
+        if (goal.notes) {
+          doc.setFontSize(10);
+          doc.setFont(undefined, 'normal');
+          doc.setTextColor(17, 24, 39);
+          doc.text('Notes:', 35, currentY);
+          currentY += 5;
+          
+          doc.setTextColor(75, 85, 99);
+          const noteLines = doc.splitTextToSize(goal.notes, pageWidth - 60);
+          doc.text(noteLines, 35, currentY);
+          currentY += noteLines.length * 4 + 8;
+        } else {
+          doc.setFontSize(9);
+          doc.setFont(undefined, 'italic');
+          doc.setTextColor(156, 163, 175);
+          doc.text('No notes added', 35, currentY);
+          currentY += 8;
+        }
+        
+        currentY += 10; // Space between goal cards
+      });
+    }
     
     doc.save('personal-board.pdf');
   };
@@ -461,12 +711,12 @@ function App() {
         </div>
       )}
       <div className="content">
-        {current === 'intro' ? <Intro /> : current === 'board' ? <Board data={data} /> : <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} />}
+        {current === 'intro' ? <Intro onLearnClick={() => setShowIntroLearn(true)} /> : current === 'goals' ? <Goals items={data[current] || []} onEdit={handleEdit} /> : current === 'board' ? <Board data={data} /> : <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} />}
       </div>
       <nav className="nav">
         {pages.map(p => {
-          const count = p.key === 'intro' || p.key === 'board' ? 0 : (data[p.key] || []).length;
-          const showCount = p.key !== 'intro' && p.key !== 'board';
+          const count = p.key === 'intro' || p.key === 'board' || p.key === 'goals' ? 0 : (data[p.key] || []).length;
+          const showCount = p.key !== 'intro' && p.key !== 'board' && p.key !== 'goals';
           
           return (
             <button key={p.key} className={p.key === current ? 'active' : ''} onClick={() => setCurrent(p.key)}>
@@ -474,7 +724,7 @@ function App() {
               {showCount && (
                 <span className="nav-count">{count}</span>
               )}
-              {p.key === 'mentors' && Object.keys(data).every(key => !data[key] || data[key].length === 0) && (
+              {p.key === 'goals' && Object.keys(data).every(key => !data[key] || data[key].length === 0 || (key === 'goals' && data[key].every(g => !g.description))) && (
                 <div className="start-here-arrow">
                   <div className="start-here-text">Start here!</div>
                   <svg className="arrow-svg" viewBox="0 0 24 24" width="24" height="24">
@@ -489,7 +739,8 @@ function App() {
           );
         })}
       </nav>
-      {showLearn && <LearnModal type={current} onClose={() => setShowLearn(false)} />}
+      {showLearn && <LearnModal type={current} onClose={() => setShowLearn(false)} onAddClick={() => { setShowLearn(false); handleAdd(current); }} />}
+      {showIntroLearn && <IntroLearnModal onClose={() => setShowIntroLearn(false)} />}
       {showForm && <FormModal type={formType} item={editingItem} onSave={saveEntry} onClose={() => setShowForm(false)} />}
       {showUploadSuccess && <UploadSuccessPopup />}
     </div>
@@ -506,7 +757,7 @@ function Quote({ text, position = 'center' }) {
   return <div className={`quote quote-${position} ${visible ? 'fade-in' : 'fade-out'}`}>{text}</div>;
 }
 
-function Intro() {
+function Intro({ onLearnClick }) {
   const introQuotes = [
     "You are not just building your résumé. You're building your support system.",
     "Success is not a solo journey. Build your board.",
@@ -538,6 +789,48 @@ function Intro() {
       <div className={`intro-quote ${isVisible ? 'fade-in' : 'fade-out'}`}>
         {introQuotes[currentQuoteIndex]}
       </div>
+      <div className="intro-actions" style={{marginTop: '30px'}}>
+        <button 
+          onClick={onLearnClick}
+          style={{
+            padding: '12px 24px',
+            backgroundColor: '#2563eb',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '16px',
+            fontWeight: '500',
+            cursor: 'pointer',
+            transition: 'background-color 0.2s'
+          }}
+          onMouseOver={(e) => e.target.style.backgroundColor = '#1d4ed8'}
+          onMouseOut={(e) => e.target.style.backgroundColor = '#2563eb'}
+        >
+          Learn About Personal Boards
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Goals({ items, onEdit }) {
+  return (
+    <div className="list">
+      {items.map((item, idx) => (
+        <div key={idx} className="card">
+          <div className="card-header">
+            <h3>{item.timeframe}</h3>
+            <div className="card-actions">
+              <button className="icon-btn edit-btn" onClick={() => onEdit('goals', item, idx)} title="Edit">
+                ✏️
+              </button>
+              {/* No delete button for goals */}
+            </div>
+          </div>
+          <p><strong>Description:</strong> {item.description || 'Click edit to add your goals...'}</p>
+          <p><strong>Notes:</strong> {item.notes || 'Add notes about your progress or strategy...'}</p>
+        </div>
+      ))}
     </div>
   );
 }
@@ -558,10 +851,18 @@ function List({ type, items, onEdit, onDelete }) {
               </button>
             </div>
           </div>
-          <p>{item.role}</p>
-          <p>{item.connection}</p>
-          <p>{item.cadence}</p>
-          <p>{item.notes}</p>
+          <p><strong>Role:</strong> {item.role}</p>
+          <p><strong>Connection:</strong> {item.connection}</p>
+          <p><strong>Cadence:</strong> {item.cadence}</p>
+          {item.whatToLearn && (
+            <p><strong>What to Learn:</strong> {item.whatToLearn}</p>
+          )}
+          {item.whatTheyGet && (
+            <p><strong>What They Get:</strong> {item.whatTheyGet}</p>
+          )}
+          {item.notes && (
+            <p><strong>Notes:</strong> {item.notes}</p>
+          )}
         </div>
       ))}
     </div>
@@ -569,10 +870,10 @@ function List({ type, items, onEdit, onDelete }) {
 }
 
 function Board({ data }) {
-  // Flatten all board members with their types
+  // Flatten all board members with their types (exclude goals)
   const allMembers = [];
   Object.keys(data).forEach(type => {
-    if (data[type]) {
+    if (data[type] && type !== 'goals') {
       data[type].forEach(person => {
         allMembers.push({ ...person, type });
       });
@@ -645,47 +946,98 @@ function Board({ data }) {
 
   return (
     <div className="board-container">
-      {/* Timeline */}
+      {/* Meeting Cadence Grid */}
       <div className="timeline-section">
-        <h3>Annual Meeting Timeline</h3>
-        <div className="timeline">
-          <div className="timeline-months">
-            {months.map(month => (
-              <div key={month} className="timeline-month">
-                <span className="month-label">{month}</span>
-                <div className="month-column">
-                  {Object.keys(data).map(type => {
-                    if (!data[type]) return null;
-                    return data[type].map((person, idx) => {
-                      const meetingMonths = getMeetingMonths(person.cadence);
-                      if (meetingMonths.includes(months.indexOf(month))) {
-                        return (
-                          <div 
-                            key={`${type}-${idx}`}
-                            className="meeting-dot"
-                            style={{ backgroundColor: colors[type] }}
-                            title={`${person.name} (${type})`}
-                          />
-                        );
-                      }
-                      return null;
-                    });
-                  })}
-                </div>
+        <h3>Meeting Cadence Overview</h3>
+        <div className="cadence-grid">
+          <div className="grid-header">
+            <div className="name-column">Board Member</div>
+            <div className="cadence-column">Daily</div>
+            <div className="cadence-column">Weekly</div>
+            <div className="cadence-column">Monthly</div>
+            <div className="cadence-column">Quarterly</div>
+            <div className="cadence-column">Annually</div>
+            <div className="cadence-column">Ad-hoc</div>
+          </div>
+          
+          {allMembers.map((member, idx) => (
+            <div key={idx} className="grid-row">
+              <div className="name-cell">
+                <span 
+                  className="type-indicator"
+                  style={{ backgroundColor: colors[member.type] }}
+                ></span>
+                <span className="member-name">{member.name}</span>
+                <span className="member-role">({member.type === 'coaches' ? 'coach' : member.type.slice(0, -1)})</span>
               </div>
-            ))}
-          </div>
-          <div className="timeline-legend">
-            {Object.keys(colors).map(type => {
-              if (!data[type] || data[type].length === 0) return null;
-              return (
-                <div key={type} className="legend-item">
-                  <span className="legend-dot" style={{ backgroundColor: colors[type] }}></span>
-                  <span className="legend-label">{type}</span>
-                </div>
-              );
-            })}
-          </div>
+              
+              <div className="cadence-cell">
+                {member.cadence === 'Daily' && (
+                  <div 
+                    className="cadence-dot"
+                    style={{ backgroundColor: colors[member.type] }}
+                  />
+                )}
+              </div>
+              
+              <div className="cadence-cell">
+                {member.cadence === 'Weekly' && (
+                  <div 
+                    className="cadence-dot"
+                    style={{ backgroundColor: colors[member.type] }}
+                  />
+                )}
+              </div>
+              
+              <div className="cadence-cell">
+                {(member.cadence === 'Monthly' || member.cadence === 'Bi-weekly') && (
+                  <div 
+                    className="cadence-dot"
+                    style={{ backgroundColor: colors[member.type] }}
+                  />
+                )}
+              </div>
+              
+              <div className="cadence-cell">
+                {member.cadence === 'Quarterly' && (
+                  <div 
+                    className="cadence-dot"
+                    style={{ backgroundColor: colors[member.type] }}
+                  />
+                )}
+              </div>
+              
+              <div className="cadence-cell">
+                {member.cadence === 'Annually' && (
+                  <div 
+                    className="cadence-dot"
+                    style={{ backgroundColor: colors[member.type] }}
+                  />
+                )}
+              </div>
+              
+              <div className="cadence-cell">
+                {member.cadence === 'Ad-hoc' && (
+                  <div 
+                    className="cadence-dot"
+                    style={{ backgroundColor: colors[member.type] }}
+                  />
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        <div className="timeline-legend" style={{marginTop: '20px'}}>
+          {Object.keys(colors).map(type => {
+            if (!data[type] || data[type].length === 0) return null;
+            return (
+              <div key={type} className="legend-item">
+                <span className="legend-dot" style={{ backgroundColor: colors[type] }}></span>
+                <span className="legend-label">{type}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
       
@@ -714,46 +1066,230 @@ function Board({ data }) {
   );
 }
 
-function LearnModal({ type, onClose }) {
+function IntroLearnModal({ onClose }) {
+  const [currentPage, setCurrentPage] = useState(0);
+  
+  const pages = [
+    {
+      title: "Your Personal Board of Directors: Guiding Partners",
+      content: (
+        <div>
+          <div style={{marginBottom: '24px'}}>
+            <h3 style={{color: '#2563eb', fontSize: '1.1em', marginBottom: '8px'}}>What It Is</h3>
+            <p>Your Personal Board of Directors is a structured but living system to align your career with the people who will help you grow. The program takes you through:</p>
+            <p><strong>Intro</strong> – Framing your career journey.</p>
+            <p><strong>Goals</strong> – Setting immediate, 1-year, and 5-year objectives.</p>
+            <p><strong>Mentors</strong> – Wisdom and perspective.</p>
+            <p><strong>Coaches</strong> – Skill and performance building.</p>
+            <p><strong>Connectors</strong> – Expanding your network.</p>
+            <p><strong>Sponsors</strong> – Advocates who open doors.</p>
+            <p><strong>Peers</strong> – Honest, relatable companions.</p>
+            <p><strong>Final Board Summary</strong> – A snapshot you can export as a JSON (to update later) or a PDF (to review anytime).</p>
+            <p>It's part strategy, part reflection, and part relationship-building—designed to help you take charge of your career while giving back to those who support you.</p>
+          </div>
+          
+          <div style={{marginBottom: '16px'}}>
+            <h3 style={{color: '#2563eb', fontSize: '1.1em', marginBottom: '8px'}}>Why You Need It</h3>
+            <p>Careers rarely move in straight lines. A strong personal board provides the steady compass that helps you adapt to shifting environments, industries, and aspirations.</p>
+            <p><strong>Goal setting matters.</strong> By naming immediate, 1-year, and 5-year goals, you create a map that gives direction without locking you in. Goals should be ambitious yet achievable, designed to stretch you while keeping progress realistic.</p>
+            <p><strong>Flexibility is essential.</strong> Revisiting goals regularly ensures you can adjust when life or industries change. Don't worry if a past goal no longer aligns—it wasn't wasted time. Those experiences built cross-industry skills that strengthen your adaptability.</p>
+            <p><strong>Reciprocity is the foundation.</strong> Just like a friendship, these board relationships must work both ways. Mutual respect and value exchange make them durable over the long term.</p>
+          </div>
+        </div>
+      )
+    },
+    {
+      title: "Your Personal Board of Directors: Guiding Partners",
+      content: (
+        <div>
+          <div style={{marginBottom: '16px'}}>
+            <h3 style={{color: '#2563eb', fontSize: '1.1em', marginBottom: '8px'}}>What to Look For</h3>
+            <p>Seek balance in both relationships and goals:</p>
+            <p><strong>Relationships</strong> – Ensure your board spans mentors, coaches, peers, sponsors, and connectors, so you have wisdom, accountability, opportunity, and solidarity in one group.</p>
+            <p><strong>Goals</strong> – Include both near-term focus (next project, upcoming role) and longer horizons (career pivots, leadership growth). Lofty goals keep you stretching; achievable ones keep you motivated.</p>
+          </div>
+
+          <div style={{marginBottom: '16px'}}>
+            <h3 style={{color: '#2563eb', fontSize: '1.1em', marginBottom: '8px'}}>How They Help</h3>
+            <p>Your board and your goals together provide:</p>
+            <p>• A roadmap with milestones you can adjust without guilt.</p>
+            <p>• Cross-pollination of ideas from different industries and disciplines.</p>
+            <p>• Candid feedback, advocacy, and introductions that speed up your progress.</p>
+            <p>• Encouragement when goals feel far away and perspective when it's time to realign.</p>
+          </div>
+
+          <div style={{marginBottom: '16px'}}>
+            <h3 style={{color: '#10b981', fontSize: '1.1em', marginBottom: '8px'}}>What to Learn From Them</h3>
+            <p>The program teaches you how to:</p>
+            <p>• Set and track immediate, 1-year, and 5-year goals that grow with you.</p>
+            <p>• Align board members' strengths with your goals.</p>
+            <p>• Adapt lessons learned in one career path to entirely new ones.</p>
+            <p>• Recognize that "misaligned" goals are not wasted—they're training ground.</p>
+            <p>• Use cadence and reflection to keep both goals and relationships alive.</p>
+          </div>
+
+          <div style={{marginBottom: '16px'}}>
+            <h3 style={{color: '#8b5cf6', fontSize: '1.1em', marginBottom: '8px'}}>What They Get From You</h3>
+            <p>Board members benefit from your growth, but also from:</p>
+            <p>• Fresh ideas and perspectives drawn from your evolving goals.</p>
+            <p>• Insights from your generation, industry, or unique skill set.</p>
+            <p>• The chance to collaborate, co-create, or reflect on their own journeys.</p>
+            <p>• Energy and curiosity that helps them stay sharp.</p>
+          </div>
+
+          <div style={{background: '#f8fafc', padding: '12px', borderRadius: '8px', marginTop: '20px', borderLeft: '4px solid #2563eb'}}>
+            <h4 style={{margin: '0 0 8px 0', color: '#2563eb'}}>Remember</h4>
+            <p style={{margin: '0', fontSize: '14px', color: '#4b5563'}}>
+              Your Personal Board of Directors and your goals are intertwined. The board helps guide your path, while your goals give the board direction.
+            </p>
+            <p style={{margin: '8px 0 0 0', fontSize: '14px', color: '#4b5563'}}>
+              Think of it as an ongoing conversation: goals set the agenda, your board sharpens the discussion, and your progress reshapes the agenda over time. It's not about quick wins—it's about building momentum, relationships, and wisdom that compound over years.
+            </p>
+          </div>
+        </div>
+      )
+    }
+  ];
+
+  return (
+    <div className="modal">
+      <div className="modal-content" style={{maxWidth: '700px', maxHeight: '85vh', overflowY: 'auto'}}>
+        {pages[currentPage].content}
+        
+        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '24px', paddingTop: '16px', borderTop: '1px solid #e5e7eb'}}>
+          <div style={{display: 'flex', gap: '8px'}}>
+            {pages.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => setCurrentPage(idx)}
+                style={{
+                  width: '10px',
+                  height: '10px',
+                  borderRadius: '50%',
+                  border: 'none',
+                  backgroundColor: idx === currentPage ? '#2563eb' : '#d1d5db',
+                  cursor: 'pointer'
+                }}
+              />
+            ))}
+          </div>
+          
+          <div style={{display: 'flex', gap: '12px', alignItems: 'center'}}>
+            <button
+              onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
+              disabled={currentPage === 0}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: currentPage === 0 ? '#f3f4f6' : '#2563eb',
+                color: currentPage === 0 ? '#9ca3af' : 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: currentPage === 0 ? 'not-allowed' : 'pointer'
+              }}
+            >
+              ← Previous
+            </button>
+            
+            <span style={{color: '#6b7280', fontSize: '14px'}}>
+              {currentPage + 1} of {pages.length}
+            </span>
+            
+            {currentPage < pages.length - 1 ? (
+              <button
+                onClick={() => setCurrentPage(Math.min(pages.length - 1, currentPage + 1))}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#2563eb',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                Next →
+              </button>
+            ) : (
+              <button
+                onClick={onClose}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#10b981',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                Get Started
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LearnModal({ type, onClose, onAddClick }) {
   const content = {
+    goals: {
+      title: 'Goals: Your Career Compass',
+      description: 'Goals are the milestones and aspirations that set your direction. In this program, you\'ll identify Immediate, 1-Year, and 5-Year goals. They act as a compass for your career, giving your Personal Board of Directors clarity on how to best support and challenge you.',
+      importance: 'Without defined goals, career growth can drift. Goals provide focus, motivation, and a sense of progress. But they\'re not rigid contracts—they\'re flexible guides. Revisiting them regularly allows you to adapt to changing circumstances, industries, and interests. Most importantly: setting goals helps your board help you. When your mentors, sponsors, coaches, peers, and connectors know where you\'re headed, they can align their advice, introductions, and support to your journey.',
+      whatToLookFor: 'Immediate Goals: What do you need to accomplish in the next 3–6 months? (e.g., build a new skill, complete a project, expand visibility at work). 1-Year Goals: Where do you want to be by the end of the next year? (e.g., promotion, new role, industry transition, thought leadership activity). 5-Year Goals: What\'s your larger horizon? (e.g., leadership role, career pivot, launching your own venture, establishing a reputation in a field). Good goals are lofty but achievable: ambitious enough to stretch you, grounded enough that you can make real progress.',
+      howTheyHelp: 'Goals anchor your journey by: giving you and your board a shared "north star," making it easier to prioritize what matters most, turning vague aspirations into tangible steps, offering a benchmark for reflection and course correction, and guiding conversations with your board so advice is relevant and timely.',
+      whatToLearn: 'From setting and revisiting goals, you\'ll learn: how to balance ambition with realism, the value of revisiting and realigning regularly without expecting overnight results, how to adapt lessons from one path to another (cross-industry skills are never wasted), and that changing your long-term goals doesn\'t erase past work—it equips you with transferable skills and resilience.',
+      whatTheyGet: 'When you share your goals with your board, you give them: a clear sense of how they can help, opportunities to connect you to people, resources, or experiences aligned with your targets, and insight into your motivation and direction, which strengthens the relationship. Remember: Goal-setting is not about predicting the future—it\'s about shaping it. Your immediate, 1-year, and 5-year goals create momentum while leaving space for change. Think of them as flexible scaffolding: strong enough to support your growth, light enough to be rebuilt as your vision evolves.'
+    },
     mentors: {
       title: 'Mentors: Your Wisdom Guides',
       description: 'Mentors are experienced professionals who have walked the path you aspire to take. They provide strategic career advice, share lessons learned from their journeys, and help you navigate complex professional decisions.',
       importance: 'A mentor opens doors by sharing their network, institutional knowledge, and hard-earned wisdom. They help you avoid common pitfalls and accelerate your growth by learning from their experiences rather than making every mistake yourself.',
       whatToLookFor: 'Look for someone 5-10 years ahead of where you want to be, who demonstrates values you admire, and who has shown interest in your development. They should have experience in your field or desired career path and be willing to invest time in your growth.',
-      howTheyHelp: 'Mentors provide strategic perspective on career moves, industry insights, introductions to their network, and honest feedback on your professional development. They help you see the bigger picture and make informed decisions about your future.'
+      howTheyHelp: 'Mentors provide strategic perspective on career moves, industry insights, introductions to their network, and honest feedback on your professional development. They help you see the bigger picture and make informed decisions about your future.',
+      whatToLearn: 'From mentors, learn: industry best practices, strategic thinking, leadership styles, decision-making frameworks, networking strategies, career navigation tactics, and how to build influence in your organization. Ask about their failures and what they would do differently.',
+      whatTheyGet: 'Mentors gain: fresh perspectives on industry trends, fulfillment from developing talent, potential future collaborators or team members, staying connected to emerging talent, validation of their expertise, and the satisfaction of giving back. Your success reflects well on them.'
     },
     coaches: {
       title: 'Coaches: Your Skill Developers', 
       description: 'Coaches are focused on helping you develop specific skills and capabilities. Unlike mentors who provide broad wisdom, coaches zero in on particular areas where you need improvement and push you to achieve your potential.',
       importance: 'Coaches refine potential by providing targeted feedback, skill development strategies, and accountability for improvement. They help bridge the gap between where you are and where you want to be in specific competencies.',
       whatToLookFor: 'Seek someone with deep expertise in the skills you want to develop, who can provide constructive feedback and structured learning approaches. They might be peers, superiors, or even external professionals who excel in areas where you want to grow.',
-      howTheyHelp: 'Coaches give you specific exercises, feedback on your performance, and hold you accountable for skill development. They help you practice, refine techniques, and build confidence in areas critical to your success.'
+      howTheyHelp: 'Coaches give you specific exercises, feedback on your performance, and hold you accountable for skill development. They help you practice, refine techniques, and build confidence in areas critical to your success.',
+      whatToLearn: 'From coaches, learn: specific technical skills, presentation techniques, communication styles, time management methods, problem-solving approaches, productivity systems, and performance optimization strategies. Focus on actionable techniques you can immediately apply.',
+      whatTheyGet: 'Coaches gain: practice in teaching and articulating their expertise, validation of their knowledge, potential consulting opportunities, refinement of their own skills through teaching, professional satisfaction from developing others, and expanded influence in their field.'
     },
     connectors: {
       title: 'Connectors: Your Network Expanders',
       description: 'Connectors are the social catalysts in your network – people who know everyone and love making introductions. They have extensive networks across industries and are generous with their connections.',
       importance: 'Connections spark growth by expanding your reach far beyond your immediate circle. In today\'s interconnected world, opportunities often come through relationships, and connectors multiply your networking capacity exponentially.',
       whatToLookFor: 'Identify natural networkers who are well-connected in your industry or desired field, who enjoy making introductions, and who seem to know someone everywhere they go. They should be generous with their network and excited about connecting people.',
-      howTheyHelp: 'Connectors introduce you to new opportunities, potential clients, collaborators, or employers. They expand your professional reach, help you discover hidden job markets, and connect you with people who can advance your goals.'
+      howTheyHelp: 'Connectors introduce you to new opportunities, potential clients, collaborators, or employers. They expand your professional reach, help you discover hidden job markets, and connect you with people who can advance your goals.',
+      whatToLearn: 'From connectors, learn: how to build authentic relationships, networking etiquette, how to make valuable introductions, maintaining long-term professional relationships, social intelligence, reading people and situations, and how to add value to your network.',
+      whatTheyGet: 'Connectors gain: strengthened network bonds through introductions, reputation as a valuable connector, first access to opportunities through their network, satisfaction from creating successful connections, reciprocal introductions to your network, and increased social capital.'
     },
     sponsors: {
       title: 'Sponsors: Your Advocates',
       description: 'Sponsors are influential people who actively advocate for you in rooms where you\'re not present. They go beyond giving advice to actually using their political capital and influence to advance your career.',
       importance: 'Sponsorship elevates your career by having someone with power and influence actively promote your interests. While mentors give advice, sponsors take action on your behalf, recommending you for opportunities and speaking up for your contributions.',
       whatToLookFor: 'Look for someone with influence in your organization or industry who believes in your potential and is willing to stake their reputation on your success. They should have the power to make things happen and be willing to use it for you.',
-      howTheyHelp: 'Sponsors recommend you for promotions, advocate for your ideas in leadership meetings, nominate you for high-visibility projects, and ensure your contributions are recognized. They actively open doors rather than just pointing them out.'
+      howTheyHelp: 'Sponsors recommend you for promotions, advocate for your ideas in leadership meetings, nominate you for high-visibility projects, and ensure your contributions are recognized. They actively open doors rather than just pointing them out.',
+      whatToLearn: 'From sponsors, learn: organizational politics, executive presence, strategic visibility, how decisions are really made, unwritten rules of advancement, building executive relationships, and how to position yourself for opportunities.',
+      whatTheyGet: 'Sponsors gain: strong talent pipeline for their teams, reflected glory from your successes, loyal allies as you advance, demonstration of their leadership development skills, expansion of their influence through protégés, and potential future partnerships.'
     },
     peers: {
       title: 'Peers: Your Journey Companions',
       description: 'Peers are professionals at similar career stages who face comparable challenges and opportunities. They provide mutual support, shared problem-solving, and the camaraderie of people walking similar paths.',
       importance: 'Peers share the path by offering real-time support for current challenges, celebrating wins together, and providing honest perspectives from people who truly understand your situation. They offer reciprocal relationships where you both give and receive support.',
       whatToLookFor: 'Connect with professionals at similar career levels who work in your field or adjacent areas, who share similar values and ambitions, and who are open to mutual support and collaboration.',
-      howTheyHelp: 'Peers provide emotional support during tough times, share strategies for common challenges, offer networking opportunities within their circles, and create accountability partnerships for mutual growth and development.'
+      howTheyHelp: 'Peers provide emotional support during tough times, share strategies for common challenges, offer networking opportunities within their circles, and create accountability partnerships for mutual growth and development.',
+      whatToLearn: 'From peers, learn: current industry trends at your level, salary benchmarks, company cultures, practical day-to-day solutions, emerging opportunities, shared resources and tools, and collaborative problem-solving approaches.',
+      whatTheyGet: 'Peers gain: mutual support and encouragement, shared learning experiences, potential collaboration opportunities, expanded professional network, accountability partnership, and the comfort of not feeling alone in their journey.'
     }
   };
 
   const roleNames = {
+    goals: 'goal',
     mentors: 'mentor',
     coaches: 'coach', 
     connectors: 'connector',
@@ -763,40 +1299,113 @@ function LearnModal({ type, onClose }) {
 
   const typeContent = content[type];
 
+  const isGoalsType = type === 'goals';
+
   return (
     <div className="modal">
-      <div className="modal-content" style={{maxWidth: '600px', maxHeight: '80vh', overflowY: 'auto'}}>
+      <div className="modal-content" style={{maxWidth: isGoalsType ? '600px' : '900px', maxHeight: '80vh', overflowY: 'auto'}}>
         <h2>{typeContent.title}</h2>
         
-        <div style={{marginBottom: '16px'}}>
-          <h3 style={{color: '#2563eb', fontSize: '1.1em', marginBottom: '8px'}}>What They Are</h3>
-          <p>{typeContent.description}</p>
-        </div>
+        {isGoalsType ? (
+          // Original single-column layout for goals
+          <>
+            <div style={{marginBottom: '16px'}}>
+              <h3 style={{color: '#2563eb', fontSize: '1.1em', marginBottom: '8px'}}>What They Are</h3>
+              <p>{typeContent.description}</p>
+            </div>
 
-        <div style={{marginBottom: '16px'}}>
-          <h3 style={{color: '#2563eb', fontSize: '1.1em', marginBottom: '8px'}}>Why You Need Them</h3>
-          <p>{typeContent.importance}</p>
-        </div>
+            <div style={{marginBottom: '16px'}}>
+              <h3 style={{color: '#2563eb', fontSize: '1.1em', marginBottom: '8px'}}>Why You Need Them</h3>
+              <p>{typeContent.importance}</p>
+            </div>
 
-        <div style={{marginBottom: '16px'}}>
-          <h3 style={{color: '#2563eb', fontSize: '1.1em', marginBottom: '8px'}}>What to Look For</h3>
-          <p>{typeContent.whatToLookFor}</p>
-        </div>
+            <div style={{marginBottom: '16px'}}>
+              <h3 style={{color: '#2563eb', fontSize: '1.1em', marginBottom: '8px'}}>What to Look For</h3>
+              <p>{typeContent.whatToLookFor}</p>
+            </div>
 
-        <div style={{marginBottom: '16px'}}>
-          <h3 style={{color: '#2563eb', fontSize: '1.1em', marginBottom: '8px'}}>How They Help</h3>
-          <p>{typeContent.howTheyHelp}</p>
-        </div>
+            <div style={{marginBottom: '16px'}}>
+              <h3 style={{color: '#2563eb', fontSize: '1.1em', marginBottom: '8px'}}>How They Help</h3>
+              <p>{typeContent.howTheyHelp}</p>
+            </div>
+          </>
+        ) : (
+          // Two-column layout for board member types
+          <div style={{display: 'flex', gap: '40px'}}>
+            <div style={{flex: 1}}>
+              <div style={{marginBottom: '16px'}}>
+                <h3 style={{color: '#2563eb', fontSize: '1.1em', marginBottom: '8px'}}>What They Are</h3>
+                <p>{typeContent.description}</p>
+              </div>
+
+              <div style={{marginBottom: '16px'}}>
+                <h3 style={{color: '#2563eb', fontSize: '1.1em', marginBottom: '8px'}}>Why You Need Them</h3>
+                <p>{typeContent.importance}</p>
+              </div>
+
+              <div style={{marginBottom: '16px'}}>
+                <h3 style={{color: '#2563eb', fontSize: '1.1em', marginBottom: '8px'}}>What to Look For</h3>
+                <p>{typeContent.whatToLookFor}</p>
+              </div>
+
+              <div style={{marginBottom: '16px'}}>
+                <h3 style={{color: '#2563eb', fontSize: '1.1em', marginBottom: '8px'}}>How They Help</h3>
+                <p>{typeContent.howTheyHelp}</p>
+              </div>
+            </div>
+
+            <div style={{flex: 1, borderLeft: '2px solid #e5e7eb', paddingLeft: '24px'}}>
+              <div style={{marginBottom: '16px'}}>
+                <h3 style={{color: '#10b981', fontSize: '1.1em', marginBottom: '8px'}}>What to Learn From Them</h3>
+                <p>{typeContent.whatToLearn}</p>
+              </div>
+
+              <div style={{marginBottom: '16px'}}>
+                <h3 style={{color: '#8b5cf6', fontSize: '1.1em', marginBottom: '8px'}}>What They Get From You</h3>
+                <p>{typeContent.whatTheyGet}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div style={{background: '#f8fafc', padding: '12px', borderRadius: '8px', marginBottom: '16px', borderLeft: '4px solid #2563eb'}}>
           <p style={{margin: '0', fontSize: '14px', color: '#4b5563'}}>
             <strong>Remember:</strong> Your personal board members may not even know they're on your "board." Focus on building authentic relationships and providing mutual value. Consider their name, role, connection level, meeting cadence, and notes on engagement.
           </p>
+          {!isGoalsType && (
+            <p style={{margin: '8px 0 0 0', fontSize: '14px', color: '#4b5563'}}>
+              <strong>Value Exchange:</strong> Everyone has something to offer! Consider what your board members might learn from you: your unique talents, fresh perspectives, domain expertise, new ways of doing things, connections to your network, honest feedback, energy and enthusiasm, or insights from your generation or background. The best board relationships are mutually beneficial.
+            </p>
+          )}
         </div>
 
-        <div className="learn-cta">
-          Now click the <strong>+ Add</strong> button and add your {roleNames[type]}!
-        </div>
+        {type === 'goals' ? (
+          <div className="learn-cta">
+            Now click the edit button on each timeframe card below to define your goals!
+          </div>
+        ) : (
+          <button 
+            className="learn-cta-button" 
+            onClick={onAddClick}
+            style={{
+              width: '100%',
+              padding: '12px 20px',
+              backgroundColor: '#2563eb',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '16px',
+              fontWeight: '500',
+              cursor: 'pointer',
+              marginBottom: '16px',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseOver={(e) => e.target.style.backgroundColor = '#1d4ed8'}
+            onMouseOut={(e) => e.target.style.backgroundColor = '#2563eb'}
+          >
+            Now click here to add your first {roleNames[type]}!
+          </button>
+        )}
         
         <div className="modal-buttons">
           <button onClick={onClose}>Close</button>
@@ -819,8 +1428,15 @@ function UploadSuccessPopup() {
 }
 
 function FormModal({ type, item, onSave, onClose }) {
+  const isGoals = type === 'goals';
   const cadenceOptions = ['Daily', 'Weekly', 'Bi-weekly', 'Monthly', 'Quarterly', 'Annually', 'Ad-hoc'];
-  const [form, setForm] = useState(item || { name: '', role: '', connection: 'Not yet', cadence: 'Monthly', notes: '' });
+  
+  // Initialize form differently for goals vs other types
+  const [form, setForm] = useState(item || (isGoals ? 
+    { timeframe: '', description: '', notes: '' } : 
+    { name: '', role: '', connection: 'Not yet', cadence: 'Monthly', notes: '', whatToLearn: '', whatTheyGet: '' }
+  ));
+  
   const [cadenceIndex, setCadenceIndex] = useState(cadenceOptions.indexOf(form.cadence) >= 0 ? cadenceOptions.indexOf(form.cadence) : 3);
   
   const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
@@ -837,34 +1453,67 @@ function FormModal({ type, item, onSave, onClose }) {
   
   return (
     <div className="modal">
-      <div className="modal-content">
-        <h2>{item ? 'Edit' : 'Add'} {type.slice(0, -1)}</h2>
-        <input name="name" placeholder="Name" value={form.name} onChange={handleChange} />
-        <input name="role" placeholder="Role" value={form.role} onChange={handleChange} />
-        <select name="connection" value={form.connection} onChange={handleChange}>
-          {connectionLevels.map(level => (
-            <option key={level}>{level}</option>
-          ))}
-        </select>
-        <div className="cadence-slider-container">
-          <label>Cadence: <span className="cadence-value">{cadenceOptions[cadenceIndex]}</span></label>
-          <input 
-            type="range" 
-            min="0" 
-            max={cadenceOptions.length - 1} 
-            value={cadenceIndex} 
-            onChange={handleCadenceChange}
-            className="cadence-slider"
-          />
-          <div className="cadence-labels">
-            {cadenceOptions.map((opt, idx) => (
-              <span key={idx} className={`cadence-label ${idx === cadenceIndex ? 'active' : ''}`}>
-                {opt}
-              </span>
-            ))}
+      <div className="modal-content" style={{maxWidth: isGoals ? '600px' : '900px'}}>
+        <h2>{item ? 'Edit' : 'Add'} {isGoals ? 'Goal' : type.slice(0, -1)}</h2>
+        
+        {isGoals ? (
+          <>
+            <input name="timeframe" placeholder="Timeframe" value={form.timeframe} onChange={handleChange} disabled={item ? true : false} />
+            <textarea name="description" placeholder="Describe your goals for this timeframe..." value={form.description || ''} onChange={handleChange}></textarea>
+            <textarea name="notes" placeholder="Notes on strategy, progress, or milestones..." value={form.notes || ''} onChange={handleChange}></textarea>
+          </>
+        ) : (
+          <div style={{display: 'flex', gap: '40px'}}>
+            <div style={{flex: 1}}>
+              <h3 style={{color: '#2563eb', fontSize: '0.9em', marginBottom: '8px'}}>Basic Information</h3>
+              <input name="name" placeholder="Name" value={form.name} onChange={handleChange} />
+              <input name="role" placeholder="Role" value={form.role} onChange={handleChange} />
+              <label style={{display: 'block', color: '#6b7280', fontSize: '14px', marginBottom: '4px', marginTop: '12px'}}>Connection Level</label>
+              <select name="connection" value={form.connection} onChange={handleChange}>
+                {connectionLevels.map(level => (
+                  <option key={level}>{level}</option>
+                ))}
+              </select>
+              <div className="cadence-slider-container">
+                <label>Cadence: <span className="cadence-value">{cadenceOptions[cadenceIndex]}</span></label>
+                <input 
+                  type="range" 
+                  min="0" 
+                  max={cadenceOptions.length - 1} 
+                  value={cadenceIndex} 
+                  onChange={handleCadenceChange}
+                  className="cadence-slider"
+                />
+                <div className="cadence-labels">
+                  {cadenceOptions.map((opt, idx) => (
+                    <span key={idx} className={`cadence-label ${idx === cadenceIndex ? 'active' : ''}`}>
+                      {opt}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <textarea name="notes" placeholder="Notes" value={form.notes} onChange={handleChange}></textarea>
+            </div>
+            <div style={{flex: 1}}>
+              <h3 style={{color: '#10b981', fontSize: '0.9em', marginBottom: '8px'}}>What to Learn From Them</h3>
+              <textarea 
+                name="whatToLearn" 
+                placeholder="What knowledge, skills, or insights do you want to gain from this person?" 
+                value={form.whatToLearn || ''} 
+                onChange={handleChange}
+                style={{minHeight: '100px'}}
+              ></textarea>
+              <h3 style={{color: '#8b5cf6', fontSize: '0.9em', marginBottom: '8px', marginTop: '16px'}}>What They Get From You</h3>
+              <textarea 
+                name="whatTheyGet" 
+                placeholder="What value, perspective, or benefit can you provide to them?" 
+                value={form.whatTheyGet || ''} 
+                onChange={handleChange}
+                style={{minHeight: '100px'}}
+              ></textarea>
+            </div>
           </div>
-        </div>
-        <textarea name="notes" placeholder="Notes" value={form.notes} onChange={handleChange}></textarea>
+        )}
         <div className="modal-buttons">
           <button onClick={save}>Save</button>
           <button onClick={onClose}>Cancel</button>
