@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { jsPDF } from 'jspdf';
 import { connectionLevels } from './utils.js';
+import { getMentorAdvisorGuidance } from './ai-client.js';
 // use direct paths so images resolve without a bundler
 
 
@@ -39,6 +40,9 @@ function App() {
   const [editingIndex, setEditingIndex] = useState(null);
   const [showUploadSuccess, setShowUploadSuccess] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
+  const [showAdvisorModal, setShowAdvisorModal] = useState(false);
+  const [advisorGuidance, setAdvisorGuidance] = useState(null);
+  const [advisorLoading, setAdvisorLoading] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('boardData', JSON.stringify(data));
@@ -84,6 +88,35 @@ function App() {
     setShowForm(false);
     setEditingItem(null);
     setEditingIndex(null);
+  };
+
+  const handleAdvise = async (currentFormData) => {
+    if (formType !== 'mentors') return; // Only for mentors for now
+    
+    setAdvisorLoading(true);
+    setShowAdvisorModal(true);
+    
+    try {
+      // Get learn content for mentors
+      const learnContent = "Senior leaders who provide wisdom, guidance, and strategic advice. They help you see the bigger picture, understand industry dynamics, and make important career decisions. Mentors typically meet quarterly and focus on long-term career development rather than day-to-day issues.";
+      
+      // Get existing mentors
+      const existingMentors = data.mentors || [];
+      
+      const result = await getMentorAdvisorGuidance(
+        currentFormData,
+        data.goals || [],
+        learnContent,
+        existingMentors
+      );
+      
+      setAdvisorGuidance(result.guidance);
+    } catch (error) {
+      console.error('Failed to get AI guidance:', error);
+      setAdvisorGuidance('Sorry, I encountered an error while generating guidance. Please try again later.');
+    } finally {
+      setAdvisorLoading(false);
+    }
   };
 
   const handleUpload = e => {
@@ -742,9 +775,10 @@ function App() {
       </nav>
       {showLearn && <LearnModal type={current} onClose={() => setShowLearn(false)} onAddClick={() => { setShowLearn(false); handleAdd(current); }} />}
       {showIntroLearn && <IntroLearnModal onClose={() => setShowIntroLearn(false)} />}
-      {showForm && <FormModal type={formType} item={editingItem} onSave={saveEntry} onClose={() => setShowForm(false)} />}
+      {showForm && <FormModal type={formType} item={editingItem} onSave={saveEntry} onClose={() => setShowForm(false)} onAdvise={handleAdvise} />}
       {showUploadSuccess && <UploadSuccessPopup />}
       {showVideoModal && <VideoModal onClose={() => setShowVideoModal(false)} />}
+      {showAdvisorModal && <AdvisorModal guidance={advisorGuidance} loading={advisorLoading} onClose={() => setShowAdvisorModal(false)} />}
     </div>
   );
 }
@@ -1459,7 +1493,7 @@ function UploadSuccessPopup() {
   );
 }
 
-function FormModal({ type, item, onSave, onClose }) {
+function FormModal({ type, item, onSave, onClose, onAdvise }) {
   const handleOverlayClick = (e) => {
     if (e.target === e.currentTarget) {
       onClose();
@@ -1554,6 +1588,17 @@ function FormModal({ type, item, onSave, onClose }) {
         )}
         <div className="modal-buttons">
           <button onClick={save}>Save</button>
+          {type === 'mentors' && onAdvise && (
+            <button 
+              onClick={() => onAdvise(form)}
+              style={{
+                backgroundColor: '#10b981',
+                color: 'white'
+              }}
+            >
+              Advise
+            </button>
+          )}
           <button onClick={onClose}>Cancel</button>
         </div>
       </div>
@@ -1610,6 +1655,148 @@ function VideoModal({ onClose }) {
         </div>
         
         <div className="modal-buttons" style={{marginTop: '20px'}}>
+          <button onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdvisorModal({ guidance, loading, onClose }) {
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
+  // Parse the guidance into Questions and Recommendations sections
+  const parseGuidance = (text) => {
+    if (!text) return { questions: '', recommendations: '' };
+    
+    const sections = text.split(/(?=# Questions|# Recommendations)/i);
+    let questions = '';
+    let recommendations = '';
+    
+    sections.forEach(section => {
+      if (section.toLowerCase().includes('# questions')) {
+        questions = section.replace(/# Questions/i, '').trim();
+      } else if (section.toLowerCase().includes('# recommendations')) {
+        recommendations = section.replace(/# Recommendations/i, '').trim();
+      }
+    });
+    
+    return { questions, recommendations };
+  };
+
+  const { questions, recommendations } = parseGuidance(guidance);
+
+  return (
+    <div className="modal" onClick={handleOverlayClick}>
+      <div className="modal-content" style={{
+        maxWidth: '800px', 
+        padding: '24px',
+        maxHeight: '85vh',
+        overflowY: 'auto'
+      }}>
+        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
+          <h2 style={{margin: 0, color: '#10b981'}}>🎯 AI Career Advisor</h2>
+          <button 
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '24px',
+              cursor: 'pointer',
+              color: '#6b7280',
+              padding: '4px'
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        {loading ? (
+          <div style={{textAlign: 'center', padding: '40px'}}>
+            <div style={{
+              border: '4px solid #f3f4f6',
+              borderTop: '4px solid #10b981',
+              borderRadius: '50%',
+              width: '40px',
+              height: '40px',
+              margin: '0 auto 16px',
+              animation: 'spin 1s linear infinite'
+            }}></div>
+            <p style={{color: '#6b7280'}}>Analyzing your mentorship situation...</p>
+          </div>
+        ) : guidance ? (
+          <div>
+            {questions && (
+              <div style={{marginBottom: '32px'}}>
+                <h3 style={{
+                  color: '#2563eb',
+                  fontSize: '18px',
+                  marginBottom: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  ❓ Questions to Consider
+                </h3>
+                <div style={{
+                  backgroundColor: '#eff6ff',
+                  padding: '20px',
+                  borderRadius: '8px',
+                  borderLeft: '4px solid #2563eb'
+                }}>
+                  <pre style={{
+                    whiteSpace: 'pre-wrap',
+                    fontFamily: 'inherit',
+                    margin: 0,
+                    lineHeight: '1.6'
+                  }}>
+                    {questions}
+                  </pre>
+                </div>
+              </div>
+            )}
+
+            {recommendations && (
+              <div>
+                <h3 style={{
+                  color: '#10b981',
+                  fontSize: '18px',
+                  marginBottom: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  💡 Recommendations
+                </h3>
+                <div style={{
+                  backgroundColor: '#f0fdf4',
+                  padding: '20px',
+                  borderRadius: '8px',
+                  borderLeft: '4px solid #10b981'
+                }}>
+                  <pre style={{
+                    whiteSpace: 'pre-wrap',
+                    fontFamily: 'inherit',
+                    margin: 0,
+                    lineHeight: '1.6'
+                  }}>
+                    {recommendations}
+                  </pre>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{textAlign: 'center', padding: '40px', color: '#6b7280'}}>
+            <p>No guidance available at the moment.</p>
+          </div>
+        )}
+
+        <div className="modal-buttons" style={{marginTop: '24px'}}>
           <button onClick={onClose}>Close</button>
         </div>
       </div>

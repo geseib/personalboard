@@ -61,10 +61,14 @@ echo -e "${YELLOW}📊 Retrieving stack outputs...${NC}"
 BUCKET_NAME=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query "Stacks[0].Outputs[?OutputKey=='BucketName'].OutputValue" --output text)
 DISTRIBUTION_ID=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" --output text)
 WEBSITE_URL=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query "Stacks[0].Outputs[?OutputKey=='WebsiteURL'].OutputValue" --output text)
+AI_API_URL=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query "Stacks[0].Outputs[?OutputKey=='AIGuidanceApiUrl'].OutputValue" --output text 2>/dev/null || echo "N/A")
 
 echo -e "${BLUE}📦 Bucket Name: ${BUCKET_NAME}${NC}"
 echo -e "${BLUE}🌐 Distribution ID: ${DISTRIBUTION_ID}${NC}"
 echo -e "${BLUE}🔗 Website URL: ${WEBSITE_URL}${NC}"
+if [ "$AI_API_URL" != "N/A" ]; then
+    echo -e "${BLUE}🤖 AI API URL: ${AI_API_URL}${NC}"
+fi
 
 # Sync built files to S3
 echo -e "${YELLOW}📤 Syncing files to S3...${NC}"
@@ -132,3 +136,9 @@ echo -e "${BLUE}   • S3 Bucket: ${BUCKET_NAME}${NC}"
 echo -e "${BLUE}   • CloudFront Distribution: ${DISTRIBUTION_ID}${NC}"
 echo -e "${BLUE}   • Website URL: ${WEBSITE_URL}${NC}"
 echo -e "${BLUE}   • Invalidation ID: ${INVALIDATION_ID}${NC}"
+if [ "$AI_API_URL" != "N/A" ]; then
+    echo -e "${BLUE}   • AI API URL: ${AI_API_URL}${NC}"
+    echo ""
+    echo -e "${YELLOW}📝 Don't forget to update ai-client.js with the API URL:${NC}"
+    echo -e "${GREEN}   const AI_API_BASE_URL = '${AI_API_URL}';${NC}"
+fi

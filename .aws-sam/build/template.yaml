@@ -18,7 +18,150 @@ Parameters:
     - development
     - production
     Description: The deployment environment
+  StackName:
+    Type: String
+    Default: personal-board
+    Description: The name of the stack
 Resources:
+  RestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name:
+        Fn::Sub: ${StackName}-api
+      Description: API for Personal Board AI guidance
+      EndpointConfiguration:
+        Types:
+        - EDGE
+      BinaryMediaTypes:
+      - '*/*'
+      Tags:
+      - Key: Project
+        Value: PersonalBoard
+      - Key: Environment
+        Value:
+          Ref: Environment
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+    - AIGuidanceMethod
+    - AIGuidanceOptionsMethod
+    Properties:
+      RestApiId:
+        Ref: RestApi
+      StageName:
+        Ref: Environment
+      StageDescription:
+        Description:
+          Fn::Sub: Personal Board API - ${Environment}
+        Variables:
+          environment:
+            Ref: Environment
+  AIGuidanceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName:
+        Fn::Sub: ${StackName}-ai-guidance
+      CodeUri: AIGuidanceFunction
+      Handler: ai-guidance.handler
+      Runtime: nodejs18.x
+      Timeout: 300
+      MemorySize: 512
+      Environment:
+        Variables:
+          NODE_ENV:
+            Ref: Environment
+      Policies:
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - bedrock:InvokeModel
+          - bedrock:InvokeModelWithResponseStream
+          Resource:
+          - Fn::Sub: arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.anthropic.claude-3-5-sonnet-20241022-v2:0
+          - Fn::Sub: arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.anthropic.claude-3-5-haiku-20241022-v1:0
+          - arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0
+          - arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0
+          - arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0
+          - arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-5-haiku-20241022-v1:0
+          - arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-3-5-haiku-20241022-v1:0
+          - arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-5-haiku-20241022-v1:0
+      Tags:
+        Environment:
+          Ref: Environment
+        StackName:
+          Ref: StackName
+    Metadata:
+      SamResourceId: AIGuidanceFunction
+  AIGuidanceLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Ref: AIGuidanceFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Sub: arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/*/*
+  AIGuidanceResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId:
+        Ref: RestApi
+      ParentId:
+        Fn::GetAtt:
+        - RestApi
+        - RootResourceId
+      PathPart: ai-guidance
+  AIGuidanceMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId:
+        Ref: RestApi
+      ResourceId:
+        Ref: AIGuidanceResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri:
+          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AIGuidanceFunction.Arn}/invocations
+      MethodResponses:
+      - StatusCode: 200
+        ResponseParameters:
+          method.response.header.Access-Control-Allow-Origin: true
+          method.response.header.Access-Control-Allow-Methods: true
+          method.response.header.Access-Control-Allow-Headers: true
+  AIGuidanceOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId:
+        Ref: RestApi
+      ResourceId:
+        Ref: AIGuidanceResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: '''Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'''
+            method.response.header.Access-Control-Allow-Methods: '''GET,POST,OPTIONS'''
+            method.response.header.Access-Control-Allow-Origin: '''*'''
+          ResponseTemplates:
+            application/json: ''
+        PassthroughBehavior: WHEN_NO_MATCH
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+      - StatusCode: 200
+        ResponseParameters:
+          method.response.header.Access-Control-Allow-Headers: true
+          method.response.header.Access-Control-Allow-Methods: true
+          method.response.header.Access-Control-Allow-Origin: true
+        ResponseModels:
+          application/json: Empty
   WebsiteBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -170,3 +313,19 @@ Outputs:
     Export:
       Name:
         Fn::Sub: ${AWS::StackName}-DistributionDomainName
+  AIGuidanceApiUrl:
+    Description: URL for the AI Guidance API
+    Value:
+      Fn::Sub: https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}
+    Export:
+      Name:
+        Fn::Sub: ${AWS::StackName}-AIGuidanceApiUrl
+  AIGuidanceFunctionArn:
+    Description: ARN of the AI Guidance Lambda function
+    Value:
+      Fn::GetAtt:
+      - AIGuidanceFunction
+      - Arn
+    Export:
+      Name:
+        Fn::Sub: ${AWS::StackName}-AIGuidanceFunctionArn
