@@ -38,6 +38,7 @@ function App() {
   const [editingItem, setEditingItem] = useState(null);
   const [editingIndex, setEditingIndex] = useState(null);
   const [showUploadSuccess, setShowUploadSuccess] = useState(false);
+  const [showVideoModal, setShowVideoModal] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('boardData', JSON.stringify(data));
@@ -711,7 +712,7 @@ function App() {
         </div>
       )}
       <div className="content">
-        {current === 'intro' ? <Intro onLearnClick={() => setShowIntroLearn(true)} /> : current === 'goals' ? <Goals items={data[current] || []} onEdit={handleEdit} /> : current === 'board' ? <Board data={data} /> : <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} />}
+        {current === 'intro' ? <Intro onLearnClick={() => setShowIntroLearn(true)} onVideoClick={() => setShowVideoModal(true)} /> : current === 'goals' ? <Goals items={data[current] || []} onEdit={handleEdit} /> : current === 'board' ? <Board data={data} /> : <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} />}
       </div>
       <nav className="nav">
         {pages.map(p => {
@@ -743,6 +744,7 @@ function App() {
       {showIntroLearn && <IntroLearnModal onClose={() => setShowIntroLearn(false)} />}
       {showForm && <FormModal type={formType} item={editingItem} onSave={saveEntry} onClose={() => setShowForm(false)} />}
       {showUploadSuccess && <UploadSuccessPopup />}
+      {showVideoModal && <VideoModal onClose={() => setShowVideoModal(false)} />}
     </div>
   );
 }
@@ -757,7 +759,7 @@ function Quote({ text, position = 'center' }) {
   return <div className={`quote quote-${position} ${visible ? 'fade-in' : 'fade-out'}`}>{text}</div>;
 }
 
-function Intro({ onLearnClick }) {
+function Intro({ onLearnClick, onVideoClick }) {
   const introQuotes = [
     "You are not just building your résumé. You're building your support system.",
     "Success is not a solo journey. Build your board.",
@@ -789,7 +791,7 @@ function Intro({ onLearnClick }) {
       <div className={`intro-quote ${isVisible ? 'fade-in' : 'fade-out'}`}>
         {introQuotes[currentQuoteIndex]}
       </div>
-      <div className="intro-actions" style={{marginTop: '30px'}}>
+      <div className="intro-actions" style={{marginTop: '30px', display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap'}}>
         <button 
           onClick={onLearnClick}
           style={{
@@ -807,6 +809,24 @@ function Intro({ onLearnClick }) {
           onMouseOut={(e) => e.target.style.backgroundColor = '#2563eb'}
         >
           Learn About Personal Boards
+        </button>
+        <button 
+          onClick={onVideoClick}
+          style={{
+            padding: '12px 24px',
+            backgroundColor: '#ef4444',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '16px',
+            fontWeight: '500',
+            cursor: 'pointer',
+            transition: 'background-color 0.2s'
+          }}
+          onMouseOver={(e) => e.target.style.backgroundColor = '#dc2626'}
+          onMouseOut={(e) => e.target.style.backgroundColor = '#ef4444'}
+        >
+          🎥 Watch Video
         </button>
       </div>
     </div>
@@ -1069,6 +1089,12 @@ function Board({ data }) {
 function IntroLearnModal({ onClose }) {
   const [currentPage, setCurrentPage] = useState(0);
   
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+  
   const pages = [
     {
       title: "Your Personal Board of Directors: Guiding Partners",
@@ -1152,7 +1178,7 @@ function IntroLearnModal({ onClose }) {
   ];
 
   return (
-    <div className="modal">
+    <div className="modal" onClick={handleOverlayClick}>
       <div className="modal-content" style={{maxWidth: '700px', maxHeight: '85vh', overflowY: 'auto'}}>
         {pages[currentPage].content}
         
@@ -1231,6 +1257,12 @@ function IntroLearnModal({ onClose }) {
 }
 
 function LearnModal({ type, onClose, onAddClick }) {
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+  
   const content = {
     goals: {
       title: 'Goals: Your Career Compass',
@@ -1302,7 +1334,7 @@ function LearnModal({ type, onClose, onAddClick }) {
   const isGoalsType = type === 'goals';
 
   return (
-    <div className="modal">
+    <div className="modal" onClick={handleOverlayClick}>
       <div className="modal-content" style={{maxWidth: isGoalsType ? '600px' : '900px', maxHeight: '80vh', overflowY: 'auto'}}>
         <h2>{typeContent.title}</h2>
         
@@ -1428,6 +1460,12 @@ function UploadSuccessPopup() {
 }
 
 function FormModal({ type, item, onSave, onClose }) {
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+  
   const isGoals = type === 'goals';
   const cadenceOptions = ['Daily', 'Weekly', 'Bi-weekly', 'Monthly', 'Quarterly', 'Annually', 'Ad-hoc'];
   
@@ -1452,7 +1490,7 @@ function FormModal({ type, item, onSave, onClose }) {
   };
   
   return (
-    <div className="modal">
+    <div className="modal" onClick={handleOverlayClick}>
       <div className="modal-content" style={{maxWidth: isGoals ? '600px' : '900px'}}>
         <h2>{item ? 'Edit' : 'Add'} {isGoals ? 'Goal' : type.slice(0, -1)}</h2>
         
@@ -1517,6 +1555,62 @@ function FormModal({ type, item, onSave, onClose }) {
         <div className="modal-buttons">
           <button onClick={save}>Save</button>
           <button onClick={onClose}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VideoModal({ onClose }) {
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+  
+  return (
+    <div className="modal" onClick={handleOverlayClick}>
+      <div className="modal-content" style={{maxWidth: '800px', padding: '20px'}}>
+        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
+          <h2 style={{margin: 0}}>Personal Board of Directors Overview</h2>
+          <button 
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '24px',
+              cursor: 'pointer',
+              color: '#6b7280',
+              padding: '4px'
+            }}
+          >
+            ×
+          </button>
+        </div>
+        
+        <div style={{position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden'}}>
+          <iframe 
+            width="560" 
+            height="315" 
+            src="https://www.youtube.com/embed/fATAT6L9o5k?si=IYaO25tXf2Y5JvQY" 
+            title="YouTube video player" 
+            frameBorder="0" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+            referrerPolicy="strict-origin-when-cross-origin" 
+            allowFullScreen
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%'
+            }}
+          >
+          </iframe>
+        </div>
+        
+        <div className="modal-buttons" style={{marginTop: '20px'}}>
+          <button onClick={onClose}>Close</button>
         </div>
       </div>
     </div>
