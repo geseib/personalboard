@@ -10,6 +10,7 @@ import './feedback.css';
 
 const pages = [
   { key: 'intro', title: 'Intro', image: '/images/Slide2.png', quote: '', quotePosition: 'center' },
+  { key: 'you', title: 'You', image: '/images/Slide11.png', quote: 'Know yourself first.', quotePosition: 'bottom-left' },
   { key: 'goals', title: 'Goals', image: '/images/Slide12.png', quote: 'Your vision shapes your board.', quotePosition: 'bottom-right' },
   { key: 'mentors', title: 'Mentors', image: '/images/Slide7.png', quote: 'A mentor opens doors.', quotePosition: 'bottom-right' },
   { key: 'coaches', title: 'Coaches', image: '/images/Slide6.png', quote: 'Coaches refine potential.', quotePosition: 'bottom-left' },
@@ -31,6 +32,17 @@ function App() {
         { timeframe: '5 Year Goals', description: '', notes: '' },
         { timeframe: 'Beyond', description: '', notes: '' }
       ];
+    }
+    // Initialize you section if it doesn't exist
+    if (!savedData.you) {
+      savedData.you = {
+        superpowers: [
+          { name: 'Technical Skills', description: '', notes: '' },
+          { name: 'Business Skills', description: '', notes: '' },
+          { name: 'Organization Skills', description: '', notes: '' }
+        ],
+        mentees: []
+      };
     }
     return savedData;
   });
@@ -54,6 +66,67 @@ function App() {
     return stored ? JSON.parse(stored) : null;
   });
   const [boardAdviceLoading, setBoardAdviceLoading] = useState(false);
+
+  // Function to check if a section meets completion criteria
+  const getSectionCompletionStatus = () => {
+    const status = {};
+
+    // You section: 1 superpower in each of the 3 categories
+    if (data.you && data.you.superpowers) {
+      const completedSuperpowers = data.you.superpowers.filter(sp => sp.description && sp.description.trim());
+      status.you = completedSuperpowers.length >= 3;
+    } else {
+      status.you = false;
+    }
+
+    // Goals: 2 items in 3-month, 2 items in 1-year, 1 item in 5-year (beyond optional)
+    if (data.goals) {
+      const threeMonth = data.goals.find(g => g.timeframe === '3 Month Goals');
+      const oneYear = data.goals.find(g => g.timeframe === '1 Year Goals');
+      const fiveYear = data.goals.find(g => g.timeframe === '5 Year Goals');
+      
+      const threeMonthComplete = threeMonth && threeMonth.description && threeMonth.description.trim().split('\n').length >= 2;
+      const oneYearComplete = oneYear && oneYear.description && oneYear.description.trim().split('\n').length >= 2;
+      const fiveYearComplete = fiveYear && fiveYear.description && fiveYear.description.trim().length > 0;
+      
+      status.goals = threeMonthComplete && oneYearComplete && fiveYearComplete;
+    } else {
+      status.goals = false;
+    }
+
+    // Mentors: 2 required
+    status.mentors = (data.mentors || []).length >= 2;
+
+    // Coaches: 2 required  
+    status.coaches = (data.coaches || []).length >= 2;
+
+    // Connectors: optional (always considered complete for "Start Here" purposes)
+    status.connectors = true;
+
+    // Sponsors: 1 required
+    status.sponsors = (data.sponsors || []).length >= 1;
+
+    // Peers: 1 required
+    status.peers = (data.peers || []).length >= 1;
+
+    return status;
+  };
+
+  // Function to determine which section should show "Start Here"
+  const getStartHereSection = () => {
+    const completionStatus = getSectionCompletionStatus();
+    const sectionsOrder = ['you', 'goals', 'mentors', 'coaches', 'sponsors', 'peers', 'connectors'];
+    
+    // Find the leftmost incomplete section
+    for (const section of sectionsOrder) {
+      if (!completionStatus[section]) {
+        return section;
+      }
+    }
+    
+    // If all sections are complete, don't show "Start Here" anywhere
+    return null;
+  };
 
   useEffect(() => {
     localStorage.setItem('boardData', JSON.stringify(data));
@@ -99,6 +172,14 @@ function App() {
 
   const handleDelete = (type, index) => {
     setData(prev => {
+      // Handle nested structure for "You" section
+      if (type === 'mentees') {
+        const you = { ...prev.you };
+        you.mentees = [...you.mentees];
+        you.mentees.splice(index, 1);
+        return { ...prev, you };
+      }
+      // Handle regular sections
       const list = [...prev[type]];
       list.splice(index, 1);
       return { ...prev, [type]: list };
@@ -107,6 +188,23 @@ function App() {
 
   const saveEntry = entry => {
     setData(prev => {
+      // Handle nested structure for "You" section
+      if (formType === 'superpowers' || formType === 'mentees') {
+        const you = { ...prev.you };
+        if (editingIndex !== null) {
+          // Update existing entry
+          you[formType] = [...you[formType]];
+          you[formType][editingIndex] = entry;
+        } else {
+          // Add new entry (only for mentees, superpowers are fixed)
+          if (formType === 'mentees') {
+            you.mentees = you.mentees ? [...you.mentees, entry] : [entry];
+          }
+        }
+        return { ...prev, you };
+      }
+
+      // Handle regular sections
       if (editingIndex !== null) {
         // Update existing entry
         const list = [...prev[formType]];
@@ -175,6 +273,20 @@ function App() {
     }
   };
 
+  const handleCopyToField = (content, fieldName) => {
+    // This function will be called by the AdvisorModal to copy content to form fields
+    // We need to update the editingItem with the new content appended to the specified field
+    if (editingItem) {
+      const currentValue = editingItem[fieldName] || '';
+      const newValue = currentValue ? `${currentValue}\n\n${content}` : content;
+      
+      setEditingItem({
+        ...editingItem,
+        [fieldName]: newValue
+      });
+    }
+  };
+
   const handleUpload = e => {
     const file = e.target.files[0];
     if (!file) return;
@@ -234,7 +346,7 @@ function App() {
     // Meeting Cadence Grid Section
     const allMembers = [];
     Object.keys(data).forEach(type => {
-      if (data[type] && type !== 'goals') {
+      if (data[type] && type !== 'goals' && type !== 'you') {
         data[type].forEach(person => {
           allMembers.push({ ...person, type });
         });
@@ -756,6 +868,221 @@ function App() {
       });
     }
     
+    // You Section (Superpowers & Mentees)
+    if (data.you && (data.you.superpowers || data.you.mentees)) {
+      // Check if we need a new page
+      if (currentY > pageHeight - 80) {
+        doc.addPage();
+        currentY = 20;
+      } else {
+        currentY += 20; // Add some spacing from previous section
+      }
+      
+      // You Section Header
+      doc.setFillColor(16, 185, 129); // Green header
+      doc.rect(0, currentY - 15, pageWidth, 25, 'F');
+      
+      doc.setFontSize(18);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(255, 255, 255);
+      doc.text('About You', pageWidth / 2, currentY - 3, { align: 'center' });
+      currentY += 15;
+      
+      // Superpowers Section
+      if (data.you.superpowers && data.you.superpowers.length > 0) {
+        // Superpowers subsection header
+        doc.setFontSize(14);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(16, 185, 129);
+        doc.text('Your Superpowers', 35, currentY);
+        currentY += 10;
+        
+        data.you.superpowers.forEach((superpower, index) => {
+          // Check if we need a new page for this superpower
+          if (currentY > pageHeight - 40) {
+            doc.addPage();
+            currentY = 20;
+          }
+          
+          // Superpower card background
+          doc.setFillColor(255, 255, 255);
+          doc.setDrawColor(16, 185, 129);
+          doc.setLineWidth(0.5);
+          
+          const cardStartY = currentY;
+          let cardHeight = 20; // Base height
+          
+          // Calculate card height
+          if (superpower.description) {
+            const descLines = doc.splitTextToSize(superpower.description, pageWidth - 65);
+            cardHeight += 6 + (descLines.length * 4);
+          }
+          if (superpower.notes) {
+            const noteLines = doc.splitTextToSize(superpower.notes, pageWidth - 65);
+            cardHeight += 6 + (noteLines.length * 4);
+          }
+          
+          // Draw card
+          doc.rect(25, cardStartY, pageWidth - 50, cardHeight, 'D');
+          
+          // Left border accent
+          doc.setFillColor(16, 185, 129);
+          doc.rect(25, cardStartY, 4, cardHeight, 'F');
+          
+          // Superpower name
+          doc.setFontSize(12);
+          doc.setFont(undefined, 'bold');
+          doc.setTextColor(17, 24, 39);
+          doc.text(superpower.name, 35, currentY + 8);
+          currentY += 12;
+          
+          // Description
+          if (superpower.description) {
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(16, 185, 129);
+            doc.text('Description:', 35, currentY);
+            currentY += 4;
+            
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(75, 85, 99);
+            const descLines = doc.splitTextToSize(superpower.description, pageWidth - 65);
+            doc.text(descLines, 35, currentY);
+            currentY += descLines.length * 4 + 2;
+          }
+          
+          // Notes
+          if (superpower.notes) {
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(107, 114, 128);
+            doc.text('Examples:', 35, currentY);
+            currentY += 4;
+            
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(75, 85, 99);
+            const noteLines = doc.splitTextToSize(superpower.notes, pageWidth - 65);
+            doc.text(noteLines, 35, currentY);
+            currentY += noteLines.length * 4 + 2;
+          }
+          
+          currentY += 10; // Space between superpower cards
+        });
+        
+        currentY += 10; // Space between sections
+      }
+      
+      // Mentees Section
+      if (data.you.mentees && data.you.mentees.length > 0) {
+        // Check if we need a new page
+        if (currentY > pageHeight - 40) {
+          doc.addPage();
+          currentY = 20;
+        }
+        
+        // Mentees subsection header
+        doc.setFontSize(14);
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(139, 92, 246);
+        doc.text('Your Mentees', 35, currentY);
+        currentY += 10;
+        
+        data.you.mentees.forEach((mentee, index) => {
+          // Check if we need a new page for this mentee
+          if (currentY > pageHeight - 40) {
+            doc.addPage();
+            currentY = 20;
+          }
+          
+          // Mentee card background
+          doc.setFillColor(255, 255, 255);
+          doc.setDrawColor(139, 92, 246);
+          doc.setLineWidth(0.5);
+          
+          const cardStartY = currentY;
+          let cardHeight = 25; // Base height
+          
+          // Calculate card height based on content
+          if (mentee.whatYouTeach) {
+            const teachLines = doc.splitTextToSize(mentee.whatYouTeach, pageWidth - 65);
+            cardHeight += 6 + (teachLines.length * 4);
+          }
+          if (mentee.whatYouLearn) {
+            const learnLines = doc.splitTextToSize(mentee.whatYouLearn, pageWidth - 65);
+            cardHeight += 6 + (learnLines.length * 4);
+          }
+          if (mentee.notes) {
+            const noteLines = doc.splitTextToSize(mentee.notes, pageWidth - 65);
+            cardHeight += 6 + (noteLines.length * 4);
+          }
+          
+          // Draw card
+          doc.rect(25, cardStartY, pageWidth - 50, cardHeight, 'D');
+          
+          // Left border accent
+          doc.setFillColor(139, 92, 246);
+          doc.rect(25, cardStartY, 4, cardHeight, 'F');
+          
+          // Mentee name and details
+          doc.setFontSize(12);
+          doc.setFont(undefined, 'bold');
+          doc.setTextColor(17, 24, 39);
+          doc.text(mentee.name, 35, currentY + 8);
+          currentY += 8;
+          
+          doc.setFontSize(10);
+          doc.setFont(undefined, 'normal');
+          doc.setTextColor(107, 114, 128);
+          doc.text(`${mentee.role} | ${mentee.connection} | ${mentee.cadence}`, 35, currentY);
+          currentY += 8;
+          
+          // What You Teach
+          if (mentee.whatYouTeach) {
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(16, 185, 129);
+            doc.text('What You Teach:', 35, currentY);
+            currentY += 4;
+            
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(75, 85, 99);
+            const teachLines = doc.splitTextToSize(mentee.whatYouTeach, pageWidth - 65);
+            doc.text(teachLines, 35, currentY);
+            currentY += teachLines.length * 4 + 2;
+          }
+          
+          // What You Learn
+          if (mentee.whatYouLearn) {
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(139, 92, 246);
+            doc.text('What You Learn:', 35, currentY);
+            currentY += 4;
+            
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(75, 85, 99);
+            const learnLines = doc.splitTextToSize(mentee.whatYouLearn, pageWidth - 65);
+            doc.text(learnLines, 35, currentY);
+            currentY += learnLines.length * 4 + 2;
+          }
+          
+          // Notes
+          if (mentee.notes) {
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(107, 114, 128);
+            doc.text('Notes:', 35, currentY);
+            currentY += 4;
+            
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(75, 85, 99);
+            const noteLines = doc.splitTextToSize(mentee.notes, pageWidth - 65);
+            doc.text(noteLines, 35, currentY);
+            currentY += noteLines.length * 4 + 2;
+          }
+          
+          currentY += 10; // Space between mentee cards
+        });
+      }
+    }
+    
     // Board Analysis Section
     if (currentBoardAdvice) {
       // Check if we need a new page
@@ -840,7 +1167,7 @@ function App() {
       <Quote text={page.quote} position={page.quotePosition} />
       {current !== 'intro' && current !== 'board' && (
         <div className="actions">
-          {(current === 'goals' || current === 'mentors' || current === 'coaches' || current === 'connectors' || current === 'sponsors' || current === 'peers') && (
+          {(current === 'you' || current === 'goals' || current === 'mentors' || current === 'coaches' || current === 'connectors' || current === 'sponsors' || current === 'peers') && (
             <button 
               onClick={() => {
                 if (current === 'goals') setShowGoalsVideoModal(true);
@@ -867,7 +1194,12 @@ function App() {
             </button>
           )}
           <button onClick={() => setShowLearn(true)} title="Learn about this board member type and best practices">Learn</button>
-          <button onClick={() => handleAdd(current)} title="Add a new board member to this category">+ Add</button>
+          {current !== 'you' && (
+            <button onClick={() => handleAdd(current)} title="Add a new board member to this category">+ Add</button>
+          )}
+          {current === 'you' && (
+            <button onClick={() => handleAdd('mentees')} title="Add a new mentee you're advising">+ Add Mentee</button>
+          )}
         </div>
       )}
       {current === 'board' && (
@@ -907,12 +1239,13 @@ function App() {
         </div>
       )}
       <div className="content">
-        {current === 'intro' ? <Intro onLearnClick={() => setShowIntroLearn(true)} onVideoClick={() => setShowVideoModal(true)} /> : current === 'goals' ? <Goals items={data[current] || []} onEdit={handleEdit} /> : current === 'board' ? <Board data={data} boardAdvice={boardAdvice} boardAdviceLoading={boardAdviceLoading} /> : current === 'mentors' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} /> : current === 'coaches' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} /> : <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} />}
+        {current === 'intro' ? <Intro onLearnClick={() => setShowIntroLearn(true)} onVideoClick={() => setShowVideoModal(true)} /> : current === 'you' ? <You data={data.you || {superpowers: [], mentees: []}} onEdit={handleEdit} onDelete={handleDelete} /> : current === 'goals' ? <Goals items={data[current] || []} onEdit={handleEdit} /> : current === 'board' ? <Board data={data} boardAdvice={boardAdvice} boardAdviceLoading={boardAdviceLoading} /> : current === 'mentors' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} /> : current === 'coaches' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} /> : <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} />}
       </div>
       <nav className="nav">
         {pages.map(p => {
-          const count = p.key === 'intro' || p.key === 'board' || p.key === 'goals' ? 0 : (data[p.key] || []).length;
-          const showCount = p.key !== 'intro' && p.key !== 'board' && p.key !== 'goals';
+          const count = p.key === 'intro' || p.key === 'board' || p.key === 'goals' || p.key === 'you' ? 0 : (data[p.key] || []).length;
+          const showCount = p.key !== 'intro' && p.key !== 'board' && p.key !== 'goals' && p.key !== 'you';
+          const startHereSection = getStartHereSection();
           
           return (
             <button key={p.key} className={p.key === current ? 'active' : ''} onClick={() => {
@@ -933,7 +1266,7 @@ function App() {
               {showCount && (
                 <span className="nav-count">{count}</span>
               )}
-              {p.key === 'goals' && Object.keys(data).every(key => !data[key] || data[key].length === 0 || (key === 'goals' && data[key].every(g => !g.description))) && (
+              {p.key === startHereSection && (
                 <div className="start-here-arrow">
                   <div className="start-here-text">Start here!</div>
                   <svg className="arrow-svg" viewBox="0 0 24 24" width="24" height="24">
@@ -957,7 +1290,7 @@ function App() {
       {showCoachVideoModal && <CoachVideoModal onClose={() => setShowCoachVideoModal(false)} />}
       {showGoalsVideoModal && <GoalsVideoModal onClose={() => setShowGoalsVideoModal(false)} />}
       {showBoardVideoModal && <BoardVideoModal onClose={() => setShowBoardVideoModal(false)} />}
-      {showAdvisorModal && <AdvisorModal guidance={advisorGuidance} loading={advisorLoading} onClose={() => setShowAdvisorModal(false)} />}
+      {showAdvisorModal && <AdvisorModal guidance={advisorGuidance} loading={advisorLoading} onClose={() => setShowAdvisorModal(false)} formType={formType} currentForm={editingItem} onCopyToField={handleCopyToField} />}
       
       <FeedbackButton />
     </div>
@@ -1070,6 +1403,73 @@ function Goals({ items, onEdit }) {
   );
 }
 
+function You({ data, onEdit, onDelete }) {
+  return (
+    <div className="you-section">
+      {/* Superpowers Row */}
+      <div className="section-row">
+        <h2 style={{color: '#10b981', marginBottom: '16px', borderBottom: '2px solid #10b981', paddingBottom: '8px'}}>Your Superpowers</h2>
+        <div className="list">
+          {data.superpowers && data.superpowers.map((item, idx) => (
+            <div key={idx} className="card superpower-card">
+              <div className="card-header">
+                <h3>{item.name}</h3>
+                <div className="card-actions">
+                  <button className="icon-btn edit-btn" onClick={() => onEdit('superpowers', item, idx)} title="Edit">
+                    ✏️
+                  </button>
+                  {/* No delete button for superpowers - they're fixed */}
+                </div>
+              </div>
+              <p><strong>Description:</strong> {item.description || 'Click edit to describe your skills...'}</p>
+              <p><strong>Notes:</strong> {item.notes || 'Add examples or specific details...'}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Mentees Row */}
+      <div className="section-row">
+        <h2 style={{color: '#8b5cf6', marginBottom: '16px', borderBottom: '2px solid #8b5cf6', paddingBottom: '8px'}}>Your Mentees</h2>
+        <div className="list">
+          {data.mentees && data.mentees.map((item, idx) => (
+            <div key={idx} className="card mentee-card">
+              <div className="card-header">
+                <h3>{item.name}</h3>
+                <div className="card-actions">
+                  <button className="icon-btn edit-btn" onClick={() => onEdit('mentees', item, idx)} title="Edit">
+                    ✏️
+                  </button>
+                  <button className="icon-btn delete-btn" onClick={() => onDelete('mentees', idx)} title="Delete">
+                    🗑️
+                  </button>
+                </div>
+              </div>
+              <p><strong>Role:</strong> {item.role}</p>
+              <p><strong>Connection:</strong> {item.connection}</p>
+              <p><strong>Cadence:</strong> {item.cadence}</p>
+              {item.whatYouTeach && (
+                <p><strong>What You Teach Them:</strong> {item.whatYouTeach}</p>
+              )}
+              {item.whatYouLearn && (
+                <p><strong>What You Learn From Them:</strong> {item.whatYouLearn}</p>
+              )}
+              {item.notes && (
+                <p><strong>Notes:</strong> {item.notes}</p>
+              )}
+            </div>
+          ))}
+          {(!data.mentees || data.mentees.length === 0) && (
+            <div className="empty-state">
+              <p>No mentees yet. Click "Add" to add someone you're advising.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function List({ type, items, onEdit, onDelete }) {
   return (
     <div className="list">
@@ -1105,10 +1505,10 @@ function List({ type, items, onEdit, onDelete }) {
 }
 
 function Board({ data, boardAdvice, boardAdviceLoading }) {
-  // Flatten all board members with their types (exclude goals)
+  // Flatten all board members with their types (exclude goals and you section)
   const allMembers = [];
   Object.keys(data).forEach(type => {
-    if (data[type] && type !== 'goals') {
+    if (data[type] && type !== 'goals' && type !== 'you') {
       data[type].forEach(person => {
         allMembers.push({ ...person, type });
       });
@@ -1508,6 +1908,15 @@ function LearnModal({ type, onClose, onAddClick }) {
       whatToLearn: 'From setting and revisiting goals, you\'ll learn: how to balance ambition with realism, the value of revisiting and realigning regularly without expecting overnight results, how to adapt lessons from one path to another (cross-industry skills are never wasted), and that changing your long-term goals doesn\'t erase past work—it equips you with transferable skills and resilience.',
       whatTheyGet: 'When you share your goals with your board, you give them: a clear sense of how they can help, opportunities to connect you to people, resources, or experiences aligned with your targets, and insight into your motivation and direction, which strengthens the relationship. Remember: Goal-setting is not about predicting the future—it\'s about shaping it. Your immediate, 1-year, and 5-year goals create momentum while leaving space for change. Think of them as flexible scaffolding: strong enough to support your growth, light enough to be rebuilt as your vision evolves.'
     },
+    you: {
+      title: 'You: Know Yourself First',
+      description: 'Understanding your superpowers and mentorship relationships is foundational to building an effective personal board. Your superpowers are the unique combination of technical, business, and organizational skills that set you apart. Your mentees are people you guide, teach, or advise—relationships that keep you sharp and connected to fresh perspectives.',
+      importance: 'Knowing yourself first enables authentic relationship-building with your board. When you clearly understand your strengths, you can communicate your value proposition to mentors, sponsors, and peers. When you actively mentor others, you develop leadership skills, stay current with emerging trends, and build a network of future collaborators who may become valuable connections as they advance in their careers.',
+      whatToLookFor: 'Superpowers: Identify 3 core areas where you excel—Technical Skills (programming, data analysis, design, engineering), Business Skills (strategy, sales, marketing, operations), and Organization Skills (project management, team leadership, communication). Be specific about your expertise level and unique approaches. Mentees: Look for people 2-5 years behind you who are eager to learn, demonstrate potential, and align with your values. They might be junior colleagues, career changers, students, or professionals in adjacent fields.',
+      howTheyHelp: 'Your superpowers become your currency in professional relationships—they\'re what you offer in exchange for wisdom, connections, and opportunities. Your mentoring relationships keep you engaged with emerging talent, expose you to fresh perspectives, and help you practice leadership skills. Both contribute to your professional brand and create reciprocal value in your network.',
+      whatToLearn: 'From self-reflection on your superpowers, learn: how to articulate your unique value, where to focus your continued development, which opportunities align with your strengths, and how to position yourself in conversations with senior professionals. From mentoring others, learn: how to teach and develop talent, current trends from emerging professionals, different perspectives on industry challenges, and leadership skills through practice.',
+      whatTheyGet: 'When you clearly communicate your superpowers, your board can: connect you to opportunities that match your expertise, provide targeted advice for skill development, introduce you to people who value your specific abilities, and recommend you for roles that leverage your strengths. When you mentor others, you give them: practical guidance for career development, industry insights, professional connections, and the confidence that comes from having an experienced advocate. Your mentees often become your biggest champions as they advance in their careers.'
+    },
     mentors: {
       title: 'Mentors: Your Wisdom Guides',
       description: 'Mentors are experienced professionals who have walked the path you aspire to take. They provide strategic career advice, share lessons learned from their journeys, and help you navigate complex professional decisions.',
@@ -1710,15 +2119,32 @@ function FormModal({ type, item, onSave, onClose, onAdvise, advisorShowing }) {
   };
   
   const isGoals = type === 'goals';
+  const isSuperpowers = type === 'superpowers';
+  const isMentees = type === 'mentees';
   const cadenceOptions = ['Daily', 'Weekly', 'Bi-weekly', 'Monthly', 'Quarterly', 'Annually', 'Ad-hoc'];
   
-  // Initialize form differently for goals vs other types
-  const [form, setForm] = useState(item || (isGoals ? 
-    { timeframe: '', description: '', notes: '' } : 
-    { name: '', role: '', connection: 'Not yet', cadence: 'Monthly', notes: '', whatToLearn: '', whatTheyGet: '' }
-  ));
+  // Initialize form differently for different types
+  const getDefaultForm = () => {
+    if (isGoals) return { timeframe: '', description: '', notes: '' };
+    if (isSuperpowers) return { name: '', description: '', notes: '' };
+    if (isMentees) return { name: '', role: '', connection: 'Not yet', cadence: 'Monthly', notes: '', whatYouTeach: '', whatYouLearn: '' };
+    return { name: '', role: '', connection: 'Not yet', cadence: 'Monthly', notes: '', whatToLearn: '', whatTheyGet: '' };
+  };
+  
+  const [form, setForm] = useState(item || getDefaultForm());
   
   const [cadenceIndex, setCadenceIndex] = useState(cadenceOptions.indexOf(form.cadence) >= 0 ? cadenceOptions.indexOf(form.cadence) : 3);
+  
+  // Sync external item changes to local form state (for AdvisorModal copy functionality)
+  React.useEffect(() => {
+    if (item) {
+      setForm(item);
+      if (item.cadence) {
+        const index = cadenceOptions.indexOf(item.cadence);
+        setCadenceIndex(index >= 0 ? index : 3);
+      }
+    }
+  }, [item]);
   
   const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
   
@@ -1760,6 +2186,63 @@ function FormModal({ type, item, onSave, onClose, onAdvise, advisorShowing }) {
             <textarea name="description" placeholder="Describe your goals for this timeframe..." value={form.description || ''} onChange={handleChange}></textarea>
             <textarea name="notes" placeholder="Notes on strategy, progress, or milestones..." value={form.notes || ''} onChange={handleChange}></textarea>
           </>
+        ) : isSuperpowers ? (
+          <>
+            <input name="name" placeholder="Skill Category" value={form.name} onChange={handleChange} disabled={item ? true : false} />
+            <textarea name="description" placeholder="Describe your expertise in this area..." value={form.description || ''} onChange={handleChange} style={{minHeight: '120px'}}></textarea>
+            <textarea name="notes" placeholder="Specific examples, certifications, achievements..." value={form.notes || ''} onChange={handleChange} style={{minHeight: '80px'}}></textarea>
+          </>
+        ) : isMentees ? (
+          <div style={{display: 'flex', gap: '40px'}}>
+            <div style={{flex: 1}}>
+              <h3 style={{color: '#2563eb', fontSize: '0.9em', marginBottom: '8px'}}>Basic Information</h3>
+              <input name="name" placeholder="Name" value={form.name} onChange={handleChange} />
+              <input name="role" placeholder="Role" value={form.role} onChange={handleChange} />
+              <label style={{display: 'block', color: '#6b7280', fontSize: '14px', marginBottom: '4px', marginTop: '12px'}}>Connection Level</label>
+              <select name="connection" value={form.connection} onChange={handleChange}>
+                {connectionLevels.map(level => (
+                  <option key={level}>{level}</option>
+                ))}
+              </select>
+              <div className="cadence-slider-container">
+                <label>Cadence: <span className="cadence-value">{cadenceOptions[cadenceIndex]}</span></label>
+                <input 
+                  type="range" 
+                  min="0" 
+                  max={cadenceOptions.length - 1} 
+                  value={cadenceIndex} 
+                  onChange={handleCadenceChange}
+                  className="cadence-slider"
+                />
+                <div className="cadence-labels">
+                  {cadenceOptions.map((opt, idx) => (
+                    <span key={idx} className={`cadence-label ${idx === cadenceIndex ? 'active' : ''}`}>
+                      {opt}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <textarea name="notes" placeholder="Notes" value={form.notes} onChange={handleChange}></textarea>
+            </div>
+            <div style={{flex: 1}}>
+              <h3 style={{color: '#10b981', fontSize: '0.9em', marginBottom: '8px'}}>What You Teach Them</h3>
+              <textarea 
+                name="whatYouTeach" 
+                placeholder="What knowledge, skills, or guidance do you provide to this person?" 
+                value={form.whatYouTeach || ''} 
+                onChange={handleChange}
+                style={{minHeight: '100px'}}
+              ></textarea>
+              <h3 style={{color: '#8b5cf6', fontSize: '0.9em', marginBottom: '8px', marginTop: '16px'}}>What You Learn From Them</h3>
+              <textarea 
+                name="whatYouLearn" 
+                placeholder="What fresh perspectives, skills, or insights do you gain from them?" 
+                value={form.whatYouLearn || ''} 
+                onChange={handleChange}
+                style={{minHeight: '100px'}}
+              ></textarea>
+            </div>
+          </div>
         ) : (
           <div style={{display: 'flex', gap: '40px'}}>
             <div style={{flex: 1}}>
@@ -2113,7 +2596,10 @@ function BoardVideoModal({ onClose }) {
   );
 }
 
-function AdvisorModal({ guidance, loading, onClose }) {
+function AdvisorModal({ guidance, loading, onClose, formType, currentForm, onCopyToField }) {
+  const [showFieldSelection, setShowFieldSelection] = useState(null);
+  const [selectedContent, setSelectedContent] = useState('');
+
   const handleOverlayClick = (e) => {
     // Only close if clicking directly on the overlay, not on other modal content
     if (e.target === e.currentTarget) {
@@ -2121,26 +2607,73 @@ function AdvisorModal({ guidance, loading, onClose }) {
     }
   };
 
-  // Parse the guidance into Questions and Recommendations sections
-  const parseGuidance = (text) => {
-    if (!text) return { questions: '', recommendations: '' };
+  // Define available fields based on form type
+  const getAvailableFields = () => {
+    if (formType === 'goals') {
+      return [
+        { key: 'description', label: 'Description' },
+        { key: 'notes', label: 'Notes' }
+      ];
+    } else {
+      return [
+        { key: 'whatToLearn', label: 'What to Learn From Them' },
+        { key: 'whatTheyGet', label: 'What They Get From You' },
+        { key: 'notes', label: 'Notes' }
+      ];
+    }
+  };
+
+  // Parse individual items from text (questions or recommendations)
+  const parseItems = (text, type) => {
+    if (!text) return [];
     
-    const sections = text.split(/(?=# Questions|# Recommendations)/i);
-    let questions = '';
-    let recommendations = '';
+    // Split by bullet points, numbered lists, or line breaks
+    const items = text
+      .split(/(?:\n|^)(?:[\•\-\*]|\d+[\.\)])\s*/)
+      .filter(item => item.trim().length > 0)
+      .map(item => item.trim());
+    
+    return items;
+  };
+
+  // Parse the guidance into Questions, Recommendations, and Suggested Entries sections
+  const parseGuidance = (text) => {
+    if (!text) return { questions: [], recommendations: [], suggestedEntries: [] };
+    
+    const sections = text.split(/(?=# Questions|# Recommendations|# Suggested Entries)/i);
+    let questionsText = '';
+    let recommendationsText = '';
+    let suggestedEntriesText = '';
     
     sections.forEach(section => {
       if (section.toLowerCase().includes('# questions')) {
-        questions = section.replace(/# Questions/i, '').trim();
+        questionsText = section.replace(/# Questions/i, '').trim();
       } else if (section.toLowerCase().includes('# recommendations')) {
-        recommendations = section.replace(/# Recommendations/i, '').trim();
+        recommendationsText = section.replace(/# Recommendations/i, '').trim();
+      } else if (section.toLowerCase().includes('# suggested entries')) {
+        suggestedEntriesText = section.replace(/# Suggested Entries/i, '').trim();
       }
     });
     
-    return { questions, recommendations };
+    return {
+      questions: parseItems(questionsText, 'question'),
+      recommendations: parseItems(recommendationsText, 'recommendation'),
+      suggestedEntries: parseItems(suggestedEntriesText, 'suggestion')
+    };
   };
 
-  const { questions, recommendations } = parseGuidance(guidance);
+  const { questions, recommendations, suggestedEntries } = parseGuidance(guidance);
+
+  const handleAddClick = (content) => {
+    setSelectedContent(content);
+    setShowFieldSelection(true);
+  };
+
+  const handleFieldSelect = (fieldKey) => {
+    onCopyToField(selectedContent, fieldKey);
+    setShowFieldSelection(false);
+    setSelectedContent('');
+  };
 
   return (
     <div className="modal advisor-modal" onClick={handleOverlayClick} style={{
@@ -2192,7 +2725,7 @@ function AdvisorModal({ guidance, loading, onClose }) {
           </div>
         ) : guidance ? (
           <div>
-            {questions && (
+            {questions && questions.length > 0 && (
               <div style={{marginBottom: '32px'}}>
                 <h3 style={{
                   color: '#2563eb',
@@ -2210,19 +2743,40 @@ function AdvisorModal({ guidance, loading, onClose }) {
                   borderRadius: '8px',
                   borderLeft: '4px solid #2563eb'
                 }}>
-                  <pre style={{
-                    whiteSpace: 'pre-wrap',
-                    fontFamily: 'inherit',
-                    margin: 0,
-                    lineHeight: '1.6'
-                  }}>
-                    {questions}
-                  </pre>
+                  {questions.map((question, index) => (
+                    <div key={index} style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      marginBottom: '12px',
+                      gap: '8px'
+                    }}>
+                      <div style={{flex: 1, lineHeight: '1.6'}}>
+                        {question}
+                      </div>
+                      <button
+                        onClick={() => handleAddClick(question)}
+                        style={{
+                          backgroundColor: '#2563eb',
+                          color: 'white',
+                          border: 'none',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          flexShrink: 0,
+                          fontWeight: '500'
+                        }}
+                        title="Add this question to a form field"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
 
-            {recommendations && (
+            {recommendations && recommendations.length > 0 && (
               <div>
                 <h3 style={{
                   color: '#10b981',
@@ -2240,14 +2794,86 @@ function AdvisorModal({ guidance, loading, onClose }) {
                   borderRadius: '8px',
                   borderLeft: '4px solid #10b981'
                 }}>
-                  <pre style={{
-                    whiteSpace: 'pre-wrap',
-                    fontFamily: 'inherit',
-                    margin: 0,
-                    lineHeight: '1.6'
-                  }}>
-                    {recommendations}
-                  </pre>
+                  {recommendations.map((recommendation, index) => (
+                    <div key={index} style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      marginBottom: '12px',
+                      gap: '8px'
+                    }}>
+                      <div style={{flex: 1, lineHeight: '1.6'}}>
+                        {recommendation}
+                      </div>
+                      <button
+                        onClick={() => handleAddClick(recommendation)}
+                        style={{
+                          backgroundColor: '#10b981',
+                          color: 'white',
+                          border: 'none',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          flexShrink: 0,
+                          fontWeight: '500'
+                        }}
+                        title="Add this recommendation to a form field"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {suggestedEntries && suggestedEntries.length > 0 && (
+              <div style={{marginTop: '32px'}}>
+                <h3 style={{
+                  color: '#f59e0b',
+                  fontSize: '18px',
+                  marginBottom: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  ✨ Suggested Entries
+                </h3>
+                <div style={{
+                  backgroundColor: '#fffbeb',
+                  padding: '20px',
+                  borderRadius: '8px',
+                  borderLeft: '4px solid #f59e0b'
+                }}>
+                  {suggestedEntries.map((entry, index) => (
+                    <div key={index} style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      marginBottom: '12px',
+                      gap: '8px'
+                    }}>
+                      <div style={{flex: 1, lineHeight: '1.6'}}>
+                        {entry}
+                      </div>
+                      <button
+                        onClick={() => handleAddClick(entry)}
+                        style={{
+                          backgroundColor: '#f59e0b',
+                          color: 'white',
+                          border: 'none',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          flexShrink: 0,
+                          fontWeight: '500'
+                        }}
+                        title="Add this suggested entry to a form field"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -2261,6 +2887,82 @@ function AdvisorModal({ guidance, loading, onClose }) {
         <div className="modal-buttons" style={{marginTop: '24px'}}>
           <button onClick={onClose}>Close</button>
         </div>
+
+        {/* Field Selection Modal */}
+        {showFieldSelection && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 1002,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <div style={{
+              backgroundColor: 'white',
+              padding: '24px',
+              borderRadius: '8px',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+              maxWidth: '400px',
+              width: '90%'
+            }}>
+              <h3 style={{margin: '0 0 16px 0', color: '#374151'}}>Add Content To:</h3>
+              <div style={{marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '8px'}}>
+                {getAvailableFields().map(field => (
+                  <button
+                    key={field.key}
+                    onClick={() => handleFieldSelect(field.key)}
+                    style={{
+                      padding: '12px 16px',
+                      backgroundColor: field.key === 'whatToLearn' ? '#10b981' : 
+                                     field.key === 'whatTheyGet' ? '#8b5cf6' : 
+                                     field.key === 'description' ? '#2563eb' :
+                                     '#6b7280',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      textAlign: 'center',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseOver={(e) => {
+                      e.target.style.transform = 'translateY(-1px)';
+                      e.target.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+                    }}
+                    onMouseOut={(e) => {
+                      e.target.style.transform = 'translateY(0)';
+                      e.target.style.boxShadow = 'none';
+                    }}
+                  >
+                    Add to "{field.label}"
+                  </button>
+                ))}
+              </div>
+              <div style={{display: 'flex', justifyContent: 'flex-end'}}>
+                <button 
+                  onClick={() => setShowFieldSelection(false)}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#f3f4f6',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    color: '#374151'
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

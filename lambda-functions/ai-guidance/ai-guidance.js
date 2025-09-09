@@ -138,7 +138,7 @@ exports.handler = async (event) => {
     const response = await bedrockChat({
       system: systemPrompt,
       user: userPrompt,
-      max_tokens: 1500,
+      max_tokens: 2000,
       temperature: 0.3
     });
 
@@ -523,10 +523,13 @@ You are an expert career advisor specializing in ${memberType} relationships wit
 Provide your response in exactly two sections:
 
 # Questions
-[4-6 pointed questions that dig deeper into their ${memberType.slice(0, -1)} relationship strategy, reveal blind spots, and clarify goals]
+[4-6 pointed questions that dig deeper into their ${memberType.slice(0, -1)} relationship strategy, reveal blind spots, and clarify goals. Format each question as a numbered list item or bullet point.]
 
 # Recommendations  
-[4-6 specific, actionable recommendations for building and optimizing this ${memberType.slice(0, -1)} relationship, including concrete next steps they can take within the next 30 days. Always include guidance on reviewing their LinkedIn profile to identify shared connections, common experiences, interests, and conversation starters before outreach.]
+[4-6 specific, actionable recommendations for building and optimizing this ${memberType.slice(0, -1)} relationship, including concrete next steps they can take within the next 30 days. Always include guidance on reviewing their LinkedIn profile to identify shared connections, common experiences, interests, and conversation starters before outreach. Format each recommendation as a numbered list item or bullet point.]
+
+# Suggested Entries
+[3-4 short, specific, relevant suggested entries they could add to their form fields. Format as brief bullet points that they can directly copy and paste. Focus on practical, actionable content that matches their specific situation and goals.]
 </output_format>
 
 Remember: Be direct, specific, and focused on actionable insights that will genuinely improve their professional relationship with this ${memberType.slice(0, -1)}.`;
@@ -607,10 +610,13 @@ You are an expert career strategist and goal-setting coach specializing in helpi
 Provide your response in exactly two sections:
 
 # Questions
-[4-6 pointed questions that help clarify, refine, and strengthen their goal-setting approach]
+[4-6 pointed questions that help clarify, refine, and strengthen their goal-setting approach. Format each question as a numbered list item or bullet point.]
 
 # Recommendations  
-[4-6 specific, actionable recommendations for improving their goals, including concrete next steps they can implement within 30 days]
+[4-6 specific, actionable recommendations for improving their goals, including concrete next steps they can implement within 30 days. Format each recommendation as a numbered list item or bullet point.]
+
+# Suggested Entries
+[3-4 short, specific, relevant suggested entries they could add to their goal descriptions or notes. Format as brief bullet points that they can directly copy and paste. Focus on practical, measurable goals that align with their career aspirations.]
 </output_format>
 
 Remember: Focus on strategic goal setting that leverages their professional relationships and creates clear pathways to success.`;

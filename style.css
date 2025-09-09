@@ -930,3 +930,55 @@ button:active {
 .split-screen-modal {
   background: transparent !important;
 }
+
+/* You Section Styles */
+.you-section {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.section-row {
+  display: flex;
+  flex-direction: column;
+}
+
+.section-row h2 {
+  margin-bottom: 16px;
+  font-size: 1.5rem;
+  font-weight: 600;
+  padding-bottom: 8px;
+  border-bottom: 2px solid;
+}
+
+.superpower-card {
+  border-left: 4px solid #10b981;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(16, 185, 129, 0.02));
+}
+
+.superpower-card:hover {
+  border-left-color: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+}
+
+.mentee-card {
+  border-left: 4px solid #8b5cf6;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.05), rgba(139, 92, 246, 0.02));
+}
+
+.mentee-card:hover {
+  border-left-color: #7c3aed;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.15);
+}
+
+.empty-state {
+  text-align: center;
+  color: #6b7280;
+  font-style: italic;
+  padding: 40px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border: 2px dashed rgba(255, 255, 255, 0.2);
+}
