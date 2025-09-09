@@ -248,6 +248,7 @@ export function FeedbackForm({ type, onClose }) {
                 onClick={onClose}
                 disabled={isSubmitting}
                 className="feedback-cancel"
+                title="Cancel and close feedback form"
               >
                 Cancel
               </button>
@@ -255,6 +256,7 @@ export function FeedbackForm({ type, onClose }) {
                 type="submit"
                 disabled={isSubmitting || !title.trim() || !description.trim()}
                 className="feedback-submit"
+                title="Submit your feedback as a GitHub issue"
               >
                 {isSubmitting ? 'Submitting...' : 'Submit'}
               </button>

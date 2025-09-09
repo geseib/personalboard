@@ -834,8 +834,8 @@ function App() {
     <div className="app" style={{ backgroundImage: `url(${page.image})` }}>
       <input type="file" id="upload" accept="application/json" style={{ display: 'none' }} onChange={handleUpload} />
       <div className="top-buttons">
-        <button onClick={() => document.getElementById('upload').click()}>Upload</button>
-        <button onClick={reset}>Start New</button>
+        <button onClick={() => document.getElementById('upload').click()} title="Import previously saved board data from JSON file">Upload</button>
+        <button onClick={reset} title="Clear all data and start with a fresh board">Start New</button>
       </div>
       <Quote text={page.quote} position={page.quotePosition} />
       {current !== 'intro' && current !== 'board' && (
@@ -861,12 +861,13 @@ function App() {
               }}
               onMouseOver={(e) => e.target.style.backgroundColor = '#dc2626'}
               onMouseOut={(e) => e.target.style.backgroundColor = '#ef4444'}
+              title="Watch video tutorial for this section"
             >
               Video
             </button>
           )}
-          <button onClick={() => setShowLearn(true)}>Learn</button>
-          <button onClick={() => handleAdd(current)}>+ Add</button>
+          <button onClick={() => setShowLearn(true)} title="Learn about this board member type and best practices">Learn</button>
+          <button onClick={() => handleAdd(current)} title="Add a new board member to this category">+ Add</button>
         </div>
       )}
       {current === 'board' && (
@@ -887,6 +888,7 @@ function App() {
             }}
             onMouseOver={(e) => e.target.style.backgroundColor = '#dc2626'}
             onMouseOut={(e) => e.target.style.backgroundColor = '#ef4444'}
+            title="Watch video about your complete board"
           >
             🎥 Video
           </button>
@@ -896,11 +898,12 @@ function App() {
               backgroundColor: '#10b981',
               color: 'white'
             }}
+            title="Analyze your entire board composition and get strategic recommendations"
           >
             Analyze Board
           </button>
-          <button onClick={downloadJSON}>Download JSON</button>
-          <button onClick={downloadPDF}>Download PDF</button>
+          <button onClick={downloadJSON} title="Export your board data as JSON for backup">Download JSON</button>
+          <button onClick={downloadPDF} title="Generate a PDF report of your board and goals">Download PDF</button>
         </div>
       )}
       <div className="content">
@@ -916,7 +919,16 @@ function App() {
               setCurrent(p.key);
               setShowForm(false);
               setShowAdvisorModal(false);
-            }}>
+            }} title={
+              p.key === 'intro' ? 'Introduction to Personal Board of Directors' :
+              p.key === 'goals' ? 'Set your career goals and objectives' :
+              p.key === 'mentors' ? 'Add senior advisors who provide wisdom and guidance' :
+              p.key === 'coaches' ? 'Add skilled practitioners who help build specific competencies' :
+              p.key === 'sponsors' ? 'Add influential advocates who champion your advancement' :
+              p.key === 'connectors' ? 'Add well-networked individuals who expand your reach' :
+              p.key === 'peers' ? 'Add colleagues who provide mutual support and perspectives' :
+              p.key === 'board' ? 'View your complete board and timeline visualization' : ''
+            }>
               <span className="nav-title">{p.title}</span>
               {showCount && (
                 <span className="nav-count">{count}</span>
@@ -1794,7 +1806,7 @@ function FormModal({ type, item, onSave, onClose, onAdvise, advisorShowing }) {
           </div>
         )}
         <div className="modal-buttons">
-          <button onClick={save}>Save</button>
+          <button onClick={save} title="Save this board member or goal">Save</button>
           {onAdvise && (
             <button 
               onClick={() => onAdvise(form)}
@@ -1802,11 +1814,12 @@ function FormModal({ type, item, onSave, onClose, onAdvise, advisorShowing }) {
                 backgroundColor: '#10b981',
                 color: 'white'
               }}
+              title="Get AI-powered guidance and recommendations for this entry"
             >
               Advise
             </button>
           )}
-          <button onClick={onClose}>Cancel</button>
+          <button onClick={onClose} title="Cancel and close this form">Cancel</button>
         </div>
       </div>
     </div>
