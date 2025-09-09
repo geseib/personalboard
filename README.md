@@ -1,126 +1,205 @@
-# Personal Board
+# Personal Board of Directors
 
-A modern web application for managing your personal board of directors - the trusted advisors who guide your career and personal growth.
+Build and manage your professional support network with an interactive web application that helps you strategically organize mentors, coaches, sponsors, connectors, and peers to accelerate your career growth.
 
-## Features
+## 🎯 Overview
 
-- **Interactive Board Management**: Add, edit, and track your mentors, coaches, connectors, sponsors, and peers
-- **Visual Board Display**: See your board arranged around a conference table
-- **Timeline Visualization**: Track meeting patterns and engagement over time
-- **PDF Export**: Generate professional reports of your board and relationships
-- **Educational Content**: Learn about building and maintaining a personal board of directors
+Personal Board of Directors is a career development tool that helps professionals build and maintain strategic relationships. Just as companies have boards of directors to provide guidance and oversight, individuals can benefit from assembling their own "board" of advisors to support their career journey.
 
-## Getting Started
+## ✨ Features
+
+### Core Functionality
+- **Interactive Board Management**: Add, edit, and organize your professional relationships across five key categories
+- **Goal Setting & Tracking**: Define short-term (90 days), medium-term (1 year), and long-term (10 years) career goals
+- **Visual Timeline**: See your board members organized by meeting cadence in an intuitive timeline view
+- **PDF Export**: Generate a professional PDF summary of your board and goals for reference
+- **Data Portability**: Import/export your data as JSON for backup and migration
+
+### AI-Powered Assistance
+- **Smart Suggestions**: Get AI-powered recommendations for building relationships and setting goals
+- **Board Analysis**: Receive insights on gaps and opportunities in your professional network
+- **Contextual Guidance**: Access role-specific advice for each type of board member
+- **Goal Alignment**: Understand how your board can help achieve your career objectives
+
+### Learning Resources
+- **Educational Content**: Built-in explanations for each board member type
+- **Video Tutorials**: Integrated video guides for getting started
+- **Best Practices**: Learn how to approach and maintain professional relationships
+
+### User Feedback System
+- **GitHub Integration**: Submit bug reports and feature requests directly from the app
+- **Floating Action Button**: Easy access to feedback form without leaving your workflow
+
+## 🚀 Getting Started
 
 ### Prerequisites
-
-- Node.js (v16 or higher)
-- npm or yarn
+- Node.js 18+ and npm
+- AWS Account (for deployment)
+- GitHub Personal Access Token (for feedback system)
 
 ### Local Development
 
-1. **Install dependencies:**
-   ```bash
-   npm install
-   ```
+1. **Clone the repository**
+```bash
+git clone https://github.com/geseib/personalboard.git
+cd personalboard
+```
 
-2. **Start the development server:**
-   ```bash
-   npm start
-   ```
+2. **Install dependencies**
+```bash
+npm install
+```
 
-3. **Build for production:**
-   ```bash
-   npm run build
-   ```
+3. **Run the development server**
+```bash
+npm start
+```
 
-## Deployment
+4. **Open in browser**
+Navigate to `http://localhost:1234` to view the application
 
-This project is configured for deployment to AWS using CloudFormation, S3, CloudFront, and Route 53.
+### Deployment
 
-### Prerequisites for Deployment
+The application is deployed using AWS SAM (Serverless Application Model).
 
-- AWS CLI configured with appropriate permissions
-- SAM CLI installed
-- Route 53 hosted zone for your domain
-- Hosted Zone ID environment variable set
+1. **Configure AWS credentials**
+```bash
+aws configure
+```
 
-### Deploy to AWS
+2. **Set environment variables**
+```bash
+export GITHUB_TOKEN=your_github_token_here
+export HOSTED_ZONE_ID=your-hosted-zone-id
+```
 
-1. **Set your hosted zone ID:**
-   ```bash
-   export HOSTED_ZONE_ID=your-hosted-zone-id-here
-   ```
+3. **Deploy the application**
+```bash
+./deploy.sh
+```
 
-2. **Deploy the application:**
-   ```bash
-   npm run deploy
-   ```
+This will:
+- Build and deploy Lambda functions for AI guidance and feedback
+- Set up API Gateway endpoints
+- Configure S3 bucket for static hosting
+- Create CloudFront distribution
+- Set up Route 53 DNS (if configured)
 
-The deployment script will:
-- Build the React application
-- Deploy AWS infrastructure (S3, CloudFront, SSL certificate, Route 53)
-- Upload files to S3 with appropriate caching headers
-- Invalidate CloudFront cache
+## 🏗️ Architecture
+
+### Frontend
+- **Framework**: Vanilla JavaScript with modern ES6+
+- **Styling**: Custom CSS with responsive design
+- **Build Tool**: Parcel bundler
+- **PDF Generation**: jsPDF library
+
+### Backend
+- **API**: AWS API Gateway with REST endpoints
+- **Functions**: AWS Lambda (Node.js 18.x)
+- **AI Integration**: Amazon Bedrock with Claude 3.5
+- **Storage**: Browser localStorage for data persistence
 
 ### Infrastructure
+- **Hosting**: S3 + CloudFront
+- **DNS**: Route 53
+- **IaC**: AWS SAM/CloudFormation
+- **Monitoring**: CloudWatch
 
-The deployment creates:
-- **S3 Bucket**: Private bucket for hosting static files
-- **CloudFront Distribution**: CDN with custom domain and SSL
-- **SSL Certificate**: Auto-validated via Route 53
-- **Route 53 Record**: DNS alias pointing to CloudFront
+## 📚 Board Member Types
 
-## Project Structure
+### Mentors
+Senior professionals who provide wisdom and long-term career guidance through quarterly strategic sessions.
 
-```
-personalboard/
-├── app.js              # Main React application
-├── style.css           # Application styles
-├── index.html          # HTML entry point
-├── utils.js            # Utility functions
-├── package.json        # Dependencies and scripts
-├── template.yaml       # CloudFormation/SAM template
-├── samconfig.toml      # SAM CLI configuration
-└── scripts/
-    └── deploy.sh       # Deployment script
-```
+### Coaches
+Skill-builders who help develop specific competencies through hands-on practice and regular feedback.
 
-## Usage
+### Sponsors
+Influential advocates who champion your advancement and open doors to opportunities.
 
-### Managing Your Board
+### Connectors
+Well-networked individuals who expand your professional network through strategic introductions.
 
-1. **Add Members**: Click the "+" button on any role page to add new board members
-2. **Edit Members**: Use the edit icon on member cards to update information
-3. **Set Cadence**: Use the slider to set meeting frequency for each member
-4. **Take Notes**: Add engagement notes to track relationship development
+### Peers
+Colleagues at similar career levels who provide mutual support and diverse perspectives.
 
-### Understanding Roles
+## 🤝 Contributing
 
-- **Mentors**: Experienced guides who share wisdom and open doors
-- **Coaches**: Skill developers who provide targeted feedback
-- **Connectors**: Network expanders who make valuable introductions
-- **Sponsors**: Advocates who actively promote your advancement
-- **Peers**: Journey companions who provide mutual support
+We welcome contributions from the community! Here's how you can help:
 
-### Exporting Data
+### Areas We Need Help
 
-- **PDF Export**: Generate a comprehensive board report
-- **JSON Export**: Download your data for backup or analysis
-- **JSON Import**: Upload previously exported data
+#### Frontend Development
+- **UI/UX Improvements**: Enhance the user interface and experience
+- **Mobile Optimization**: Improve responsive design for mobile devices
+- **Accessibility**: Ensure WCAG compliance and keyboard navigation
+- **Dark Mode**: Implement theme switching capability
 
-## Technologies Used
+#### Backend Development
+- **API Enhancements**: Add new endpoints and improve existing ones
+- **Authentication**: Implement user accounts and data sync
+- **Database Integration**: Move from localStorage to persistent backend storage
+- **Analytics**: Add usage tracking and insights
 
-- **React 18**: Modern UI framework
-- **Parcel**: Fast, zero-configuration build tool
-- **jsPDF**: PDF generation for reports
-- **AWS SAM**: Infrastructure as code
-- **AWS Services**: S3, CloudFront, Route 53, ACM
+#### AI Features
+- **Prompt Engineering**: Improve AI response quality and relevance
+- **New AI Capabilities**: Add meeting preparation, email drafts, and networking strategies
+- **Multi-language Support**: Extend AI guidance to support multiple languages
 
-## Contributing
+#### Documentation
+- **User Guides**: Create comprehensive documentation for end users
+- **API Documentation**: Document backend APIs for developers
+- **Video Tutorials**: Create educational content
+- **Blog Posts**: Share career development best practices
 
-This is a personal project, but suggestions and feedback are welcome!
+#### Testing
+- **Unit Tests**: Increase test coverage for JavaScript code
+- **E2E Tests**: Implement Playwright or Cypress tests
+- **Performance Testing**: Optimize load times and responsiveness
+- **Cross-browser Testing**: Ensure compatibility across browsers
 
-## License
+### How to Contribute
 
-Private project - All rights reserved.
+1. **Fork the repository**
+2. **Create a feature branch** (`git checkout -b feature/AmazingFeature`)
+3. **Make your changes**
+4. **Run tests** (when available)
+5. **Commit your changes** (`git commit -m 'Add some AmazingFeature'`)
+6. **Push to the branch** (`git push origin feature/AmazingFeature`)
+7. **Open a Pull Request**
+
+### Development Guidelines
+
+- Follow existing code style and conventions
+- Add comments for complex logic
+- Update documentation for new features
+- Test your changes thoroughly
+- Keep commits focused and atomic
+
+### Reporting Issues
+
+Use the in-app feedback button or create an issue on GitHub with:
+- Clear description of the problem
+- Steps to reproduce
+- Expected vs actual behavior
+- Screenshots if applicable
+- Browser and OS information
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- Built with AWS Serverless technologies
+- AI powered by Claude 3.5 (Anthropic)
+- Inspired by career development best practices
+- Community feedback and contributions
+
+## 📬 Contact
+
+- **GitHub Issues**: [Report bugs or request features](https://github.com/geseib/personalboard/issues)
+- **Website**: [https://board.seibtribe.us](https://board.seibtribe.us)
+
+---
+
+**Start building your Personal Board of Directors today and take control of your career growth!**
