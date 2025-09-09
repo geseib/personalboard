@@ -1,30 +1,10 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, UpdateCommand } from "@aws-sdk/lib-dynamodb";
-import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
 import jwt from "jsonwebtoken";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-const ssm = new SSMClient({});
 const TABLE = process.env.TABLE;
-
-let jwtSecret = null;
-
-async function getJWTSecret() {
-  if (!jwtSecret) {
-    try {
-      const command = new GetParameterCommand({
-        Name: "/personal-board/jwt-secret",
-        WithDecryption: true
-      });
-      const response = await ssm.send(command);
-      jwtSecret = response.Parameter.Value;
-    } catch (error) {
-      console.error('Failed to retrieve JWT secret:', error);
-      throw new Error('Authentication configuration error');
-    }
-  }
-  return jwtSecret;
-}
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const json = (statusCode, body) => ({
   statusCode,
@@ -75,7 +55,6 @@ export const handler = async (event) => {
 
     await ddb.send(cmd);
 
-    const secret = await getJWTSecret();
     const token = jwt.sign(
       { 
         sub: clientId, 
@@ -84,7 +63,7 @@ export const handler = async (event) => {
         exp,
         app: "personal-board"
       },
-      secret,
+      JWT_SECRET,
       { algorithm: "HS256" }
     );
 

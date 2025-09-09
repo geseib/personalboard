@@ -27,6 +27,27 @@ Parameters:
     NoEcho: true
     Description: GitHub Personal Access Token for creating issues
 Resources:
+  AccessCodesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName:
+        Fn::Sub: ${StackName}-access-codes
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+      - AttributeName: code
+        AttributeType: S
+      KeySchema:
+      - AttributeName: code
+        KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+      - Key: Project
+        Value: PersonalBoard
+      - Key: Environment
+        Value:
+          Ref: Environment
   RestApi:
     Type: AWS::ApiGateway::RestApi
     Properties:
@@ -44,6 +65,43 @@ Resources:
       - Key: Environment
         Value:
           Ref: Environment
+  LambdaAuthorizer:
+    Type: AWS::ApiGateway::Authorizer
+    Properties:
+      Name:
+        Fn::Sub: ${StackName}-jwt-authorizer
+      Type: REQUEST
+      AuthorizerUri:
+        Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AuthorizerFunction.Arn}/invocations
+      AuthorizerCredentials:
+        Fn::GetAtt:
+        - AuthorizerRole
+        - Arn
+      AuthorizerResultTtlInSeconds: 300
+      IdentitySource: method.request.header.Authorization
+      RestApiId:
+        Ref: RestApi
+  AuthorizerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: apigateway.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: InvokeLambda
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action: lambda:InvokeFunction
+            Resource:
+              Fn::GetAtt:
+              - AuthorizerFunction
+              - Arn
   ApiDeployment:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
@@ -51,6 +109,8 @@ Resources:
     - AIGuidanceOptionsMethod
     - FeedbackMethod
     - FeedbackOptionsMethod
+    - ActivateMethod
+    - ActivateOptionsMethod
     Properties:
       RestApiId:
         Ref: RestApi
@@ -62,7 +122,7 @@ Resources:
         Variables:
           environment:
             Ref: Environment
-          deploymentId: 2025-09-08-v3
+          deploymentId: 2025-09-09-auth
   AIGuidanceFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -124,6 +184,77 @@ Resources:
           Ref: StackName
     Metadata:
       SamResourceId: FeedbackFunction
+  AuthorizerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName:
+        Fn::Sub: ${StackName}-jwt-authorizer
+      CodeUri: AuthorizerFunction
+      Handler: authorizer.handler
+      Runtime: nodejs20.x
+      Timeout: 10
+      MemorySize: 256
+      Environment:
+        Variables:
+          JWT_SECRET: '{{resolve:ssm-secure:/personal-board/jwt-secret:1}}'
+      Tags:
+        Environment:
+          Ref: Environment
+        StackName:
+          Ref: StackName
+    Metadata:
+      SamResourceId: AuthorizerFunction
+  ActivateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName:
+        Fn::Sub: ${StackName}-activate
+      CodeUri: ActivateFunction
+      Handler: activate.handler
+      Runtime: nodejs20.x
+      Timeout: 10
+      MemorySize: 256
+      Environment:
+        Variables:
+          TABLE:
+            Ref: AccessCodesTable
+          JWT_SECRET: '{{resolve:ssm-secure:/personal-board/jwt-secret:1}}'
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: AccessCodesTable
+      Tags:
+        Environment:
+          Ref: Environment
+        StackName:
+          Ref: StackName
+    Metadata:
+      SamResourceId: ActivateFunction
+  GenerateCodesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName:
+        Fn::Sub: ${StackName}-generate-codes
+      CodeUri: GenerateCodesFunction
+      Handler: generate-codes.handler
+      Runtime: nodejs20.x
+      Timeout: 30
+      MemorySize: 256
+      Environment:
+        Variables:
+          TABLE:
+            Ref: AccessCodesTable
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: AccessCodesTable
+      Tags:
+        Environment:
+          Ref: Environment
+        StackName:
+          Ref: StackName
+    Metadata:
+      SamResourceId: GenerateCodesFunction
   AIGuidanceLambdaPermission:
     Type: AWS::Lambda::Permission
     Properties:
@@ -139,6 +270,15 @@ Resources:
       Action: lambda:InvokeFunction
       FunctionName:
         Ref: FeedbackFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Sub: arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/*/*
+  ActivateLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Ref: ActivateFunction
       Principal: apigateway.amazonaws.com
       SourceArn:
         Fn::Sub: arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/*/*
@@ -162,6 +302,16 @@ Resources:
         - RestApi
         - RootResourceId
       PathPart: feedback
+  ActivateResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId:
+        Ref: RestApi
+      ParentId:
+        Fn::GetAtt:
+        - RestApi
+        - RootResourceId
+      PathPart: activate
   AIGuidanceMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -170,7 +320,9 @@ Resources:
       ResourceId:
         Ref: AIGuidanceResource
       HttpMethod: POST
-      AuthorizationType: NONE
+      AuthorizationType: CUSTOM
+      AuthorizerId:
+        Ref: LambdaAuthorizer
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
@@ -236,6 +388,46 @@ Resources:
         IntegrationHttpMethod: POST
         Uri:
           Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FeedbackFunction.Arn}/invocations
+      MethodResponses:
+      - StatusCode: 200
+        ResponseParameters:
+          method.response.header.Access-Control-Allow-Origin: true
+          method.response.header.Access-Control-Allow-Methods: true
+          method.response.header.Access-Control-Allow-Headers: true
+  ActivateMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId:
+        Ref: RestApi
+      ResourceId:
+        Ref: ActivateResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri:
+          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ActivateFunction.Arn}/invocations
+      MethodResponses:
+      - StatusCode: 200
+        ResponseParameters:
+          method.response.header.Access-Control-Allow-Origin: true
+          method.response.header.Access-Control-Allow-Methods: true
+          method.response.header.Access-Control-Allow-Headers: true
+  ActivateOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId:
+        Ref: RestApi
+      ResourceId:
+        Ref: ActivateResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri:
+          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ActivateFunction.Arn}/invocations
       MethodResponses:
       - StatusCode: 200
         ResponseParameters:

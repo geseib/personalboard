@@ -18,4 +18,13 @@ manifest_hash = ""
 packagetype = "Zip"
 functions = ["FeedbackFunction"]
 
+[function_build_definitions.368e9503-581e-4da4-abef-8e95f3552b2f]
+codeuri = "/Users/georgeseib/Documents/projects/personalboard/lambda-functions/auth"
+runtime = "nodejs20.x"
+architecture = "x86_64"
+handler = "authorizer.handler"
+manifest_hash = "a53d7878519835a8e662863dc8edfb44"
+packagetype = "Zip"
+functions = ["AuthorizerFunction", "ActivateFunction", "GenerateCodesFunction"]
+
 [layer_build_definitions]
