@@ -18,7 +18,7 @@ async function getAIGuidance(type, data, context = {}) {
     const response = await fetch(`${AI_API_BASE_URL}/ai-guidance`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'text/plain',
       },
       body: JSON.stringify({
         type,
@@ -113,6 +113,51 @@ export async function getMentorAdvisorGuidance(currentFormData, goals, learnCont
     goals,
     learnContent,
     existingMentors
+  });
+}
+
+/**
+ * Get board member advisor guidance for any board member type
+ * @param {string} memberType - Type of board member (mentors, coaches, sponsors, connectors, peers)
+ * @param {Object} currentFormData - Current form field values
+ * @param {Array} goals - User's career goals
+ * @param {string} learnContent - Learn modal content for context
+ * @param {Array} existingMembers - Current members of this type
+ * @returns {Promise<Object>} Pointed questions and specific recommendations
+ */
+export async function getBoardMemberAdvisorGuidance(memberType, currentFormData, goals, learnContent, existingMembers) {
+  return getAIGuidance('board_member_advisor', {
+    memberType,
+    currentFormData,
+    goals,
+    learnContent,
+    existingMembers
+  });
+}
+
+/**
+ * Get goals advisor guidance for goal setting and refinement
+ * @param {Object} currentFormData - Current goal form data (if editing)
+ * @param {Array} allGoals - All user's current goals
+ * @param {Object} boardData - Complete board of directors data for context
+ * @returns {Promise<Object>} Questions and recommendations for better goal setting
+ */
+export async function getGoalsAdvisorGuidance(currentFormData, allGoals, boardData) {
+  return getAIGuidance('goals_advisor', {
+    currentFormData,
+    allGoals,
+    boardData
+  });
+}
+
+/**
+ * Get comprehensive board analysis advisor guidance
+ * @param {Object} boardData - Complete board of directors data
+ * @returns {Promise<Object>} Analysis and recommendations across all board relationships
+ */
+export async function getBoardAnalysisAdvisorGuidance(boardData) {
+  return getAIGuidance('board_analysis_advisor', {
+    boardData
   });
 }
 

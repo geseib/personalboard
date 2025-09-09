@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { jsPDF } from 'jspdf';
 import { connectionLevels } from './utils.js';
-import { getMentorAdvisorGuidance } from './ai-client.js';
+import { getMentorAdvisorGuidance, getBoardMemberAdvisorGuidance, getGoalsAdvisorGuidance, getBoardAnalysisAdvisorGuidance } from './ai-client.js';
+import { FeedbackButton } from './feedback.js';
+import './feedback.css';
 // use direct paths so images resolve without a bundler
 
 
@@ -40,13 +42,28 @@ function App() {
   const [editingIndex, setEditingIndex] = useState(null);
   const [showUploadSuccess, setShowUploadSuccess] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
+  const [showMentorVideoModal, setShowMentorVideoModal] = useState(false);
+  const [showCoachVideoModal, setShowCoachVideoModal] = useState(false);
+  const [showGoalsVideoModal, setShowGoalsVideoModal] = useState(false);
+  const [showBoardVideoModal, setShowBoardVideoModal] = useState(false);
   const [showAdvisorModal, setShowAdvisorModal] = useState(false);
   const [advisorGuidance, setAdvisorGuidance] = useState(null);
   const [advisorLoading, setAdvisorLoading] = useState(false);
+  const [boardAdvice, setBoardAdvice] = useState(() => {
+    const stored = localStorage.getItem('boardAdvice');
+    return stored ? JSON.parse(stored) : null;
+  });
+  const [boardAdviceLoading, setBoardAdviceLoading] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('boardData', JSON.stringify(data));
   }, [data]);
+
+  useEffect(() => {
+    if (boardAdvice) {
+      localStorage.setItem('boardAdvice', JSON.stringify(boardAdvice));
+    }
+  }, [boardAdvice]);
 
   const page = pages.find(p => p.key === current);
 
@@ -55,6 +72,22 @@ function App() {
     setEditingItem(null);
     setEditingIndex(null);
     setShowForm(true);
+  };
+
+  const getBoardAdvice = async () => {
+    setBoardAdviceLoading(true);
+    try {
+      const result = await getBoardAnalysisAdvisorGuidance(data);
+      setBoardAdvice(result.guidance || result.message || 'No analysis available');
+      return result.guidance || result.message || 'No analysis available';
+    } catch (error) {
+      console.error('Error getting board advice:', error);
+      const errorMsg = 'Sorry, there was an error getting analysis. Please try again later.';
+      setBoardAdvice(errorMsg);
+      return errorMsg;
+    } finally {
+      setBoardAdviceLoading(false);
+    }
   };
 
   const handleEdit = (type, item, index) => {
@@ -91,24 +124,47 @@ function App() {
   };
 
   const handleAdvise = async (currentFormData) => {
-    if (formType !== 'mentors') return; // Only for mentors for now
     
     setAdvisorLoading(true);
     setShowAdvisorModal(true);
     
     try {
-      // Get learn content for mentors
-      const learnContent = "Senior leaders who provide wisdom, guidance, and strategic advice. They help you see the bigger picture, understand industry dynamics, and make important career decisions. Mentors typically meet quarterly and focus on long-term career development rather than day-to-day issues.";
+      let result;
       
-      // Get existing mentors
-      const existingMentors = data.mentors || [];
-      
-      const result = await getMentorAdvisorGuidance(
-        currentFormData,
-        data.goals || [],
-        learnContent,
-        existingMentors
-      );
+      if (formType === 'goals') {
+        // Goals advisor
+        result = await getGoalsAdvisorGuidance(
+          currentFormData,
+          data.goals || [],
+          data // Pass all board data for context
+        );
+      } else if (formType === 'board') {
+        // Board analysis advisor - show inline instead of modal
+        setShowAdvisorModal(false);
+        setAdvisorLoading(false);
+        await getBoardAdvice();
+        return;
+      } else {
+        // Board member advisor
+        const learnContentMap = {
+          'mentors': "Senior leaders who provide wisdom, guidance, and strategic advice. They help you see the bigger picture, understand industry dynamics, and make important career decisions. Mentors typically meet quarterly and focus on long-term career development rather than day-to-day issues.",
+          'coaches': "Skilled practitioners who help you develop specific competencies and improve performance. They provide hands-on guidance, practical feedback, and help you build concrete skills. Coaches often meet weekly or bi-weekly and focus on immediate skill development and performance improvement.",
+          'sponsors': "Senior leaders with organizational influence who advocate for your advancement behind closed doors. They champion your career, open doors to opportunities, and help position you for promotions. Sponsors use their political capital and networks to advance your career.",
+          'connectors': "Well-networked individuals who excel at making introductions and expanding your professional network. They know people across industries and functions, and are generous with their connections. Connectors help you meet the right people at the right time.",
+          'peers': "Colleagues at similar career levels who provide mutual support, collaboration, and shared learning. They offer different perspectives, help you navigate challenges, and can become long-term professional allies. Peer relationships are typically reciprocal and ongoing."
+        };
+        
+        const learnContent = learnContentMap[formType] || learnContentMap['mentors'];
+        const existingMembers = data[formType] || [];
+        
+        result = await getBoardMemberAdvisorGuidance(
+          formType,
+          currentFormData,
+          data.goals || [],
+          learnContent,
+          existingMembers
+        );
+      }
       
       setAdvisorGuidance(result.guidance);
     } catch (error) {
@@ -144,7 +200,14 @@ function App() {
     a.click();
   };
 
-  const downloadPDF = () => {
+  const downloadPDF = async () => {
+    // Ensure we have board advice for the PDF
+    let currentBoardAdvice = boardAdvice;
+    if (!currentBoardAdvice && Object.keys(data).some(key => data[key] && data[key].length > 0 && key !== 'goals')) {
+      console.log('Getting board advice for PDF...');
+      currentBoardAdvice = await getBoardAdvice();
+    }
+    
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.height;
@@ -693,6 +756,49 @@ function App() {
       });
     }
     
+    // Board Analysis Section
+    if (currentBoardAdvice) {
+      // Check if we need a new page
+      if (currentY > pageHeight - 80) {
+        doc.addPage();
+        currentY = 20;
+      } else {
+        currentY += 20; // Add some spacing from previous section
+      }
+      
+      // Board Analysis Section Header
+      doc.setFillColor(16, 185, 129); // Green header
+      doc.rect(0, currentY - 15, pageWidth, 25, 'F');
+      
+      doc.setFontSize(18);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(255, 255, 255);
+      doc.text('AI Board Analysis', pageWidth / 2, currentY - 3, { align: 'center' });
+      currentY += 15;
+      
+      // Analysis content background
+      doc.setFillColor(240, 253, 244); // Light green background
+      doc.setDrawColor(187, 247, 208); // Green border
+      doc.rect(20, currentY - 5, pageWidth - 40, 10, 'FD'); // Will adjust height
+      
+      // Analysis content
+      const analysisStartY = currentY;
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(55, 65, 81);
+      
+      const analysisLines = doc.splitTextToSize(currentBoardAdvice, pageWidth - 50);
+      const analysisHeight = analysisLines.length * 4 + 10;
+      
+      // Redraw background with correct height
+      doc.setFillColor(240, 253, 244);
+      doc.setDrawColor(187, 247, 208);
+      doc.rect(20, analysisStartY - 5, pageWidth - 40, analysisHeight, 'FD');
+      
+      doc.text(analysisLines, 25, currentY);
+      currentY += analysisLines.length * 4 + 15;
+    }
+    
     doc.save('personal-board.pdf');
   };
   
@@ -734,18 +840,71 @@ function App() {
       <Quote text={page.quote} position={page.quotePosition} />
       {current !== 'intro' && current !== 'board' && (
         <div className="actions">
+          {(current === 'goals' || current === 'mentors' || current === 'coaches' || current === 'connectors' || current === 'sponsors' || current === 'peers') && (
+            <button 
+              onClick={() => {
+                if (current === 'goals') setShowGoalsVideoModal(true);
+                else if (current === 'mentors') setShowMentorVideoModal(true);
+                else if (current === 'coaches') setShowCoachVideoModal(true);
+              }}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#ef4444',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                marginRight: '10px',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseOver={(e) => e.target.style.backgroundColor = '#dc2626'}
+              onMouseOut={(e) => e.target.style.backgroundColor = '#ef4444'}
+            >
+              Video
+            </button>
+          )}
           <button onClick={() => setShowLearn(true)}>Learn</button>
           <button onClick={() => handleAdd(current)}>+ Add</button>
         </div>
       )}
       {current === 'board' && (
         <div className="board-actions">
+          <button 
+            onClick={() => setShowBoardVideoModal(true)}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#ef4444',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '14px',
+              fontWeight: '500',
+              cursor: 'pointer',
+              marginRight: '10px',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseOver={(e) => e.target.style.backgroundColor = '#dc2626'}
+            onMouseOut={(e) => e.target.style.backgroundColor = '#ef4444'}
+          >
+            🎥 Video
+          </button>
+          <button 
+            onClick={() => handleAdvise(null)}
+            style={{
+              backgroundColor: '#10b981',
+              color: 'white'
+            }}
+          >
+            Analyze Board
+          </button>
           <button onClick={downloadJSON}>Download JSON</button>
           <button onClick={downloadPDF}>Download PDF</button>
         </div>
       )}
       <div className="content">
-        {current === 'intro' ? <Intro onLearnClick={() => setShowIntroLearn(true)} onVideoClick={() => setShowVideoModal(true)} /> : current === 'goals' ? <Goals items={data[current] || []} onEdit={handleEdit} /> : current === 'board' ? <Board data={data} /> : <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} />}
+        {current === 'intro' ? <Intro onLearnClick={() => setShowIntroLearn(true)} onVideoClick={() => setShowVideoModal(true)} /> : current === 'goals' ? <Goals items={data[current] || []} onEdit={handleEdit} /> : current === 'board' ? <Board data={data} boardAdvice={boardAdvice} boardAdviceLoading={boardAdviceLoading} /> : current === 'mentors' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} /> : current === 'coaches' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} /> : <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} />}
       </div>
       <nav className="nav">
         {pages.map(p => {
@@ -753,7 +912,11 @@ function App() {
           const showCount = p.key !== 'intro' && p.key !== 'board' && p.key !== 'goals';
           
           return (
-            <button key={p.key} className={p.key === current ? 'active' : ''} onClick={() => setCurrent(p.key)}>
+            <button key={p.key} className={p.key === current ? 'active' : ''} onClick={() => {
+              setCurrent(p.key);
+              setShowForm(false);
+              setShowAdvisorModal(false);
+            }}>
               <span className="nav-title">{p.title}</span>
               {showCount && (
                 <span className="nav-count">{count}</span>
@@ -775,10 +938,16 @@ function App() {
       </nav>
       {showLearn && <LearnModal type={current} onClose={() => setShowLearn(false)} onAddClick={() => { setShowLearn(false); handleAdd(current); }} />}
       {showIntroLearn && <IntroLearnModal onClose={() => setShowIntroLearn(false)} />}
-      {showForm && <FormModal type={formType} item={editingItem} onSave={saveEntry} onClose={() => setShowForm(false)} onAdvise={handleAdvise} />}
+      {showForm && <FormModal type={formType} item={editingItem} onSave={saveEntry} onClose={() => setShowForm(false)} onAdvise={handleAdvise} advisorShowing={showAdvisorModal} />}
       {showUploadSuccess && <UploadSuccessPopup />}
       {showVideoModal && <VideoModal onClose={() => setShowVideoModal(false)} />}
+      {showMentorVideoModal && <MentorVideoModal onClose={() => setShowMentorVideoModal(false)} />}
+      {showCoachVideoModal && <CoachVideoModal onClose={() => setShowCoachVideoModal(false)} />}
+      {showGoalsVideoModal && <GoalsVideoModal onClose={() => setShowGoalsVideoModal(false)} />}
+      {showBoardVideoModal && <BoardVideoModal onClose={() => setShowBoardVideoModal(false)} />}
       {showAdvisorModal && <AdvisorModal guidance={advisorGuidance} loading={advisorLoading} onClose={() => setShowAdvisorModal(false)} />}
+      
+      <FeedbackButton />
     </div>
   );
 }
@@ -860,7 +1029,7 @@ function Intro({ onLearnClick, onVideoClick }) {
           onMouseOver={(e) => e.target.style.backgroundColor = '#dc2626'}
           onMouseOut={(e) => e.target.style.backgroundColor = '#ef4444'}
         >
-          🎥 Watch Video
+          Watch Video
         </button>
       </div>
     </div>
@@ -923,7 +1092,7 @@ function List({ type, items, onEdit, onDelete }) {
   );
 }
 
-function Board({ data }) {
+function Board({ data, boardAdvice, boardAdviceLoading }) {
   // Flatten all board members with their types (exclude goals)
   const allMembers = [];
   Object.keys(data).forEach(type => {
@@ -1000,6 +1169,26 @@ function Board({ data }) {
 
   return (
     <div className="board-container">
+      {/* Board Analysis Advice */}
+      {(boardAdvice || boardAdviceLoading) && (
+        <div className="board-advice-section" style={{
+          marginBottom: '30px',
+          padding: '20px',
+          backgroundColor: '#f0fdf4',
+          border: '1px solid #bbf7d0',
+          borderRadius: '8px'
+        }}>
+          <h3 style={{ color: '#10b981', margin: '0 0 15px 0' }}>AI Board Analysis</h3>
+          {boardAdviceLoading ? (
+            <div style={{ color: '#6b7280' }}>Generating analysis...</div>
+          ) : (
+            <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6', color: '#374151' }}>
+              {boardAdvice}
+            </div>
+          )}
+        </div>
+      )}
+      
       {/* Meeting Cadence Grid */}
       <div className="timeline-section">
         <h3>Meeting Cadence Overview</h3>
@@ -1493,8 +1682,9 @@ function UploadSuccessPopup() {
   );
 }
 
-function FormModal({ type, item, onSave, onClose, onAdvise }) {
+function FormModal({ type, item, onSave, onClose, onAdvise, advisorShowing }) {
   const handleOverlayClick = (e) => {
+    // Close FormModal when clicking on its overlay
     if (e.target === e.currentTarget) {
       onClose();
     }
@@ -1524,9 +1714,26 @@ function FormModal({ type, item, onSave, onClose, onAdvise }) {
   };
   
   return (
-    <div className="modal" onClick={handleOverlayClick}>
-      <div className="modal-content" style={{maxWidth: isGoals ? '600px' : '900px'}}>
-        <h2>{item ? 'Edit' : 'Add'} {isGoals ? 'Goal' : type.slice(0, -1)}</h2>
+    <div className={advisorShowing ? "modal split-screen-modal" : "modal"} onClick={handleOverlayClick} style={{
+      backgroundColor: advisorShowing ? 'transparent' : 'rgba(0, 0, 0, 0.6)',
+      pointerEvents: advisorShowing ? 'none' : 'auto'
+    }}>
+      <div className="modal-content" style={{
+        ...(advisorShowing ? {
+          position: 'fixed',
+          left: '2%',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          width: '45%',
+          maxWidth: 'none',
+          maxHeight: '85vh',
+          zIndex: 1000,
+          pointerEvents: 'auto'
+        } : {
+          maxWidth: isGoals ? '600px' : '900px'
+        })
+      }}>
+        <h2>{item ? 'Edit' : 'Add'} {isGoals ? 'Goal' : type === 'coaches' ? 'Coach' : type.slice(0, -1)}</h2>
         
         {isGoals ? (
           <>
@@ -1588,7 +1795,7 @@ function FormModal({ type, item, onSave, onClose, onAdvise }) {
         )}
         <div className="modal-buttons">
           <button onClick={save}>Save</button>
-          {type === 'mentors' && onAdvise && (
+          {onAdvise && (
             <button 
               onClick={() => onAdvise(form)}
               style={{
@@ -1637,7 +1844,231 @@ function VideoModal({ onClose }) {
           <iframe 
             width="560" 
             height="315" 
+            src="https://www.youtube.com/embed/hiiEeMN7vbQ?si=GEMzvg9eG3Kx95zR" 
+            title="YouTube video player" 
+            frameBorder="0" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+            referrerPolicy="strict-origin-when-cross-origin" 
+            allowFullScreen
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%'
+            }}
+          >
+          </iframe>
+        </div>
+        
+        <div className="modal-buttons" style={{marginTop: '20px'}}>
+          <button onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MentorVideoModal({ onClose }) {
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+  
+  return (
+    <div className="modal" onClick={handleOverlayClick}>
+      <div className="modal-content" style={{maxWidth: '800px', padding: '20px'}}>
+        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
+          <h2 style={{margin: 0}}>Mentors: Building Your Advisory Network</h2>
+          <button 
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '24px',
+              cursor: 'pointer',
+              color: '#6b7280',
+              padding: '4px'
+            }}
+          >
+            ×
+          </button>
+        </div>
+        
+        <div style={{position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden'}}>
+          <iframe 
+            width="560" 
+            height="315" 
             src="https://www.youtube.com/embed/fATAT6L9o5k?si=IYaO25tXf2Y5JvQY" 
+            title="YouTube video player" 
+            frameBorder="0" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+            referrerPolicy="strict-origin-when-cross-origin" 
+            allowFullScreen
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%'
+            }}
+          >
+          </iframe>
+        </div>
+        
+        <div className="modal-buttons" style={{marginTop: '20px'}}>
+          <button onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CoachVideoModal({ onClose }) {
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+  
+  return (
+    <div className="modal" onClick={handleOverlayClick}>
+      <div className="modal-content" style={{maxWidth: '800px', padding: '20px'}}>
+        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
+          <h2 style={{margin: 0}}>Coaches: Developing Your Skills</h2>
+          <button 
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '24px',
+              cursor: 'pointer',
+              color: '#6b7280',
+              padding: '4px'
+            }}
+          >
+            ×
+          </button>
+        </div>
+        
+        <div style={{position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden'}}>
+          <iframe 
+            width="560" 
+            height="315" 
+            src="https://www.youtube.com/embed/oHDq1PcYkT4?si=joLEqG_YBsqOEhf3" 
+            title="YouTube video player" 
+            frameBorder="0" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+            referrerPolicy="strict-origin-when-cross-origin" 
+            allowFullScreen
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%'
+            }}
+          >
+          </iframe>
+        </div>
+        
+        <div className="modal-buttons" style={{marginTop: '20px'}}>
+          <button onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GoalsVideoModal({ onClose }) {
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+  
+  return (
+    <div className="modal" onClick={handleOverlayClick}>
+      <div className="modal-content" style={{maxWidth: '800px', padding: '20px'}}>
+        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
+          <h2 style={{margin: 0}}>Goals: Setting Your Direction</h2>
+          <button 
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '24px',
+              cursor: 'pointer',
+              color: '#6b7280',
+              padding: '4px'
+            }}
+          >
+            ×
+          </button>
+        </div>
+        
+        <div style={{position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden'}}>
+          <iframe 
+            width="560" 
+            height="315" 
+            src="https://www.youtube.com/embed/TKVAGxoU2AM?si=lXKoRPcJXSDovqJF" 
+            title="YouTube video player" 
+            frameBorder="0" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+            referrerPolicy="strict-origin-when-cross-origin" 
+            allowFullScreen
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%'
+            }}
+          >
+          </iframe>
+        </div>
+        
+        <div className="modal-buttons" style={{marginTop: '20px'}}>
+          <button onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BoardVideoModal({ onClose }) {
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+  
+  return (
+    <div className="modal" onClick={handleOverlayClick}>
+      <div className="modal-content" style={{maxWidth: '800px', padding: '20px'}}>
+        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
+          <h2 style={{margin: 0}}>Grit: The Power of Passion and Perseverance</h2>
+          <button 
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '24px',
+              cursor: 'pointer',
+              color: '#6b7280',
+              padding: '4px'
+            }}
+          >
+            ×
+          </button>
+        </div>
+        
+        <div style={{position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden'}}>
+          <iframe 
+            width="560" 
+            height="315" 
+            src="https://www.youtube.com/embed/H14bBuluwB8?si=mjR56k6I8P68JSm9" 
             title="YouTube video player" 
             frameBorder="0" 
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
@@ -1664,6 +2095,7 @@ function VideoModal({ onClose }) {
 
 function AdvisorModal({ guidance, loading, onClose }) {
   const handleOverlayClick = (e) => {
+    // Only close if clicking directly on the overlay, not on other modal content
     if (e.target === e.currentTarget) {
       onClose();
     }
@@ -1691,15 +2123,25 @@ function AdvisorModal({ guidance, loading, onClose }) {
   const { questions, recommendations } = parseGuidance(guidance);
 
   return (
-    <div className="modal" onClick={handleOverlayClick}>
+    <div className="modal advisor-modal" onClick={handleOverlayClick} style={{
+      backgroundColor: 'transparent', // No overlay blur effect
+      pointerEvents: 'none' // Allow clicking through to FormModal
+    }}>
       <div className="modal-content" style={{
-        maxWidth: '800px', 
+        position: 'fixed',
+        right: '2%',
+        top: '50%',
+        transform: 'translateY(-50%)',
+        width: '45%',
+        maxWidth: 'none',
         padding: '24px',
         maxHeight: '85vh',
-        overflowY: 'auto'
+        overflowY: 'auto',
+        zIndex: 1001,
+        pointerEvents: 'auto' // Re-enable clicking on the modal content
       }}>
         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
-          <h2 style={{margin: 0, color: '#10b981'}}>🎯 AI Career Advisor</h2>
+          <h2 style={{margin: 0, color: '#10b981'}}>AI Career Advisor</h2>
           <button 
             onClick={onClose}
             style={{

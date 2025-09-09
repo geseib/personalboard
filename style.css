@@ -914,3 +914,19 @@ button:active {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
+/* Override blur effects for split-screen modals */
+.advisor-modal,
+.advisor-modal .modal-content,
+.split-screen-modal,
+.split-screen-modal .modal-content {
+  backdrop-filter: none !important;
+}
+
+.advisor-modal {
+  background: transparent !important;
+}
+
+.split-screen-modal {
+  background: transparent !important;
+}
