@@ -1631,6 +1631,13 @@ function LearnModal({ type, onClose, onAddClick }) {
                 <h3 style={{color: '#8b5cf6', fontSize: '1.1em', marginBottom: '8px'}}>What They Get From You</h3>
                 <p>{typeContent.whatTheyGet}</p>
               </div>
+
+              <div style={{marginBottom: '16px', background: '#f0f9ff', padding: '12px', borderRadius: '8px', border: '1px solid #0ea5e9'}}>
+                <h3 style={{color: '#0ea5e9', fontSize: '1.1em', marginBottom: '8px'}}>💼 LinkedIn Profile Review</h3>
+                <p style={{margin: '0', fontSize: '14px', color: '#475569'}}>
+                  Before approaching potential {roleNames[type]}s, thoroughly review their LinkedIn profile. Note their career path, current role, recent posts, shared connections, educational background, and professional interests. Look for common ground such as shared alma maters, previous companies, industry experiences, or mutual connections. This research helps you craft personalized outreach messages and find natural conversation starters. Pay attention to their engagement style - do they share thought leadership content, celebrate team wins, or advocate for causes? This insight helps you understand their values and communication preferences.
+                </p>
+              </div>
             </div>
           </div>
         )}
