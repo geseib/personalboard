@@ -9,4 +9,13 @@ manifest_hash = "864e450fec082eb09df7c0fbd6d7069f"
 packagetype = "Zip"
 functions = ["AIGuidanceFunction"]
 
+[function_build_definitions.51a1806f-c291-441e-b73a-2c907e6080f8]
+codeuri = "/Users/georgeseib/Documents/projects/personalboard/lambda-functions/feedback"
+runtime = "nodejs18.x"
+architecture = "x86_64"
+handler = "feedback.handler"
+manifest_hash = ""
+packagetype = "Zip"
+functions = ["FeedbackFunction"]
+
 [layer_build_definitions]

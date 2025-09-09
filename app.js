@@ -1152,8 +1152,21 @@ function App() {
   };
 
   const reset = () => {
-    setData({});
-    localStorage.removeItem('boardData');
+    // Create a fresh data structure with blank superpowers and goals but preserve structure
+    const freshData = {
+      you: {
+        superpowers: [
+          { name: 'Technical Skills', description: '', notes: '' },
+          { name: 'Business Skills', description: '', notes: '' },
+          { name: 'Organization Skills', description: '', notes: '' }
+        ],
+        mentees: []
+      },
+      goals: []
+    };
+    
+    setData(freshData);
+    localStorage.setItem('boardData', JSON.stringify(freshData));
     setCurrent('intro');
   };
 
@@ -1268,7 +1281,7 @@ function App() {
               )}
               {p.key === startHereSection && (
                 <div className="start-here-arrow">
-                  <div className="start-here-text">Start here!</div>
+                  <div className="start-here-text">Next Step</div>
                   <svg className="arrow-svg" viewBox="0 0 24 24" width="24" height="24">
                     <path 
                       d="M7 10l5 5 5-5z" 
@@ -2086,7 +2099,7 @@ function LearnModal({ type, onClose, onAddClick }) {
             onMouseOver={(e) => e.target.style.backgroundColor = '#1d4ed8'}
             onMouseOut={(e) => e.target.style.backgroundColor = '#2563eb'}
           >
-            Now click here to add your first {roleNames[type]}!
+            Now click here to add a {roleNames[type]}!
           </button>
         )}
         

@@ -22,6 +22,10 @@ Parameters:
     Type: String
     Default: personal-board
     Description: The name of the stack
+  GitHubToken:
+    Type: String
+    NoEcho: true
+    Description: GitHub Personal Access Token for creating issues
 Resources:
   RestApi:
     Type: AWS::ApiGateway::RestApi
@@ -45,6 +49,8 @@ Resources:
     DependsOn:
     - AIGuidanceMethod
     - AIGuidanceOptionsMethod
+    - FeedbackMethod
+    - FeedbackOptionsMethod
     Properties:
       RestApiId:
         Ref: RestApi
@@ -56,6 +62,7 @@ Resources:
         Variables:
           environment:
             Ref: Environment
+          deploymentId: 2025-09-08-v3
   AIGuidanceFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -93,12 +100,45 @@ Resources:
           Ref: StackName
     Metadata:
       SamResourceId: AIGuidanceFunction
+  FeedbackFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName:
+        Fn::Sub: ${StackName}-feedback
+      CodeUri: FeedbackFunction
+      Handler: feedback.handler
+      Runtime: nodejs18.x
+      Timeout: 30
+      MemorySize: 256
+      Environment:
+        Variables:
+          NODE_ENV:
+            Ref: Environment
+          GITHUB_TOKEN:
+            Ref: GitHubToken
+          GITHUB_REPO: geseib/personalboard
+      Tags:
+        Environment:
+          Ref: Environment
+        StackName:
+          Ref: StackName
+    Metadata:
+      SamResourceId: FeedbackFunction
   AIGuidanceLambdaPermission:
     Type: AWS::Lambda::Permission
     Properties:
       Action: lambda:InvokeFunction
       FunctionName:
         Ref: AIGuidanceFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Sub: arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/*/*
+  FeedbackLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Ref: FeedbackFunction
       Principal: apigateway.amazonaws.com
       SourceArn:
         Fn::Sub: arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/*/*
@@ -112,6 +152,16 @@ Resources:
         - RestApi
         - RootResourceId
       PathPart: ai-guidance
+  FeedbackResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId:
+        Ref: RestApi
+      ParentId:
+        Fn::GetAtt:
+        - RestApi
+        - RootResourceId
+      PathPart: feedback
   AIGuidanceMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -142,26 +192,56 @@ Resources:
       HttpMethod: OPTIONS
       AuthorizationType: NONE
       Integration:
-        Type: MOCK
-        IntegrationResponses:
-        - StatusCode: 200
-          ResponseParameters:
-            method.response.header.Access-Control-Allow-Headers: '''Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'''
-            method.response.header.Access-Control-Allow-Methods: '''GET,POST,OPTIONS'''
-            method.response.header.Access-Control-Allow-Origin: '''*'''
-          ResponseTemplates:
-            application/json: ''
-        PassthroughBehavior: WHEN_NO_MATCH
-        RequestTemplates:
-          application/json: '{"statusCode": 200}'
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri:
+          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AIGuidanceFunction.Arn}/invocations
       MethodResponses:
       - StatusCode: 200
         ResponseParameters:
-          method.response.header.Access-Control-Allow-Headers: true
-          method.response.header.Access-Control-Allow-Methods: true
           method.response.header.Access-Control-Allow-Origin: true
-        ResponseModels:
-          application/json: Empty
+          method.response.header.Access-Control-Allow-Methods: true
+          method.response.header.Access-Control-Allow-Headers: true
+  FeedbackMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId:
+        Ref: RestApi
+      ResourceId:
+        Ref: FeedbackResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri:
+          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FeedbackFunction.Arn}/invocations
+      MethodResponses:
+      - StatusCode: 200
+        ResponseParameters:
+          method.response.header.Access-Control-Allow-Origin: true
+          method.response.header.Access-Control-Allow-Methods: true
+          method.response.header.Access-Control-Allow-Headers: true
+  FeedbackOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId:
+        Ref: RestApi
+      ResourceId:
+        Ref: FeedbackResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri:
+          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FeedbackFunction.Arn}/invocations
+      MethodResponses:
+      - StatusCode: 200
+        ResponseParameters:
+          method.response.header.Access-Control-Allow-Origin: true
+          method.response.header.Access-Control-Allow-Methods: true
+          method.response.header.Access-Control-Allow-Headers: true
   WebsiteBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -320,6 +400,13 @@ Outputs:
     Export:
       Name:
         Fn::Sub: ${AWS::StackName}-AIGuidanceApiUrl
+  FeedbackApiUrl:
+    Description: URL for the Feedback API
+    Value:
+      Fn::Sub: https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/feedback
+    Export:
+      Name:
+        Fn::Sub: ${AWS::StackName}-FeedbackApiUrl
   AIGuidanceFunctionArn:
     Description: ARN of the AI Guidance Lambda function
     Value:
@@ -329,3 +416,12 @@ Outputs:
     Export:
       Name:
         Fn::Sub: ${AWS::StackName}-AIGuidanceFunctionArn
+  FeedbackFunctionArn:
+    Description: ARN of the Feedback Lambda function
+    Value:
+      Fn::GetAtt:
+      - FeedbackFunction
+      - Arn
+    Export:
+      Name:
+        Fn::Sub: ${AWS::StackName}-FeedbackFunctionArn

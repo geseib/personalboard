@@ -1,0 +1,105 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Code-activated API auth with DynamoDB + Lambda Authorizer (48h, client-locked)
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    MemorySize: 256
+    Timeout: 10
+    Architectures: [x86_64]
+
+Resources:
+  AccessCodesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AccessCodes
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: code
+          AttributeType: S
+      KeySchema:
+        - AttributeName: code
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  Api:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+      Cors:
+        AllowMethods: "'GET,POST,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization'"
+        AllowOrigin: "'*'"
+      Auth:
+        DefaultAuthorizer: LambdaAuth
+        Authorizers:
+          LambdaAuth:
+            FunctionArn: !GetAtt AuthorizerFn.Arn
+            FunctionPayloadType: REQUEST
+            Identity:
+              Headers:
+                - Authorization
+
+  ActivateFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/activate
+      Handler: activate.handler
+      Environment:
+        Variables:
+          TABLE: !Ref AccessCodesTable
+          JWT_SECRET: '{{resolve:ssm-secure:/myapp/jwt-secret:1}}'
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AccessCodesTable
+      Events:
+        ActivateRoute:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /activate
+            Method: POST
+            Auth:
+              Authorizer: NONE
+
+  ProtectedFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/protected
+      Handler: hello.handler
+      Events:
+        HelloRoute:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /protected/hello
+            Method: GET
+
+  AuthorizerFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/authorizer
+      Handler: authorizer.handler
+      Environment:
+        Variables:
+          JWT_SECRET: '{{resolve:ssm-secure:/myapp/jwt-secret:1}}'
+
+  GenerateCodesFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/generate-codes
+      Handler: generate-codes.handler
+      Environment:
+        Variables:
+          TABLE: !Ref AccessCodesTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AccessCodesTable
+
+Outputs:
+  ApiUrl:
+    Description: Invoke URL base
+    Value: !Sub "https://${Api}.execute-api.${AWS::Region}.amazonaws.com/prod"

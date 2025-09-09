@@ -7,6 +7,76 @@
 const AI_API_BASE_URL = 'https://hvr92xfbo6.execute-api.us-east-1.amazonaws.com/production';
 
 /**
+ * Ensure user has authenticated with access code
+ * @returns {Promise<string>} JWT token for API authentication
+ */
+async function ensureAuthenticated() {
+  // Check for existing token
+  let token = localStorage.getItem('sessionToken');
+  
+  // Check if token exists and is not expired
+  if (token) {
+    try {
+      // Parse JWT to check expiration (simple base64 decode of payload)
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const now = Math.floor(Date.now() / 1000);
+      
+      if (payload.exp && payload.exp > now) {
+        // Token is valid
+        return token;
+      }
+    } catch (e) {
+      // Invalid token format
+      console.error('Invalid token format:', e);
+    }
+  }
+  
+  // Need to authenticate
+  // Generate or retrieve client ID
+  let clientId = localStorage.getItem('clientId');
+  if (!clientId) {
+    clientId = crypto.randomUUID();
+    localStorage.setItem('clientId', clientId);
+  }
+  
+  // Prompt for access code
+  const code = prompt("Please enter your 6-digit access code to use AI features:");
+  
+  if (!code) {
+    throw new Error('Authentication required. Please enter an access code.');
+  }
+  
+  // Validate code format
+  if (!/^\d{6}$/.test(code)) {
+    throw new Error('Invalid code format. Please enter a 6-digit numeric code.');
+  }
+  
+  // Activate the code
+  const activateResponse = await fetch(`${AI_API_BASE_URL}/activate`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      code,
+      clientId
+    })
+  });
+  
+  if (!activateResponse.ok) {
+    const errorData = await activateResponse.json();
+    throw new Error(errorData.message || 'Failed to activate access code. Please try again.');
+  }
+  
+  const { token: newToken } = await activateResponse.json();
+  
+  // Store the token
+  localStorage.setItem('sessionToken', newToken);
+  
+  return newToken;
+}
+
+/**
  * Call the AI guidance API
  * @param {string} type - Type of guidance: 'form_completion', 'goal_alignment', 'connection_suggestions', 'board_analysis'
  * @param {Object} data - Data specific to the guidance type
@@ -15,10 +85,14 @@ const AI_API_BASE_URL = 'https://hvr92xfbo6.execute-api.us-east-1.amazonaws.com/
  */
 async function getAIGuidance(type, data, context = {}) {
   try {
+    // Ensure user is authenticated
+    const token = await ensureAuthenticated();
+    
     const response = await fetch(`${AI_API_BASE_URL}/ai-guidance`, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/plain',
+        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
         type,
@@ -26,6 +100,13 @@ async function getAIGuidance(type, data, context = {}) {
         context
       })
     });
+
+    if (response.status === 401) {
+      // Token expired or invalid, clear it and retry
+      localStorage.removeItem('sessionToken');
+      // Recursive call will trigger re-authentication
+      return getAIGuidance(type, data, context);
+    }
 
     if (!response.ok) {
       throw new Error(`API request failed: ${response.status} ${response.statusText}`);
