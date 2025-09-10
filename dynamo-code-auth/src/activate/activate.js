@@ -1,21 +1,52 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, UpdateCommand } from "@aws-sdk/lib-dynamodb";
-import jwt from "jsonwebtoken";
+const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
+const { DynamoDBDocumentClient, UpdateCommand } = require("@aws-sdk/lib-dynamodb");
+const jwt = require("jsonwebtoken");
+const { SSMClient, GetParameterCommand } = require("@aws-sdk/client-ssm");
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+const ssm = new SSMClient({});
 const TABLE = process.env.TABLE;
-const JWT_SECRET = process.env.JWT_SECRET;
 
-const json = (statusCode, body) => ({
-  statusCode,
-  headers: { "Content-Type": "application/json" },
-  body: typeof body === "string" ? JSON.stringify({ message: body }) : JSON.stringify(body),
-});
+let jwtSecret = null;
 
-export const handler = async (event) => {
+const getJWTSecret = async () => {
+  if (!jwtSecret) {
+    const command = new GetParameterCommand({
+      Name: "/myapp/jwt-secret",
+      WithDecryption: true
+    });
+    const response = await ssm.send(command);
+    jwtSecret = response.Parameter.Value;
+  }
+  return jwtSecret;
+};
+
+exports.handler = async (event) => {
+  const headers = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+  };
+
+  // Handle CORS preflight OPTIONS request
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers,
+      body: ''
+    };
+  }
+
   try {
     const { code, clientId } = JSON.parse(event.body || "{}");
-    if (!code || !clientId) return json(400, "code and clientId required");
+    if (!code || !clientId) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: "code and clientId required" })
+      };
+    }
 
     const now = Math.floor(Date.now() / 1000);
     const exp = now + 48 * 60 * 60; // 48h
@@ -40,18 +71,33 @@ export const handler = async (event) => {
 
     await ddb.send(cmd);
 
+    // Get JWT secret from SSM
+    const JWT_SECRET = await getJWTSecret();
+
     const token = jwt.sign(
       { sub: clientId, jti: code, iat: now, exp },
       JWT_SECRET,
       { algorithm: "HS256" }
     );
 
-    return json(200, { token, expiresAt: exp });
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({ token, expiresAt: exp })
+    };
   } catch (err) {
     if (err.name === "ConditionalCheckFailedException") {
-      return json(401, "Invalid or already-claimed code");
+      return {
+        statusCode: 401,
+        headers,
+        body: JSON.stringify({ message: "Invalid or already-claimed code" })
+      };
     }
     console.error(err);
-    return json(500, "Internal error");
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ message: "Internal error" })
+    };
   }
 };

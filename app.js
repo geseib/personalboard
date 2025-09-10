@@ -1295,23 +1295,63 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
     <div className="app" style={{ backgroundImage: `url(${page.image})` }}>
       <input type="file" id="upload" accept="application/json" style={{ display: 'none' }} onChange={handleUpload} />
       <div className="top-buttons">
-        <BottomTooltip text="Import a backup *.json file to restore previously saved board data">
+        <Tooltip text="Import a backup *.json file to restore previously saved board data">
           <button onClick={() => document.getElementById('upload').click()}>Upload</button>
-        </BottomTooltip>
-        <BottomTooltip text="Clear all data and start with a fresh board">
+        </Tooltip>
+        <Tooltip text="Clear all data and start with a fresh board">
           <button onClick={reset}>Start New</button>
-        </BottomTooltip>
+        </Tooltip>
       </div>
       <Quote text={page.quote} position={page.quotePosition} />
       {current !== 'intro' && current !== 'board' && (
         <div className="actions">
           {(current === 'you' || current === 'goals' || current === 'mentors' || current === 'coaches' || current === 'connectors' || current === 'sponsors' || current === 'peers') && (
+            <BottomTooltip text="Watch video tutorial for this section">
+              <button 
+                onClick={() => {
+                  if (current === 'goals') setShowGoalsVideoModal(true);
+                  else if (current === 'mentors') setShowMentorVideoModal(true);
+                  else if (current === 'coaches') setShowCoachVideoModal(true);
+                }}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  marginRight: '10px',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseOver={(e) => e.target.style.backgroundColor = '#dc2626'}
+                onMouseOut={(e) => e.target.style.backgroundColor = '#ef4444'}
+              >
+                Video
+              </button>
+            </BottomTooltip>
+          )}
+          <BottomTooltip text="Learn about this board member type and best practices">
+            <button onClick={() => setShowLearn(true)}>Learn</button>
+          </BottomTooltip>
+          {current !== 'you' && (
+            <BottomTooltip text="Add a new board member to this category">
+              <button onClick={() => handleAdd(current)}>+ Add</button>
+            </BottomTooltip>
+          )}
+          {current === 'you' && (
+            <BottomTooltip text="Add a new mentee you're advising">
+              <button onClick={() => handleAdd('mentees')}>+ Add Mentee</button>
+            </BottomTooltip>
+          )}
+        </div>
+      )}
+      {current === 'board' && (
+        <div className="board-actions">
+          <BottomTooltip text="Watch video about your complete board">
             <button 
-              onClick={() => {
-                if (current === 'goals') setShowGoalsVideoModal(true);
-                else if (current === 'mentors') setShowMentorVideoModal(true);
-                else if (current === 'coaches') setShowCoachVideoModal(true);
-              }}
+              onClick={() => setShowBoardVideoModal(true)}
               style={{
                 padding: '8px 16px',
                 backgroundColor: '#ef4444',
@@ -1326,49 +1366,11 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
               }}
               onMouseOver={(e) => e.target.style.backgroundColor = '#dc2626'}
               onMouseOut={(e) => e.target.style.backgroundColor = '#ef4444'}
-              title="Watch video tutorial for this section"
             >
-              Video
+              🎥 Video
             </button>
-          )}
-          <Tooltip text="Learn about this board member type and best practices">
-            <button onClick={() => setShowLearn(true)}>Learn</button>
-          </Tooltip>
-          {current !== 'you' && (
-            <Tooltip text="Add a new board member to this category">
-              <button onClick={() => handleAdd(current)}>+ Add</button>
-            </Tooltip>
-          )}
-          {current === 'you' && (
-            <Tooltip text="Add a new mentee you're advising">
-              <button onClick={() => handleAdd('mentees')}>+ Add Mentee</button>
-            </Tooltip>
-          )}
-        </div>
-      )}
-      {current === 'board' && (
-        <div className="board-actions">
-          <button 
-            onClick={() => setShowBoardVideoModal(true)}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: '#ef4444',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '14px',
-              fontWeight: '500',
-              cursor: 'pointer',
-              marginRight: '10px',
-              transition: 'background-color 0.2s'
-            }}
-            onMouseOver={(e) => e.target.style.backgroundColor = '#dc2626'}
-            onMouseOut={(e) => e.target.style.backgroundColor = '#ef4444'}
-            title="Watch video about your complete board"
-          >
-            🎥 Video
-          </button>
-          <BottomTooltip text="Analyze your entire board composition and get strategic recommendations">
+          </BottomTooltip>
+          <Tooltip text="Analyze your entire board composition and get strategic recommendations">
             <button 
               onClick={() => {
                 setFormType('board');
@@ -1381,13 +1383,13 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
             >
               Analyze Board
             </button>
-          </BottomTooltip>
-          <BottomTooltip text="Create a backup *.json file of your board data">
+          </Tooltip>
+          <Tooltip text="Create a backup *.json file of your board data">
             <button onClick={downloadJSON}>Download Backup</button>
-          </BottomTooltip>
-          <BottomTooltip text="Generate a PDF report of your board and goals">
+          </Tooltip>
+          <Tooltip text="Generate a PDF report of your board and goals">
             <button onClick={downloadPDF}>Download PDF</button>
-          </BottomTooltip>
+          </Tooltip>
         </div>
       )}
       <div className="content">

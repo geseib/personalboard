@@ -1,5 +1,25 @@
 import jwt from "jsonwebtoken";
-const JWT_SECRET = process.env.JWT_SECRET;
+import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
+
+const ssm = new SSMClient({});
+let jwtSecret = null;
+
+async function getJWTSecret() {
+  if (!jwtSecret) {
+    try {
+      const command = new GetParameterCommand({
+        Name: "/personal-board/jwt-secret",
+        WithDecryption: true
+      });
+      const response = await ssm.send(command);
+      jwtSecret = response.Parameter.Value;
+    } catch (error) {
+      console.error('Failed to retrieve JWT secret:', error);
+      throw new Error('Authentication configuration error');
+    }
+  }
+  return jwtSecret;
+}
 
 const allow = (resource, principalId, ctx) => ({
   principalId,
@@ -28,7 +48,8 @@ export const handler = async (event) => {
     if (!token) return deny(event.methodArn, "missing_token");
 
     // Verify the token
-    const claims = jwt.verify(token, JWT_SECRET, { algorithms: ["HS256"] });
+    const secret = await getJWTSecret();
+    const claims = jwt.verify(token, secret, { algorithms: ["HS256"] });
     
     // Check if token is for Personal Board app
     if (claims.app !== "personal-board") {

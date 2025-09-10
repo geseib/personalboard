@@ -21,13 +21,15 @@ export function FeedbackButton() {
   return (
     <>
       <div className="feedback-fab-container">
-        <button
-          className={`feedback-fab ${isMenuOpen ? 'active' : ''}`}
-          onClick={handleMenuToggle}
-          title="Submit Feedback"
-        >
-          {isMenuOpen ? '×' : '💬'}
-        </button>
+        <div className="feedback-fab-tooltip-container">
+          <button
+            className={`feedback-fab ${isMenuOpen ? 'active' : ''}`}
+            onClick={handleMenuToggle}
+          >
+            {isMenuOpen ? '×' : '💬'}
+          </button>
+          <div className="feedback-fab-tooltip">Submit Feedback</div>
+        </div>
         
         {isMenuOpen && (
           <div className="feedback-menu">

@@ -194,9 +194,14 @@ Resources:
       Runtime: nodejs20.x
       Timeout: 10
       MemorySize: 256
-      Environment:
-        Variables:
-          JWT_SECRET: '{{resolve:ssm-secure:/personal-board/jwt-secret:1}}'
+      Policies:
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - ssm:GetParameter
+          Resource:
+            Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/personal-board/jwt-secret
       Tags:
         Environment:
           Ref: Environment
@@ -218,11 +223,17 @@ Resources:
         Variables:
           TABLE:
             Ref: AccessCodesTable
-          JWT_SECRET: '{{resolve:ssm-secure:/personal-board/jwt-secret:1}}'
       Policies:
       - DynamoDBCrudPolicy:
           TableName:
             Ref: AccessCodesTable
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - ssm:GetParameter
+          Resource:
+            Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/personal-board/jwt-secret
       Tags:
         Environment:
           Ref: Environment

@@ -23,7 +23,7 @@ codeuri = "/Users/georgeseib/Documents/projects/personalboard/lambda-functions/a
 runtime = "nodejs20.x"
 architecture = "x86_64"
 handler = "authorizer.handler"
-manifest_hash = "a53d7878519835a8e662863dc8edfb44"
+manifest_hash = "2d45366e7aabaaa4ebbadc784150af3f"
 packagetype = "Zip"
 functions = ["AuthorizerFunction", "ActivateFunction", "GenerateCodesFunction"]
 
