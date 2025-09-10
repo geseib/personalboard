@@ -299,6 +299,7 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
     setShowForm(false);
     setEditingItem(null);
     setEditingIndex(null);
+    setShowAdvisorModal(false); // Close advisor modal when saving
   };
 
   const handleAdvise = async (currentFormData) => {
@@ -1390,6 +1391,7 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
             <button 
               onClick={() => {
                 setFormType('board');
+                setShowAdvisorModal(false); // Ensure modal is closed before calling handleAdvise
                 handleAdvise(null);
               }}
               style={{
@@ -1457,7 +1459,7 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
       </nav>
       {showLearn && <LearnModal type={current} onClose={() => setShowLearn(false)} onAddClick={() => { setShowLearn(false); handleAdd(current); }} />}
       {showIntroLearn && <IntroLearnModal onClose={() => setShowIntroLearn(false)} />}
-      {showForm && <FormModal type={formType} item={editingItem} onSave={saveEntry} onClose={() => setShowForm(false)} onAdvise={handleAdvise} advisorShowing={showAdvisorModal} />}
+      {showForm && <FormModal type={formType} item={editingItem} onSave={saveEntry} onClose={() => { setShowForm(false); setShowAdvisorModal(false); }} onAdvise={handleAdvise} advisorShowing={showAdvisorModal} />}
       {showUploadSuccess && <UploadSuccessPopup />}
       {showVideoModal && <VideoModal onClose={() => setShowVideoModal(false)} />}
       {showMentorVideoModal && <MentorVideoModal onClose={() => setShowMentorVideoModal(false)} />}
