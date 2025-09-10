@@ -40,6 +40,16 @@ function BottomTooltip({ children, text }) {
   );
 }
 
+// Wide tooltip component for skills to prevent running off screen
+function WideTooltip({ children, text }) {
+  return (
+    <div className="tooltip-container">
+      {children}
+      {text && <div className="tooltip-wide">{text}</div>}
+    </div>
+  );
+}
+
 function App() {
   const [current, setCurrent] = useState('intro');
   const [data, setData] = useState(() => {
@@ -1370,7 +1380,7 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
               🎥 Video
             </button>
           </BottomTooltip>
-          <Tooltip text="Analyze your entire board composition and get strategic recommendations">
+          <BottomTooltip text="Analyze your entire board composition and get strategic recommendations">
             <button 
               onClick={() => {
                 setFormType('board');
@@ -1383,13 +1393,13 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
             >
               Analyze Board
             </button>
-          </Tooltip>
-          <Tooltip text="Create a backup *.json file of your board data">
+          </BottomTooltip>
+          <BottomTooltip text="Create a backup *.json file of your board data">
             <button onClick={downloadJSON}>Download Backup</button>
-          </Tooltip>
-          <Tooltip text="Generate a PDF report of your board and goals">
+          </BottomTooltip>
+          <BottomTooltip text="Generate a PDF report of your board and goals">
             <button onClick={downloadPDF}>Download PDF</button>
-          </Tooltip>
+          </BottomTooltip>
         </div>
       )}
       <div className="content">
@@ -1401,37 +1411,41 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
           const showCount = p.key !== 'intro' && p.key !== 'board' && p.key !== 'goals' && p.key !== 'you';
           const startHereSection = getStartHereSection();
           
+          const tooltipText = 
+            p.key === 'intro' ? 'Introduction to Personal Board of Directors' :
+            p.key === 'you' ? 'Define your superpowers and mentoring relationships' :
+            p.key === 'goals' ? 'Set your career goals and objectives' :
+            p.key === 'mentors' ? 'Add senior advisors who provide wisdom and guidance' :
+            p.key === 'coaches' ? 'Add skilled practitioners who help build specific competencies' :
+            p.key === 'sponsors' ? 'Add influential advocates who champion your advancement' :
+            p.key === 'connectors' ? 'Add well-networked individuals who expand your reach' :
+            p.key === 'peers' ? 'Add colleagues who provide mutual support and perspectives' :
+            p.key === 'board' ? 'View your complete board and timeline visualization' : '';
+            
           return (
-            <button key={p.key} className={p.key === current ? 'active' : ''} onClick={() => {
-              setCurrent(p.key);
-              setShowForm(false);
-              setShowAdvisorModal(false);
-            }} title={
-              p.key === 'intro' ? 'Introduction to Personal Board of Directors' :
-              p.key === 'goals' ? 'Set your career goals and objectives' :
-              p.key === 'mentors' ? 'Add senior advisors who provide wisdom and guidance' :
-              p.key === 'coaches' ? 'Add skilled practitioners who help build specific competencies' :
-              p.key === 'sponsors' ? 'Add influential advocates who champion your advancement' :
-              p.key === 'connectors' ? 'Add well-networked individuals who expand your reach' :
-              p.key === 'peers' ? 'Add colleagues who provide mutual support and perspectives' :
-              p.key === 'board' ? 'View your complete board and timeline visualization' : ''
-            }>
-              <span className="nav-title">{p.title}</span>
-              {showCount && (
-                <span className="nav-count">{count}</span>
-              )}
-              {p.key === startHereSection && (
-                <div className="start-here-arrow">
-                  <div className="start-here-text">Next Step</div>
-                  <svg className="arrow-svg" viewBox="0 0 24 24" width="24" height="24">
-                    <path 
-                      d="M7 10l5 5 5-5z" 
-                      fill="#2563eb"
-                    />
-                  </svg>
-                </div>
-              )}
-            </button>
+            <Tooltip key={p.key} text={tooltipText}>
+              <button className={p.key === current ? 'active' : ''} onClick={() => {
+                setCurrent(p.key);
+                setShowForm(false);
+                setShowAdvisorModal(false);
+              }}>
+                <span className="nav-title">{p.title}</span>
+                {showCount && (
+                  <span className="nav-count">{count}</span>
+                )}
+                {p.key === startHereSection && (
+                  <div className="start-here-arrow">
+                    <div className="start-here-text">Next Step</div>
+                    <svg className="arrow-svg" viewBox="0 0 24 24" width="24" height="24">
+                      <path 
+                        d="M7 10l5 5 5-5z" 
+                        fill="#2563eb"
+                      />
+                    </svg>
+                  </div>
+                )}
+              </button>
+            </Tooltip>
           );
         })}
       </nav>
@@ -1596,7 +1610,7 @@ function You({ data, onEdit, onDelete }) {
             };
             
             return (
-              <Tooltip key={idx} text={getSkillTooltip(item.name)}>
+              <WideTooltip key={idx} text={getSkillTooltip(item.name)}>
                 <div className="card superpower-card">
                   <div className="card-header">
                     <h3>{item.name}</h3>
@@ -1610,7 +1624,7 @@ function You({ data, onEdit, onDelete }) {
                   <p><strong>Description:</strong> {item.description || 'Click edit to describe your skills...'}</p>
                   <p><strong>Notes:</strong> {item.notes || 'Add examples or specific details...'}</p>
                 </div>
-              </Tooltip>
+              </WideTooltip>
             );
           })}
         </div>

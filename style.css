@@ -348,6 +348,42 @@ button:active {
   transition: opacity 0.2s ease;
 }
 
+/* Wider tooltips for skills to prevent running off screen */
+.tooltip-wide {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #2563eb;
+  color: white;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+  white-space: normal;
+  max-width: 480px;
+  min-width: 300px;
+  text-align: left;
+  z-index: 1000;
+  margin-bottom: 8px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.tooltip-wide::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: #2563eb;
+  filter: drop-shadow(0 2px 4px rgba(37, 99, 235, 0.2));
+}
+
 .tooltip::after {
   content: '';
   position: absolute;
@@ -360,6 +396,10 @@ button:active {
 }
 
 .tooltip-container:hover .tooltip {
+  opacity: 1;
+}
+
+.tooltip-container:hover .tooltip-wide {
   opacity: 1;
 }
 
