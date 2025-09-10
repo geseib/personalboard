@@ -2,24 +2,51 @@
 
 Build and manage your professional support network with an interactive web application that helps you strategically organize mentors, coaches, sponsors, connectors, and peers to accelerate your career growth.
 
+![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+
 ## 🎯 Overview
 
 Personal Board of Directors is a career development tool that helps professionals build and maintain strategic relationships. Just as companies have boards of directors to provide guidance and oversight, individuals can benefit from assembling their own "board" of advisors to support their career journey.
 
+## 🆕 What's New in Version 2.0.0
+
+### Authentication & Access System
+- **Styled Authentication Modal**: Beautiful, user-friendly access code entry interface
+- **Flexible Access Model**: Core features free for all, AI features require facilitator code
+- **Clear Error Messages**: Specific feedback for expired, invalid, or already-used codes
+- **Token Persistence**: Authentication survives page reloads and backup restoration
+
+### Enhanced User Experience
+- **Improved Tooltips**: Larger, more readable tooltips with detailed guidance
+- **Skills Clarification**: Comprehensive explanations for Technical, Business, and Organization skills
+- **Goal Expectations**: Clear guidance on recommended number of goals per timeframe
+- **Professional Design**: Consistent, polished UI throughout the application
+
+### Smart PDF Generation
+- **Works Without Authentication**: Generate PDFs even without AI features
+- **Generic Advice Option**: Professional guidance for non-authenticated users
+- **AI-Enhanced Content**: Personalized analysis when authenticated
+- **Comprehensive Backups**: Export includes authentication tokens and board analysis
+
 ## ✨ Features
 
-### Core Functionality
+### Core Functionality (Free - No Code Required)
 - **Interactive Board Management**: Add, edit, and organize your professional relationships across five key categories
-- **Goal Setting & Tracking**: Define short-term (90 days), medium-term (1 year), and long-term (10 years) career goals
+- **Goal Setting & Tracking**: Define short-term (3 months), medium-term (1 year), and long-term (5+ years) career goals
+- **Skills Documentation**: Track your Technical, Business, and Organization superpowers with proficiency levels
 - **Visual Timeline**: See your board members organized by meeting cadence in an intuitive timeline view
-- **PDF Export**: Generate a professional PDF summary of your board and goals for reference
-- **Data Portability**: Import/export your data as JSON for backup and migration
+- **PDF Export**: Generate a professional PDF summary with actionable guidance
+- **Data Backup/Restore**: Comprehensive JSON export/import including all data and settings
+- **Professional Tooltips**: Context-sensitive help throughout the application
+- **Video Tutorials**: Integrated guides for getting started
 
-### AI-Powered Assistance
+### AI-Powered Assistance (Requires Access Code)
 - **Smart Suggestions**: Get AI-powered recommendations for building relationships and setting goals
-- **Board Analysis**: Receive insights on gaps and opportunities in your professional network
-- **Contextual Guidance**: Access role-specific advice for each type of board member
+- **Personalized Board Analysis**: Receive custom insights on gaps and opportunities in your professional network
+- **Contextual Guidance**: Access role-specific AI advice for each type of board member
 - **Goal Alignment**: Understand how your board can help achieve your career objectives
+- **Available Through**: Facilitated workshops and training sessions
 
 ### Learning Resources
 - **Educational Content**: Built-in explanations for each board member type

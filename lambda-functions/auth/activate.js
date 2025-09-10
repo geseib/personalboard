@@ -26,30 +26,64 @@ async function getJWTSecret() {
   return jwtSecret;
 }
 
-const json = (statusCode, body) => ({
-  statusCode,
-  headers: { 
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type,Authorization",
-    "Access-Control-Allow-Methods": "POST,OPTIONS"
-  },
-  body: typeof body === "string" ? JSON.stringify({ message: body }) : JSON.stringify(body),
-});
-
 export const handler = async (event) => {
-  // Handle OPTIONS request for CORS
+  const headers = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type'
+  };
+
+  // Handle CORS preflight OPTIONS request FIRST - before any other processing
   if (event.httpMethod === 'OPTIONS') {
-    return json(200, { message: 'OK' });
+    return {
+      statusCode: 200,
+      headers,
+      body: ''
+    };
   }
 
   try {
-    const { code, clientId } = JSON.parse(event.body || "{}");
-    if (!code || !clientId) return json(400, "Access code and client ID are required");
+    // Parse body - handle both direct JSON and base64 encoded JSON
+    let body;
+    try {
+      let bodyString = event.body;
+      
+      // Check if body is base64 encoded
+      if (event.isBase64Encoded || (typeof bodyString === 'string' && /^[A-Za-z0-9+/]+=*$/.test(bodyString) && bodyString.length > 50)) {
+        try {
+          bodyString = Buffer.from(event.body, 'base64').toString('utf-8');
+        } catch (e) {
+          // Not base64, use as is
+        }
+      }
+      
+      body = typeof bodyString === 'string' ? JSON.parse(bodyString) : bodyString;
+    } catch (parseError) {
+      console.error('Failed to parse body:', event.body);
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ error: 'Invalid JSON in request body' })
+      };
+    }
+
+    const { code, clientId } = body;
+    if (!code || !clientId) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: "Access code and client ID are required" })
+      };
+    }
 
     // Validate code is 6 digits
     if (!/^\d{6}$/.test(code)) {
-      return json(400, "Invalid code format. Please enter a 6-digit code.");
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: "Invalid code format. Please enter a 6-digit code." })
+      };
     }
 
     const now = Math.floor(Date.now() / 1000);
@@ -60,8 +94,11 @@ export const handler = async (event) => {
       TableName: TABLE,
       Key: { code },
       ConditionExpression: "attribute_not_exists(#s) OR #s = :avail",
-      UpdateExpression: "SET #s = :claimed, claimedAt = :now, expiresAt = :exp, clientId = :cid, ttl = :ttl",
-      ExpressionAttributeNames: { "#s": "status" },
+      UpdateExpression: "SET #s = :claimed, claimedAt = :now, expiresAt = :exp, clientId = :cid, #ttl = :ttl",
+      ExpressionAttributeNames: { 
+        "#s": "status",
+        "#ttl": "ttl"
+      },
       ExpressionAttributeValues: {
         ":avail": "AVAILABLE",
         ":claimed": "CLAIMED",
@@ -88,16 +125,28 @@ export const handler = async (event) => {
       { algorithm: "HS256" }
     );
 
-    return json(200, { 
-      token, 
-      expiresAt: exp,
-      expiresIn: 7 * 24 * 60 * 60 // 7 days in seconds
-    });
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({ 
+        token, 
+        expiresAt: exp,
+        expiresIn: 7 * 24 * 60 * 60 // 7 days in seconds
+      })
+    };
   } catch (err) {
     if (err.name === "ConditionalCheckFailedException") {
-      return json(401, "Invalid or already used access code");
+      return {
+        statusCode: 401,
+        headers,
+        body: JSON.stringify({ message: "Invalid or already used access code" })
+      };
     }
     console.error(err);
-    return json(500, "Internal error processing your request");
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ message: "Internal error processing your request" })
+    };
   }
 };

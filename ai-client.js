@@ -7,6 +7,135 @@
 const AI_API_BASE_URL = 'https://hvr92xfbo6.execute-api.us-east-1.amazonaws.com/production';
 
 /**
+ * Show styled authentication modal for access code entry
+ * @returns {Promise<string|null>} The access code entered by user or null if cancelled
+ */
+function showAuthenticationModal() {
+  return new Promise((resolve) => {
+    // Create modal elements
+    const modal = document.createElement('div');
+    modal.className = 'auth-modal';
+    
+    modal.innerHTML = `
+      <div class="auth-modal-content">
+        <div class="auth-modal-header">
+          <h2>🔐 Access Code Required</h2>
+          <p class="auth-modal-subtitle">
+            AI-powered features enhance your board experience
+          </p>
+        </div>
+        
+        <div class="auth-info-box">
+          <strong>ℹ️ Note:</strong> AI features require a 6-digit access code provided by your facilitator. 
+          All other features of this site are available for free without a code.
+        </div>
+        
+        <div class="auth-modal-form">
+          <div class="auth-input-group">
+            <label class="auth-input-label" for="access-code-input">
+              Enter your 6-digit access code:
+            </label>
+            <input 
+              type="text" 
+              id="access-code-input" 
+              class="auth-input" 
+              placeholder="000000"
+              maxlength="6"
+              pattern="[0-9]{6}"
+              autocomplete="off"
+            />
+            <div class="auth-error-message" style="display: none;">
+              <span>⚠️</span>
+              <span id="error-text"></span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="auth-button-group">
+          <button class="auth-button auth-button-secondary" id="auth-cancel">
+            Continue Without AI
+          </button>
+          <button class="auth-button auth-button-primary" id="auth-submit" disabled>
+            Activate Code
+          </button>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    const input = modal.querySelector('#access-code-input');
+    const submitBtn = modal.querySelector('#auth-submit');
+    const cancelBtn = modal.querySelector('#auth-cancel');
+    const errorDiv = modal.querySelector('.auth-error-message');
+    const errorText = modal.querySelector('#error-text');
+    
+    // Focus on input
+    setTimeout(() => input.focus(), 100);
+    
+    // Input validation
+    input.addEventListener('input', (e) => {
+      const value = e.target.value.replace(/\D/g, ''); // Only digits
+      e.target.value = value;
+      
+      // Clear error state
+      input.classList.remove('error');
+      errorDiv.style.display = 'none';
+      
+      // Enable submit when 6 digits entered
+      submitBtn.disabled = value.length !== 6;
+    });
+    
+    // Submit on Enter key
+    input.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && input.value.length === 6) {
+        submitBtn.click();
+      }
+    });
+    
+    // Submit button handler
+    submitBtn.addEventListener('click', () => {
+      const code = input.value;
+      if (code.length === 6) {
+        document.body.removeChild(modal);
+        resolve(code);
+      }
+    });
+    
+    // Cancel button handler
+    cancelBtn.addEventListener('click', () => {
+      document.body.removeChild(modal);
+      resolve(null);
+    });
+    
+    // Close on backdrop click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        document.body.removeChild(modal);
+        resolve(null);
+      }
+    });
+  });
+}
+
+/**
+ * Check if user has valid authentication
+ * @returns {boolean} True if authenticated
+ */
+function isAuthenticated() {
+  const token = localStorage.getItem('sessionToken');
+  if (!token) return false;
+  
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const now = Math.floor(Date.now() / 1000);
+    return payload.exp && payload.exp > now;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Ensure user has authenticated with access code
  * @returns {Promise<string>} JWT token for API authentication
  */
@@ -26,8 +155,10 @@ async function ensureAuthenticated() {
         return token;
       }
     } catch (e) {
-      // Invalid token format
+      // Invalid token format - remove corrupted token
       console.error('Invalid token format:', e);
+      localStorage.removeItem('sessionToken');
+      localStorage.removeItem('clientId');
     }
   }
   
@@ -39,16 +170,11 @@ async function ensureAuthenticated() {
     localStorage.setItem('clientId', clientId);
   }
   
-  // Prompt for access code
-  const code = prompt("Please enter your 6-digit access code to use AI features:");
+  // Show styled authentication modal instead of basic prompt
+  const code = await showAuthenticationModal();
   
   if (!code) {
-    throw new Error('Authentication required. Please enter an access code.');
-  }
-  
-  // Validate code format
-  if (!/^\d{6}$/.test(code)) {
-    throw new Error('Invalid code format. Please enter a 6-digit numeric code.');
+    throw new Error('Authentication required to use AI features.');
   }
   
   // Activate the code
@@ -65,7 +191,51 @@ async function ensureAuthenticated() {
   
   if (!activateResponse.ok) {
     const errorData = await activateResponse.json();
-    throw new Error(errorData.message || 'Failed to activate access code. Please try again.');
+    let errorMessage = 'Failed to activate access code. Please try again.';
+    let errorType = 'generic';
+    
+    // Provide specific error messages based on status code
+    switch (activateResponse.status) {
+      case 400:
+        if (errorData.message?.includes('Invalid code format')) {
+          errorMessage = 'Invalid format. Please enter exactly 6 digits.';
+          errorType = 'format';
+        } else if (errorData.message?.includes('required')) {
+          errorMessage = 'Access code is required. Please enter your 6-digit code.';
+          errorType = 'required';
+        } else {
+          errorMessage = errorData.message || 'Invalid request. Please check your access code.';
+          errorType = 'invalid';
+        }
+        break;
+      case 401:
+        if (errorData.message?.includes('already used')) {
+          errorMessage = 'This code has already been activated. Each code can only be used once. Please contact your facilitator for a new code.';
+          errorType = 'used';
+        } else if (errorData.message?.includes('Invalid')) {
+          errorMessage = 'This access code is not valid. Please check your code or contact your facilitator.';
+          errorType = 'invalid';
+        } else if (errorData.message?.includes('expired')) {
+          errorMessage = 'This access code has expired. Please contact your facilitator for a new code.';
+          errorType = 'expired';
+        } else {
+          errorMessage = errorData.message || 'Access code not recognized. Please verify your code.';
+          errorType = 'invalid';
+        }
+        break;
+      case 500:
+        errorMessage = 'Server error occurred. Please try again in a few moments.';
+        errorType = 'server';
+        break;
+      default:
+        errorMessage = errorData.message || 'Network error. Please check your connection and try again.';
+        errorType = 'network';
+    }
+    
+    // Create error object with type for better handling
+    const error = new Error(errorMessage);
+    error.type = errorType;
+    throw error;
   }
   
   const { token: newToken } = await activateResponse.json();
@@ -102,8 +272,11 @@ async function getAIGuidance(type, data, context = {}) {
     });
 
     if (response.status === 401) {
-      // Token expired or invalid, clear it and retry
+      // Token expired or invalid, clear it and retry once
+      console.log('🔄 Authentication token expired, requesting new access code...');
       localStorage.removeItem('sessionToken');
+      localStorage.removeItem('clientId');
+      
       // Recursive call will trigger re-authentication
       return getAIGuidance(type, data, context);
     }
@@ -249,6 +422,8 @@ export async function getBoardAnalysisAdvisorGuidance(boardData) {
 export function setAPIBaseUrl(url) {
   AI_API_BASE_URL = url;
 }
+
+export { isAuthenticated };
 
 /**
  * Example usage for form completion:

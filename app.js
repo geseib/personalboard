@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { jsPDF } from 'jspdf';
 import { connectionLevels } from './utils.js';
-import { getMentorAdvisorGuidance, getBoardMemberAdvisorGuidance, getGoalsAdvisorGuidance, getBoardAnalysisAdvisorGuidance } from './ai-client.js';
+import { getMentorAdvisorGuidance, getBoardMemberAdvisorGuidance, getGoalsAdvisorGuidance, getBoardAnalysisAdvisorGuidance, isAuthenticated } from './ai-client.js';
 import { FeedbackButton } from './feedback.js';
 import './feedback.css';
 // use direct paths so images resolve without a bundler
@@ -19,6 +19,26 @@ const pages = [
   { key: 'peers', title: 'Peers', image: '/images/Slide9.png', quote: 'Peers share the path.', quotePosition: 'bottom-right' },
   { key: 'board', title: 'Board', image: '/images/Slide10.png', quote: '', quotePosition: 'center' }
 ];
+
+// Tooltip component that matches the "Next Step" pointer styling
+function Tooltip({ children, text }) {
+  return (
+    <div className="tooltip-container">
+      {children}
+      {text && <div className="tooltip">{text}</div>}
+    </div>
+  );
+}
+
+// Bottom tooltip component for top buttons
+function BottomTooltip({ children, text }) {
+  return (
+    <div className="tooltip-container">
+      {children}
+      {text && <div className="tooltip-bottom">{text}</div>}
+    </div>
+  );
+}
 
 function App() {
   const [current, setCurrent] = useState('intro');
@@ -148,6 +168,13 @@ function App() {
   };
 
   const getBoardAdvice = async () => {
+    // Check if user is authenticated
+    if (!isAuthenticated()) {
+      const genericAdvice = getGenericBoardAdvice();
+      setBoardAdvice(genericAdvice);
+      return genericAdvice;
+    }
+    
     setBoardAdviceLoading(true);
     try {
       const result = await getBoardAnalysisAdvisorGuidance(data);
@@ -155,12 +182,52 @@ function App() {
       return result.guidance || result.message || 'No analysis available';
     } catch (error) {
       console.error('Error getting board advice:', error);
+      // If auth error, return generic advice
+      if (error.message?.includes('Authentication')) {
+        const genericAdvice = getGenericBoardAdvice();
+        setBoardAdvice(genericAdvice);
+        return genericAdvice;
+      }
       const errorMsg = 'Sorry, there was an error getting analysis. Please try again later.';
       setBoardAdvice(errorMsg);
       return errorMsg;
     } finally {
       setBoardAdviceLoading(false);
     }
+  };
+  
+  const getGenericBoardAdvice = () => {
+    return `🎯 Taking Action with Your Personal Board
+
+Your Personal Board of Directors is only as valuable as the relationships you cultivate and maintain. Here are key strategies for maximizing impact:
+
+📅 Establish Regular Cadence
+• Set recurring meetings aligned with each member's suggested frequency
+• Prepare specific questions and updates for each interaction
+• Respect their time by being organized and focused
+• Follow up on advice received and report back on outcomes
+
+🔄 Continuously Refine Your Board
+• Regularly assess if current members align with your evolving goals
+• Add new members as you enter different career phases
+• Gracefully transition relationships when priorities shift
+• Keep connections warm even when not actively engaged
+
+💡 Make Engagements Impactful
+• Come prepared with specific challenges or decisions
+• Share wins and progress to maintain engagement
+• Offer value in return - share insights, make introductions
+• Be authentic and vulnerable to build deeper connections
+
+📈 Track and Measure Progress
+• Document advice received and actions taken
+• Review your board composition quarterly
+• Celebrate milestones achieved with their support
+• Adjust your approach based on what's working
+
+✨ Remember: The most successful boards are built on mutual value exchange, consistent engagement, and genuine relationships. Your board members want to see you succeed - honor their investment with thoughtful action and regular communication.
+
+💼 For personalized AI-powered analysis and recommendations tailored to your specific board composition and goals, attend a facilitated workshop where you'll receive an access code to unlock advanced features.`;
   };
 
   const handleEdit = (type, item, index) => {
@@ -293,30 +360,84 @@ function App() {
     const reader = new FileReader();
     reader.onload = ev => {
       try {
-        const obj = JSON.parse(ev.target.result);
-        setData(obj);
-        setShowUploadSuccess(true);
-        setTimeout(() => setShowUploadSuccess(false), 3000);
+        const backupData = JSON.parse(ev.target.result);
+        
+        // Handle both old format (direct data) and new format (comprehensive backup)
+        if (backupData.version && backupData.boardData) {
+          // New comprehensive backup format
+          setData(backupData.boardData);
+          
+          // Restore board advice if available
+          if (backupData.boardAdvice) {
+            setBoardAdvice(backupData.boardAdvice);
+          }
+          
+          // Restore authentication tokens if available and valid
+          if (backupData.auth) {
+            if (backupData.auth.sessionToken) {
+              try {
+                // Validate token format and expiration before restoring
+                const payload = JSON.parse(atob(backupData.auth.sessionToken.split('.')[1]));
+                const now = Math.floor(Date.now() / 1000);
+                
+                if (payload.exp && payload.exp > now) {
+                  // Token is still valid, restore it
+                  localStorage.setItem('sessionToken', backupData.auth.sessionToken);
+                  console.log('✅ Authentication token restored successfully');
+                } else {
+                  console.log('⚠️ Authentication token in backup has expired');
+                }
+              } catch (e) {
+                console.log('⚠️ Invalid authentication token in backup');
+              }
+            }
+            
+            if (backupData.auth.clientId) {
+              localStorage.setItem('clientId', backupData.auth.clientId);
+            }
+          }
+          
+          setShowUploadSuccess(true);
+          setTimeout(() => setShowUploadSuccess(false), 3000);
+        } else {
+          // Legacy format (just board data)
+          setData(backupData);
+          setShowUploadSuccess(true);
+          setTimeout(() => setShowUploadSuccess(false), 3000);
+        }
       } catch (err) {
-        alert('Invalid JSON');
+        alert('Invalid backup file. Please select a valid Personal Board backup (.json) file.');
       }
     };
     reader.readAsText(file);
   };
 
   const downloadJSON = () => {
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    // Create comprehensive backup with auth tokens and board advice
+    const backupData = {
+      version: '1.0',
+      timestamp: new Date().toISOString(),
+      boardData: data,
+      boardAdvice: boardAdvice,
+      // Include auth tokens to maintain session across restore
+      auth: {
+        sessionToken: localStorage.getItem('sessionToken'),
+        clientId: localStorage.getItem('clientId')
+      }
+    };
+    
+    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'board.json';
+    a.download = 'personal-board-backup.json';
     a.click();
   };
 
   const downloadPDF = async () => {
-    // Ensure we have board advice for the PDF
+    // Use existing board advice if available, otherwise get it
     let currentBoardAdvice = boardAdvice;
     if (!currentBoardAdvice && Object.keys(data).some(key => data[key] && data[key].length > 0 && key !== 'goals')) {
-      console.log('Getting board advice for PDF...');
+      console.log('No existing analysis found, generating for PDF...');
       currentBoardAdvice = await getBoardAdvice();
     }
     
@@ -1174,8 +1295,12 @@ function App() {
     <div className="app" style={{ backgroundImage: `url(${page.image})` }}>
       <input type="file" id="upload" accept="application/json" style={{ display: 'none' }} onChange={handleUpload} />
       <div className="top-buttons">
-        <button onClick={() => document.getElementById('upload').click()} title="Import previously saved board data from JSON file">Upload</button>
-        <button onClick={reset} title="Clear all data and start with a fresh board">Start New</button>
+        <BottomTooltip text="Import a backup *.json file to restore previously saved board data">
+          <button onClick={() => document.getElementById('upload').click()}>Upload</button>
+        </BottomTooltip>
+        <BottomTooltip text="Clear all data and start with a fresh board">
+          <button onClick={reset}>Start New</button>
+        </BottomTooltip>
       </div>
       <Quote text={page.quote} position={page.quotePosition} />
       {current !== 'intro' && current !== 'board' && (
@@ -1206,12 +1331,18 @@ function App() {
               Video
             </button>
           )}
-          <button onClick={() => setShowLearn(true)} title="Learn about this board member type and best practices">Learn</button>
+          <Tooltip text="Learn about this board member type and best practices">
+            <button onClick={() => setShowLearn(true)}>Learn</button>
+          </Tooltip>
           {current !== 'you' && (
-            <button onClick={() => handleAdd(current)} title="Add a new board member to this category">+ Add</button>
+            <Tooltip text="Add a new board member to this category">
+              <button onClick={() => handleAdd(current)}>+ Add</button>
+            </Tooltip>
           )}
           {current === 'you' && (
-            <button onClick={() => handleAdd('mentees')} title="Add a new mentee you're advising">+ Add Mentee</button>
+            <Tooltip text="Add a new mentee you're advising">
+              <button onClick={() => handleAdd('mentees')}>+ Add Mentee</button>
+            </Tooltip>
           )}
         </div>
       )}
@@ -1237,18 +1368,26 @@ function App() {
           >
             🎥 Video
           </button>
-          <button 
-            onClick={() => handleAdvise(null)}
-            style={{
-              backgroundColor: '#10b981',
-              color: 'white'
-            }}
-            title="Analyze your entire board composition and get strategic recommendations"
-          >
-            Analyze Board
-          </button>
-          <button onClick={downloadJSON} title="Export your board data as JSON for backup">Download JSON</button>
-          <button onClick={downloadPDF} title="Generate a PDF report of your board and goals">Download PDF</button>
+          <BottomTooltip text="Analyze your entire board composition and get strategic recommendations">
+            <button 
+              onClick={() => {
+                setFormType('board');
+                handleAdvise(null);
+              }}
+              style={{
+                backgroundColor: '#10b981',
+                color: 'white'
+              }}
+            >
+              Analyze Board
+            </button>
+          </BottomTooltip>
+          <BottomTooltip text="Create a backup *.json file of your board data">
+            <button onClick={downloadJSON}>Download Backup</button>
+          </BottomTooltip>
+          <BottomTooltip text="Generate a PDF report of your board and goals">
+            <button onClick={downloadPDF}>Download PDF</button>
+          </BottomTooltip>
         </div>
       )}
       <div className="content">
@@ -1395,22 +1534,39 @@ function Intro({ onLearnClick, onVideoClick }) {
 }
 
 function Goals({ items, onEdit }) {
+  const getGoalTooltip = (timeframe) => {
+    switch (timeframe) {
+      case '3 Month Goals':
+        return 'Add at least 2 specific, actionable goals you can achieve in the next 3 months. Focus on immediate priorities and quick wins.';
+      case '1 Year Goals':
+        return 'Add at least 2 medium-term goals for the next 12 months. These should build toward your longer-term vision.';
+      case '5 Year Goals':
+        return 'Add at least 1 long-term aspirational goal for the next 5 years. Think big picture and transformational outcomes.';
+      case 'Beyond':
+        return 'Optional: Add visionary goals beyond 5 years. What legacy do you want to create?';
+      default:
+        return 'Click edit to add your goals with specific timeframes and action items.';
+    }
+  };
+
   return (
     <div className="list">
       {items.map((item, idx) => (
-        <div key={idx} className="card">
-          <div className="card-header">
-            <h3>{item.timeframe}</h3>
-            <div className="card-actions">
-              <button className="icon-btn edit-btn" onClick={() => onEdit('goals', item, idx)} title="Edit">
-                ✏️
-              </button>
-              {/* No delete button for goals */}
+        <Tooltip key={idx} text={getGoalTooltip(item.timeframe)}>
+          <div className="card">
+            <div className="card-header">
+              <h3>{item.timeframe}</h3>
+              <div className="card-actions">
+                <button className="icon-btn edit-btn" onClick={() => onEdit('goals', item, idx)} title="Edit">
+                  ✏️
+                </button>
+                {/* No delete button for goals */}
+              </div>
             </div>
+            <p><strong>Description:</strong> {item.description || 'Click edit to add your goals...'}</p>
+            <p><strong>Notes:</strong> {item.notes || 'Add notes about your progress or strategy...'}</p>
           </div>
-          <p><strong>Description:</strong> {item.description || 'Click edit to add your goals...'}</p>
-          <p><strong>Notes:</strong> {item.notes || 'Add notes about your progress or strategy...'}</p>
-        </div>
+        </Tooltip>
       ))}
     </div>
   );
@@ -1423,21 +1579,38 @@ function You({ data, onEdit, onDelete }) {
       <div className="section-row">
         <h2 style={{color: '#10b981', marginBottom: '16px', borderBottom: '2px solid #10b981', paddingBottom: '8px'}}>Your Superpowers</h2>
         <div className="list">
-          {data.superpowers && data.superpowers.map((item, idx) => (
-            <div key={idx} className="card superpower-card">
-              <div className="card-header">
-                <h3>{item.name}</h3>
-                <div className="card-actions">
-                  <button className="icon-btn edit-btn" onClick={() => onEdit('superpowers', item, idx)} title="Edit">
-                    ✏️
-                  </button>
-                  {/* No delete button for superpowers - they're fixed */}
+          {data.superpowers && data.superpowers.map((item, idx) => {
+            const getSkillTooltip = (skillCategory) => {
+              switch (skillCategory) {
+                case 'Technical Skills':
+                  return 'Technical Skills: Add 2-3 specific technical abilities with proficiency levels (Beginner/Intermediate/Advanced/Expert). Examples: Programming languages (Python, JavaScript, SQL), spoken languages (Spanish - fluent, Mandarin - conversational), specialized tools (Figma, AutoCAD, Salesforce), platforms (AWS, Docker, GitHub), frameworks (React, Django), or technical methodologies (Agile, DevOps, Data Analysis). Include concrete examples of projects or achievements.';
+                case 'Business Skills':
+                  return 'Business Skills: Add 2-3 industry or field-specific expertise areas with proficiency levels. Examples: Healthcare operations, fintech regulations, e-commerce strategy, SaaS sales, manufacturing processes, real estate development, nonprofit fundraising, venture capital, digital marketing, supply chain management, or regulatory compliance. Focus on domain knowledge that gives you an edge in specific industries or business functions.';
+                case 'Organization Skills':
+                  return 'Organization Skills: Add 2-3 transferable leadership and management abilities with proficiency levels. Examples: Public speaking, team hiring and recruiting, employee training and development, budget management, grant writing, project management, strategic planning, process improvement, conflict resolution, cross-functional collaboration, stakeholder management, or change management. These skills work across industries and demonstrate leadership potential.';
+                default:
+                  return 'Add 2-3 specific skills with proficiency levels (Beginner/Intermediate/Advanced/Expert) and concrete examples of how you\'ve applied these skills.';
+              }
+            };
+            
+            return (
+              <Tooltip key={idx} text={getSkillTooltip(item.name)}>
+                <div className="card superpower-card">
+                  <div className="card-header">
+                    <h3>{item.name}</h3>
+                    <div className="card-actions">
+                      <button className="icon-btn edit-btn" onClick={() => onEdit('superpowers', item, idx)} title="Edit">
+                        ✏️
+                      </button>
+                      {/* No delete button for superpowers - they're fixed */}
+                    </div>
+                  </div>
+                  <p><strong>Description:</strong> {item.description || 'Click edit to describe your skills...'}</p>
+                  <p><strong>Notes:</strong> {item.notes || 'Add examples or specific details...'}</p>
                 </div>
-              </div>
-              <p><strong>Description:</strong> {item.description || 'Click edit to describe your skills...'}</p>
-              <p><strong>Notes:</strong> {item.notes || 'Add examples or specific details...'}</p>
-            </div>
-          ))}
+              </Tooltip>
+            );
+          })}
         </div>
       </div>
 
@@ -2309,20 +2482,25 @@ function FormModal({ type, item, onSave, onClose, onAdvise, advisorShowing }) {
           </div>
         )}
         <div className="modal-buttons">
-          <button onClick={save} title="Save this board member or goal">Save</button>
+          <Tooltip text="Save this board member or goal">
+            <button onClick={save}>Save</button>
+          </Tooltip>
           {onAdvise && (
-            <button 
-              onClick={() => onAdvise(form)}
-              style={{
-                backgroundColor: '#10b981',
-                color: 'white'
-              }}
-              title="Get AI-powered guidance and recommendations for this entry"
-            >
-              Advise
-            </button>
+            <Tooltip text="Get AI-powered guidance and recommendations for this entry">
+              <button 
+                onClick={() => onAdvise(form)}
+                style={{
+                  backgroundColor: '#10b981',
+                  color: 'white'
+                }}
+              >
+                Advise
+              </button>
+            </Tooltip>
           )}
-          <button onClick={onClose} title="Cancel and close this form">Cancel</button>
+          <Tooltip text="Cancel and close this form">
+            <button onClick={onClose}>Cancel</button>
+          </Tooltip>
         </div>
       </div>
     </div>
