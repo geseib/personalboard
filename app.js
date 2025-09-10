@@ -87,6 +87,8 @@ function App() {
   const [showMentorVideoModal, setShowMentorVideoModal] = useState(false);
   const [showCoachVideoModal, setShowCoachVideoModal] = useState(false);
   const [showGoalsVideoModal, setShowGoalsVideoModal] = useState(false);
+  const [showConnectorsVideoModal, setShowConnectorsVideoModal] = useState(false);
+  const [showSponsorsVideoModal, setShowSponsorsVideoModal] = useState(false);
   const [showBoardVideoModal, setShowBoardVideoModal] = useState(false);
   const [showAdvisorModal, setShowAdvisorModal] = useState(false);
   const [advisorGuidance, setAdvisorGuidance] = useState(null);
@@ -1322,6 +1324,8 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
                   if (current === 'goals') setShowGoalsVideoModal(true);
                   else if (current === 'mentors') setShowMentorVideoModal(true);
                   else if (current === 'coaches') setShowCoachVideoModal(true);
+                  else if (current === 'connectors') setShowConnectorsVideoModal(true);
+                  else if (current === 'sponsors') setShowSponsorsVideoModal(true);
                 }}
                 style={{
                   padding: '8px 16px',
@@ -1457,6 +1461,8 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
       {showMentorVideoModal && <MentorVideoModal onClose={() => setShowMentorVideoModal(false)} />}
       {showCoachVideoModal && <CoachVideoModal onClose={() => setShowCoachVideoModal(false)} />}
       {showGoalsVideoModal && <GoalsVideoModal onClose={() => setShowGoalsVideoModal(false)} />}
+      {showConnectorsVideoModal && <ConnectorsVideoModal onClose={() => setShowConnectorsVideoModal(false)} />}
+      {showSponsorsVideoModal && <SponsorsVideoModal onClose={() => setShowSponsorsVideoModal(false)} />}
       {showBoardVideoModal && <BoardVideoModal onClose={() => setShowBoardVideoModal(false)} />}
       {showAdvisorModal && <AdvisorModal guidance={advisorGuidance} loading={advisorLoading} onClose={() => setShowAdvisorModal(false)} formType={formType} currentForm={editingItem} onCopyToField={handleCopyToField} />}
       
@@ -3170,6 +3176,116 @@ function AdvisorModal({ guidance, loading, onClose, formType, currentForm, onCop
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function ConnectorsVideoModal({ onClose }) {
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+  
+  return (
+    <div className="modal" onClick={handleOverlayClick}>
+      <div className="modal-content" style={{maxWidth: '800px', padding: '20px'}}>
+        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
+          <h2 style={{margin: 0}}>Connectors: Expanding Your Network</h2>
+          <button 
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '24px',
+              cursor: 'pointer',
+              color: '#666'
+            }}
+          >
+            ×
+          </button>
+        </div>
+        
+        <div style={{position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden'}}>
+          <iframe 
+            width="560" 
+            height="315" 
+            src="https://www.youtube.com/embed/xFrqZjIDE44?si=StsoXN5-r0tNDqxj" 
+            title="YouTube video player" 
+            frameBorder="0" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+            referrerPolicy="strict-origin-when-cross-origin" 
+            allowFullScreen
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%'
+            }}
+          >
+          </iframe>
+        </div>
+        
+        <div className="modal-buttons" style={{marginTop: '20px'}}>
+          <button onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SponsorsVideoModal({ onClose }) {
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+  
+  return (
+    <div className="modal" onClick={handleOverlayClick}>
+      <div className="modal-content" style={{maxWidth: '800px', padding: '20px'}}>
+        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
+          <h2 style={{margin: 0}}>Sponsors: Your Career Advocates</h2>
+          <button 
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '24px',
+              cursor: 'pointer',
+              color: '#666'
+            }}
+          >
+            ×
+          </button>
+        </div>
+        
+        <div style={{position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden'}}>
+          <iframe 
+            width="560" 
+            height="315" 
+            src="https://www.youtube.com/embed/gpE_W50OTUc?si=9qnx6BTE17hBtuhg" 
+            title="YouTube video player" 
+            frameBorder="0" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+            referrerPolicy="strict-origin-when-cross-origin" 
+            allowFullScreen
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%'
+            }}
+          >
+          </iframe>
+        </div>
+        
+        <div className="modal-buttons" style={{marginTop: '20px'}}>
+          <button onClick={onClose}>Close</button>
+        </div>
       </div>
     </div>
   );
