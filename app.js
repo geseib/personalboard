@@ -175,7 +175,14 @@ function App() {
 
   const handleAdd = type => {
     setFormType(type);
-    setEditingItem(null);
+    // Initialize editingItem with default form structure for new cards
+    const getDefaultForm = () => {
+      if (type === 'goals') return { timeframe: '', description: '', notes: '' };
+      if (type === 'superpowers') return { name: '', description: '', notes: '' };
+      if (type === 'mentees') return { name: '', role: '', connection: 'Not yet', cadence: 'Monthly', notes: '', whatYouTeach: '', whatYouLearn: '' };
+      return { name: '', role: '', connection: 'Not yet', cadence: 'Monthly', notes: '', whatToLearn: '', whatTheyGet: '' };
+    };
+    setEditingItem(getDefaultForm());
     setEditingIndex(null);
     setShowForm(true);
   };
@@ -1459,7 +1466,7 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
       </nav>
       {showLearn && <LearnModal type={current} onClose={() => setShowLearn(false)} onAddClick={() => { setShowLearn(false); handleAdd(current); }} />}
       {showIntroLearn && <IntroLearnModal onClose={() => setShowIntroLearn(false)} />}
-      {showForm && <FormModal type={formType} item={editingItem} onSave={saveEntry} onClose={() => { setShowForm(false); setShowAdvisorModal(false); }} onAdvise={handleAdvise} advisorShowing={showAdvisorModal} />}
+      {showForm && <FormModal type={formType} item={editingItem} onSave={saveEntry} onClose={() => { setShowForm(false); setShowAdvisorModal(false); }} onAdvise={handleAdvise} advisorShowing={showAdvisorModal} onFormUpdate={setEditingItem} />}
       {showUploadSuccess && <UploadSuccessPopup />}
       {showVideoModal && <VideoModal onClose={() => setShowVideoModal(false)} />}
       {showMentorVideoModal && <MentorVideoModal onClose={() => setShowMentorVideoModal(false)} />}
@@ -2323,7 +2330,7 @@ function UploadSuccessPopup() {
   );
 }
 
-function FormModal({ type, item, onSave, onClose, onAdvise, advisorShowing }) {
+function FormModal({ type, item, onSave, onClose, onAdvise, advisorShowing, onFormUpdate }) {
   const handleOverlayClick = (e) => {
     // Close FormModal when clicking on its overlay
     if (e.target === e.currentTarget) {
@@ -2359,12 +2366,22 @@ function FormModal({ type, item, onSave, onClose, onAdvise, advisorShowing }) {
     }
   }, [item]);
   
-  const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = e => {
+    const newForm = { ...form, [e.target.name]: e.target.value };
+    setForm(newForm);
+    if (onFormUpdate) {
+      onFormUpdate(newForm); // Keep parent editingItem in sync
+    }
+  };
   
   const handleCadenceChange = e => {
     const index = parseInt(e.target.value);
     setCadenceIndex(index);
-    setForm({ ...form, cadence: cadenceOptions[index] });
+    const newForm = { ...form, cadence: cadenceOptions[index] };
+    setForm(newForm);
+    if (onFormUpdate) {
+      onFormUpdate(newForm); // Keep parent editingItem in sync
+    }
   };
   
   const save = () => {
