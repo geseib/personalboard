@@ -309,7 +309,9 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
     setShowAdvisorModal(false); // Close advisor modal when saving
   };
 
-  const handleAdvise = async (currentFormData) => {
+  const handleAdvise = async (currentFormData, modalFormType) => {
+    // Use the type passed from FormModal to ensure we're using the correct type
+    const typeToUse = modalFormType || formType;
     
     setAdvisorLoading(true);
     setShowAdvisorModal(true);
@@ -317,14 +319,14 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
     try {
       let result;
       
-      if (formType === 'goals') {
+      if (typeToUse === 'goals') {
         // Goals advisor
         result = await getGoalsAdvisorGuidance(
           currentFormData,
           data.goals || [],
           data // Pass all board data for context
         );
-      } else if (formType === 'board') {
+      } else if (typeToUse === 'board') {
         // Board analysis advisor - show inline instead of modal
         setShowAdvisorModal(false);
         setAdvisorLoading(false);
@@ -340,11 +342,11 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
           'peers': "Colleagues at similar career levels who provide mutual support, collaboration, and shared learning. They offer different perspectives, help you navigate challenges, and can become long-term professional allies. Peer relationships are typically reciprocal and ongoing."
         };
         
-        const learnContent = learnContentMap[formType] || learnContentMap['mentors'];
-        const existingMembers = data[formType] || [];
+        const learnContent = learnContentMap[typeToUse] || learnContentMap['mentors'];
+        const existingMembers = data[typeToUse] || [];
         
         result = await getBoardMemberAdvisorGuidance(
-          formType,
+          typeToUse,
           currentFormData,
           data.goals || [],
           learnContent,
@@ -1443,6 +1445,7 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
                 setCurrent(p.key);
                 setShowForm(false);
                 setShowAdvisorModal(false);
+                setFormType(''); // Reset formType when navigating
               }}>
                 <span className="nav-title">{p.title}</span>
                 {showCount && (
@@ -2532,7 +2535,7 @@ function FormModal({ type, item, onSave, onClose, onAdvise, advisorShowing, onFo
           {onAdvise && (
             <Tooltip text="Get AI-powered guidance and recommendations for this entry">
               <button 
-                onClick={() => onAdvise(form)}
+                onClick={() => onAdvise(form, type)}
                 style={{
                   backgroundColor: '#10b981',
                   color: 'white'
