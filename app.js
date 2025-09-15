@@ -57,10 +57,9 @@ function App() {
     // Initialize goals if they don't exist
     if (!savedData.goals) {
       savedData.goals = [
-        { timeframe: '3 Month Goals', description: '', notes: '' },
+        { timeframe: '3 Months (Immediate Goals)', description: '', notes: '' },
         { timeframe: '1 Year Goals', description: '', notes: '' },
-        { timeframe: '5 Year Goals', description: '', notes: '' },
-        { timeframe: 'Beyond', description: '', notes: '' }
+        { timeframe: '5+ Year Goals (Long-term Vision)', description: '', notes: '' }
       ];
     }
     // Initialize you section if it doesn't exist
@@ -1306,7 +1305,11 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
         ],
         mentees: []
       },
-      goals: []
+      goals: [
+        { timeframe: '3 Months (Immediate Goals)', description: '', notes: '' },
+        { timeframe: '1 Year Goals', description: '', notes: '' },
+        { timeframe: '5+ Year Goals (Long-term Vision)', description: '', notes: '' }
+      ]
     };
     
     setData(freshData);
@@ -1361,7 +1364,7 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
           <BottomTooltip text="Learn about this board member type and best practices">
             <button onClick={() => setShowLearn(true)}>Learn</button>
           </BottomTooltip>
-          {current !== 'you' && (
+          {current !== 'you' && current !== 'goals' && (
             <BottomTooltip text="Add a new board member to this category">
               <button onClick={() => handleAdd(current)}>+ Add</button>
             </BottomTooltip>
