@@ -351,7 +351,7 @@ button:active {
 /* Wider tooltips for skills to prevent running off screen */
 .tooltip-wide {
   position: absolute;
-  bottom: 100%;
+  top: 100%;
   left: 50%;
   transform: translateX(-50%);
   background: #2563eb;
@@ -363,8 +363,8 @@ button:active {
   line-height: 1.4;
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
   white-space: normal;
-  max-width: 480px;
-  min-width: 300px;
+  max-width: 350px;
+  min-width: 250px;
   text-align: left;
   z-index: 1000;
   margin-bottom: 8px;
@@ -376,12 +376,12 @@ button:active {
 .tooltip-wide::after {
   content: '';
   position: absolute;
-  top: 100%;
+  bottom: 100%;
   left: 50%;
   transform: translateX(-50%);
   border: 6px solid transparent;
-  border-top-color: #2563eb;
-  filter: drop-shadow(0 2px 4px rgba(37, 99, 235, 0.2));
+  border-bottom-color: #2563eb;
+  filter: drop-shadow(0 -2px 4px rgba(37, 99, 235, 0.2));
 }
 
 .tooltip::after {

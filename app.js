@@ -1623,13 +1623,13 @@ function You({ data, onEdit, onDelete }) {
             const getSkillTooltip = (skillCategory) => {
               switch (skillCategory) {
                 case 'Technical Skills':
-                  return 'Technical Skills: Add 2-3 specific technical abilities with proficiency levels (Beginner/Intermediate/Advanced/Expert). Examples: Programming languages (Python, JavaScript, SQL), spoken languages (Spanish - fluent, Mandarin - conversational), specialized tools (Figma, AutoCAD, Salesforce), platforms (AWS, Docker, GitHub), frameworks (React, Django), or technical methodologies (Agile, DevOps, Data Analysis). Include concrete examples of projects or achievements.';
+                  return 'Programming, tools, platforms, methodologies. Examples: Python, AWS, React.';
                 case 'Business Skills':
-                  return 'Business Skills: Add 2-3 industry or field-specific expertise areas with proficiency levels. Examples: Healthcare operations, fintech regulations, e-commerce strategy, SaaS sales, manufacturing processes, real estate development, nonprofit fundraising, venture capital, digital marketing, supply chain management, or regulatory compliance. Focus on domain knowledge that gives you an edge in specific industries or business functions.';
+                  return 'Industry expertise and domain knowledge. Examples: Healthcare, fintech, e-commerce.';
                 case 'Organization Skills':
-                  return 'Organization Skills: Add 2-3 transferable leadership and management abilities with proficiency levels. Examples: Public speaking, team hiring and recruiting, employee training and development, budget management, grant writing, project management, strategic planning, process improvement, conflict resolution, cross-functional collaboration, stakeholder management, or change management. These skills work across industries and demonstrate leadership potential.';
+                  return 'Leadership and management abilities. Examples: Public speaking, project management.';
                 default:
-                  return 'Add 2-3 specific skills with proficiency levels (Beginner/Intermediate/Advanced/Expert) and concrete examples of how you\'ve applied these skills.';
+                  return 'Add skills with proficiency levels and examples.';
               }
             };
             
