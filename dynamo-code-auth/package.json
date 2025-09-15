@@ -1,0 +1,11 @@
+{
+  "name": "dynamo-code-auth",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.637.0",
+    "@aws-sdk/lib-dynamodb": "^3.637.0",
+    "jsonwebtoken": "^9.0.2"
+  }
+}

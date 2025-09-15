@@ -1,0 +1,12 @@
+{
+  "name": "personal-board-ai-guidance",
+  "version": "1.0.0",
+  "description": "AI guidance for Personal Board of Directors application",
+  "main": "ai-guidance.js",
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.645.0"
+  },
+  "engines": {
+    "node": ">=18.x"
+  }
+}
