@@ -11,35 +11,81 @@ const corsHeaders = {
     'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
 };
 
-// Initial prompt configuration data
+// Advisor category definitions
+const ADVISOR_CATEGORIES = {
+    'skills': {
+        name: 'Skills & Superpowers',
+        description: 'Advisors for identifying and developing your core skills and strengths',
+        defaultPrompt: 'skills_default'
+    },
+    'goals': {
+        name: 'Goals & Vision',
+        description: 'Advisors for setting and achieving career goals',
+        defaultPrompt: 'goals_default'
+    },
+    'mentors': {
+        name: 'Mentors',
+        description: 'Relationship advisors for mentor connections',
+        defaultPrompt: 'mentors_default'
+    },
+    'coaches': {
+        name: 'Coaches',
+        description: 'Relationship advisors for coaching connections',
+        defaultPrompt: 'coaches_default'
+    },
+    'sponsors': {
+        name: 'Sponsors',
+        description: 'Relationship advisors for sponsor connections',
+        defaultPrompt: 'sponsors_default'
+    },
+    'connectors': {
+        name: 'Connectors',
+        description: 'Relationship advisors for connector relationships',
+        defaultPrompt: 'connectors_default'
+    },
+    'peers': {
+        name: 'Peers',
+        description: 'Relationship advisors for peer connections',
+        defaultPrompt: 'peers_default'
+    },
+    'overall': {
+        name: 'Overall Board Advisor',
+        description: 'Holistic advisors for comprehensive board guidance',
+        defaultPrompt: 'overall_default'
+    }
+};
+
+// Initial prompt configuration data with new structure
 const INITIAL_PROMPTS = [
+    // Skills & Superpowers
     {
-        promptId: 'form_completion',
-        name: 'Enhanced Board Member Advisor',
-        type: 'form_completion',
+        promptId: 'skills_default',
+        name: 'Skills & Superpowers Advisor',
+        category: 'skills',
         status: 'active',
         isCustom: false,
-        tokenCount: 1450,
-        systemPrompt: 'You are a strategic career advisor helping professionals build their Personal Board of Directors...',
-        userPromptTemplate: 'Based on the following information about a professional:\n\nCurrent Profile:\n{currentFields}\n\nCareer Goals:\n{goals}\n\nExisting Board Members:\n{boardMembers}\n\nPlease provide strategic guidance on building their board...',
-        variables: ['currentFields', 'goals', 'boardMembers']
+        tokenCount: 1200,
+        systemPrompt: 'You are an expert career advisor specializing in identifying and developing professional skills and superpowers...',
+        userPromptTemplate: 'Help me identify and develop my skills:\n\nCurrent Skills: {skills}\nCareer Goals: {goals}\nCurrent Situation: {currentFields}\n\nPlease provide guidance on developing my superpowers...',
+        variables: ['skills', 'goals', 'currentFields']
     },
+    // Goals & Vision
     {
-        promptId: 'board_member_advisor',
-        name: 'Board Member Relationship Advisor',
-        type: 'board_member_advisor',
+        promptId: 'goals_default',
+        name: 'Goals & Career Vision Advisor',
+        category: 'goals',
         status: 'active',
         isCustom: false,
-        tokenCount: 1280,
-        systemPrompt: 'You are an expert advisor helping professionals maximize value from their board member relationships...',
-        userPromptTemplate: 'Help me develop my relationship with this board member:\n\nBoard Member: {memberName}\nRole: {memberRole}\nCurrent Relationship: {currentRelationship}\n\nMy Profile:\n{currentFields}\n\nMy Goals:\n{goals}\n\nPlease provide specific advice...',
-        variables: ['memberName', 'memberRole', 'currentRelationship', 'currentFields', 'goals']
+        tokenCount: 1300,
+        systemPrompt: 'You are a strategic career advisor helping professionals set and achieve meaningful career goals...',
+        userPromptTemplate: 'Help me with my career goals:\n\nCurrent Goals: {goals}\nCurrent Situation: {currentFields}\nExisting Board: {boardMembers}\n\nPlease provide strategic guidance on goal achievement...',
+        variables: ['goals', 'currentFields', 'boardMembers']
     },
+    // Board Member Categories
     {
-        promptId: 'mentor_advisor',
+        promptId: 'mentors_default',
         name: 'Mentor Relationship Advisor',
-        type: 'mentor_advisor',
-        memberType: 'mentors',
+        category: 'mentors',
         status: 'active',
         isCustom: false,
         tokenCount: 1320,
@@ -48,11 +94,10 @@ const INITIAL_PROMPTS = [
         variables: ['memberName', 'memberRole', 'currentRelationship', 'currentFields', 'goals']
     },
     {
-        promptId: 'coach_advisor',
+        promptId: 'coaches_default',
         name: 'Coach Relationship Advisor',
-        type: 'mentor_advisor',
-        memberType: 'coaches',
-        status: 'inactive',
+        category: 'coaches',
+        status: 'active',
         isCustom: false,
         tokenCount: 1290,
         systemPrompt: 'You are an expert advisor helping professionals work effectively with professional coaches...',
@@ -60,11 +105,10 @@ const INITIAL_PROMPTS = [
         variables: ['memberName', 'memberRole', 'currentRelationship', 'currentFields', 'goals']
     },
     {
-        promptId: 'sponsor_advisor',
+        promptId: 'sponsors_default',
         name: 'Sponsor Relationship Advisor',
-        type: 'mentor_advisor',
-        memberType: 'sponsors',
-        status: 'inactive',
+        category: 'sponsors',
+        status: 'active',
         isCustom: false,
         tokenCount: 1380,
         systemPrompt: 'You are an expert advisor helping professionals build and leverage sponsorship relationships...',
@@ -72,11 +116,10 @@ const INITIAL_PROMPTS = [
         variables: ['memberName', 'memberRole', 'currentRelationship', 'currentFields', 'goals']
     },
     {
-        promptId: 'connector_advisor',
+        promptId: 'connectors_default',
         name: 'Connector Relationship Advisor',
-        type: 'mentor_advisor',
-        memberType: 'connectors',
-        status: 'inactive',
+        category: 'connectors',
+        status: 'active',
         isCustom: false,
         tokenCount: 1250,
         systemPrompt: 'You are an expert advisor helping professionals build relationships with well-connected individuals...',
@@ -84,38 +127,27 @@ const INITIAL_PROMPTS = [
         variables: ['memberName', 'memberRole', 'currentRelationship', 'currentFields', 'goals']
     },
     {
-        promptId: 'peer_advisor',
+        promptId: 'peers_default',
         name: 'Peer Relationship Advisor',
-        type: 'mentor_advisor',
-        memberType: 'peers',
-        status: 'inactive',
+        category: 'peers',
+        status: 'active',
         isCustom: false,
         tokenCount: 1200,
         systemPrompt: 'You are an expert advisor helping professionals build valuable peer-to-peer relationships...',
         userPromptTemplate: 'Help me develop this peer relationship:\n\nPeer: {memberName}\nRole/Background: {memberRole}\nCurrent Dynamic: {currentRelationship}\n\nMy Profile:\n{currentFields}\n\nMy Objectives:\n{goals}\n\nPlease provide guidance...',
         variables: ['memberName', 'memberRole', 'currentRelationship', 'currentFields', 'goals']
     },
+    // Overall Board Advisor
     {
-        promptId: 'superpowers_advisor',
-        name: 'Superpowers Skills Advisor',
-        type: 'goals_advisor',
+        promptId: 'overall_default',
+        name: 'Comprehensive Board Strategy Advisor',
+        category: 'overall',
         status: 'active',
         isCustom: false,
-        tokenCount: 1650,
-        systemPrompt: 'You are a strategic career advisor specializing in identifying and developing professional superpowers...',
-        userPromptTemplate: 'Help me identify and develop my key professional superpowers:\n\nMy Current Profile:\n{currentFields}\n\nMy Career Goals:\n{goals}\n\nMy Current Skills/Strengths:\n{skills}\n\nExisting Board Members:\n{boardMembers}\n\nPlease help me identify 2-4 key differentiating skills...',
-        variables: ['currentFields', 'goals', 'skills', 'boardMembers']
-    },
-    {
-        promptId: 'board_analysis_advisor',
-        name: 'Board Analysis Advisor',
-        type: 'board_analysis_advisor',
-        status: 'active',
-        isCustom: false,
-        tokenCount: 1820,
-        systemPrompt: 'You are a strategic advisor analyzing Personal Board of Directors for comprehensive career guidance...',
-        userPromptTemplate: 'Analyze this Personal Board of Directors:\n\nUser Profile:\n{currentFields}\n\nCareer Goals:\n{goals}\n\nKey Skills/Superpowers:\n{skills}\n\nBoard Members:\n{boardMembers}\n\nPlease provide a comprehensive analysis...',
-        variables: ['currentFields', 'goals', 'skills', 'boardMembers']
+        tokenCount: 1400,
+        systemPrompt: 'You are a strategic advisor specializing in analyzing Personal Boards of Directors and providing comprehensive board strategy recommendations...',
+        userPromptTemplate: 'Analyze my current board and provide strategic recommendations:\n\nCurrent Board Members:\n{boardMembers}\n\nMy Profile:\n{currentFields}\n\nMy Goals:\n{goals}\n\nPlease provide comprehensive board analysis and strategic recommendations...',
+        variables: ['boardMembers', 'currentFields', 'goals']
     }
 ];
 
@@ -206,19 +238,20 @@ async function getPrompts() {
         ...item
     }));
 
-    // Get active selections
+    // Get active selections using ADVISOR#{category} structure
     const activeResult = await dynamodb.send(new ScanCommand({
         TableName: TABLE_NAME,
-        FilterExpression: 'begins_with(PK, :pk)',
+        FilterExpression: 'begins_with(PK, :pk) AND SK = :sk',
         ExpressionAttributeValues: {
-            ':pk': 'ADVISOR#'
+            ':pk': 'ADVISOR#',
+            ':sk': 'PROMPT'
         }
     }));
 
     const activeSelections = {};
     activeResult.Items.forEach(item => {
-        const advisorType = item.PK.replace('ADVISOR#', '');
-        activeSelections[advisorType] = item.activePromptId;
+        const category = item.PK.replace('ADVISOR#', '');
+        activeSelections[category] = item.activePromptId;
     });
 
     // Calculate stats
@@ -244,13 +277,21 @@ async function getPrompts() {
 async function createPrompt(promptData) {
     const promptId = promptData.promptId || `custom_${Date.now()}`;
 
+    // Validate category
+    if (!promptData.category || !ADVISOR_CATEGORIES[promptData.category]) {
+        return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ error: 'Invalid or missing category. Must be one of: ' + Object.keys(ADVISOR_CATEGORIES).join(', ') })
+        };
+    }
+
     const item = {
         PK: `PROMPT#${promptId}`,
         SK: 'CONFIG',
         promptId,
         name: promptData.name,
-        type: promptData.type,
-        memberType: promptData.memberType || null,
+        category: promptData.category,
         status: 'inactive',
         isCustom: true,
         tokenCount: promptData.tokenCount || 1500,
@@ -369,13 +410,39 @@ async function activatePrompt(promptId) {
     }
 
     const prompt = promptResult.Item;
-    const advisorKey = prompt.memberType || prompt.type;
 
-    // Update active selection
+    // Determine category from either the new category field or the old type/memberType fields
+    let category = prompt.category;
+
+    // If no category field, map from old structure
+    if (!category) {
+        // Map memberType or type to category
+        if (prompt.memberType) {
+            // Board member types map directly to categories
+            category = prompt.memberType; // mentors, coaches, sponsors, connectors, peers
+        } else if (prompt.type === 'goals_advisor' || prompt.type === 'superpowers_advisor') {
+            // Map goals_advisor to either skills or goals (for now use skills for superpowers)
+            category = prompt.name && prompt.name.includes('Superpower') ? 'skills' : 'goals';
+        } else if (prompt.type === 'board_analysis_advisor' || prompt.type === 'board_analysis') {
+            category = 'overall';
+        } else if (prompt.type === 'form_completion') {
+            category = 'overall'; // Form completion is an overall board function
+        }
+    }
+
+    if (!category || !ADVISOR_CATEGORIES[category]) {
+        return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ error: `Invalid or unmapped category for prompt: ${prompt.type || prompt.memberType || 'unknown'}` })
+        };
+    }
+
+    // Update active selection using ADVISOR#{category} structure
     await dynamodb.send(new PutCommand({
         TableName: TABLE_NAME,
         Item: {
-            PK: `ADVISOR#${advisorKey}`,
+            PK: `ADVISOR#${category}`,
             SK: 'PROMPT',
             activePromptId: promptId,
             updatedAt: new Date().toISOString()
@@ -449,20 +516,23 @@ async function seedDatabase() {
         });
     }
 
-    // Seed active selections
+    // Seed active selections using ADVISOR#{category} structure
     const activeSelections = [
-        { advisorKey: 'form_completion', promptId: 'form_completion' },
-        { advisorKey: 'board_member_advisor', promptId: 'board_member_advisor' },
-        { advisorKey: 'mentors', promptId: 'mentor_advisor' },
-        { advisorKey: 'goals_advisor', promptId: 'superpowers_advisor' },
-        { advisorKey: 'board_analysis_advisor', promptId: 'board_analysis_advisor' }
+        { category: 'skills', promptId: 'skills_default' },
+        { category: 'goals', promptId: 'goals_default' },
+        { category: 'mentors', promptId: 'mentors_default' },
+        { category: 'coaches', promptId: 'coaches_default' },
+        { category: 'sponsors', promptId: 'sponsors_default' },
+        { category: 'connectors', promptId: 'connectors_default' },
+        { category: 'peers', promptId: 'peers_default' },
+        { category: 'overall', promptId: 'overall_default' }
     ];
 
     for (const selection of activeSelections) {
         await dynamodb.send(new PutCommand({
             TableName: TABLE_NAME,
             Item: {
-                PK: `ADVISOR#${selection.advisorKey}`,
+                PK: `ADVISOR#${selection.category}`,
                 SK: 'PROMPT',
                 activePromptId: selection.promptId,
                 updatedAt: new Date().toISOString()

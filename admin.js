@@ -138,7 +138,11 @@ async function loadPromptData(forceRefresh = false) {
         // Transform backend data to match frontend expectations
         currentPrompts = {};
         data.prompts.forEach(prompt => {
+            // Get the category for this prompt
+            const category = getCategoryForPrompt(prompt);
+
             currentPrompts[prompt.promptId] = {
+                promptId: prompt.promptId,
                 name: prompt.name,
                 type: prompt.type,
                 memberType: prompt.memberType,
@@ -148,7 +152,7 @@ async function loadPromptData(forceRefresh = false) {
                 systemPrompt: prompt.systemPrompt,
                 userPromptTemplate: prompt.userPromptTemplate,
                 variables: prompt.variables,
-                category: getCategoryForPrompt(prompt),
+                category: category,
                 lastModified: prompt.createdAt || prompt.updatedAt
             };
         });
@@ -188,23 +192,33 @@ function getPromptStatus(promptId, activeSelections) {
  * Get category for a prompt based on its type and properties
  */
 function getCategoryForPrompt(prompt) {
+    // If prompt already has a category field, use it
+    if (prompt.category) {
+        return prompt.category;
+    }
+
+    // Map memberType to categories
+    if (prompt.memberType) {
+        return prompt.memberType; // mentors, coaches, sponsors, connectors, peers
+    }
+
+    // Map type to categories
     switch (prompt.type) {
-        case 'form_completion':
-            return 'Form Assistance';
-        case 'board_member_advisor':
-            return 'Board Member Guidance';
-        case 'mentor_advisor':
-            return 'Relationship Guidance';
         case 'goals_advisor':
-            return 'Skills & Goals';
+        case 'superpowers_advisor':
+            // Check name for better classification
+            return prompt.name && prompt.name.includes('Superpower') ? 'skills' : 'goals';
         case 'board_analysis_advisor':
-            return 'Board Analysis';
-        case 'goal_alignment':
-            return 'Alignment Analysis';
-        case 'connection_suggestions':
-            return 'Networking';
+        case 'board_analysis':
+        case 'form_completion':
+            return 'overall';
+        case 'mentor_advisor':
+            // If no memberType, default to mentors
+            return 'mentors';
+        case 'board_member_advisor':
+            return 'overall';
         default:
-            return 'General';
+            return null; // Don't map unknown types
     }
 }
 
@@ -247,21 +261,65 @@ async function refreshData() {
  */
 function loadPromptCategories() {
     const container = document.getElementById('prompt-categories');
-    if (!container) return;
+    if (!container) {
+        console.error('❌ prompt-categories container not found');
+        return;
+    }
 
-    // Group prompts by category
+    console.log('📊 Loading categories with prompts:', Object.keys(currentPrompts).length);
+
+    // Define the valid categories that should be shown
+    const validCategories = {
+        'skills': 'Skills & Superpowers',
+        'goals': 'Goals & Vision',
+        'mentors': 'Mentors',
+        'coaches': 'Coaches',
+        'sponsors': 'Sponsors',
+        'connectors': 'Connectors',
+        'peers': 'Peers',
+        'overall': 'Overall Board Advisor'
+    };
+
+    // Group prompts by category - map old prompts to categories too
     const categories = {};
     Object.entries(currentPrompts).forEach(([promptId, prompt]) => {
-        const category = prompt.category || 'Uncategorized';
-        if (!categories[category]) categories[category] = [];
-        categories[category].push({ promptId, ...prompt });
+        let category = prompt.category;
+
+        // If no category field, map from old structure
+        if (!category) {
+            if (prompt.memberType) {
+                // Board member types map directly to categories
+                category = prompt.memberType; // mentors, coaches, sponsors, connectors, peers
+            } else if (prompt.type === 'goals_advisor' || prompt.type === 'superpowers_advisor') {
+                // Map goals_advisor to either skills or goals
+                category = prompt.name && prompt.name.includes('Superpower') ? 'skills' : 'goals';
+            } else if (prompt.type === 'board_analysis_advisor' || prompt.type === 'board_analysis') {
+                category = 'overall';
+            } else if (prompt.type === 'form_completion') {
+                category = 'overall'; // Form completion is an overall board function
+            } else if (prompt.type === 'mentor_advisor' && !prompt.memberType) {
+                category = 'mentors'; // Default mentor_advisor to mentors
+            } else if (prompt.type === 'board_member_advisor') {
+                category = 'overall'; // Generic board member advisor
+            }
+        }
+
+        // Only include prompts that map to valid categories
+        if (category && validCategories[category]) {
+            if (!categories[category]) categories[category] = [];
+            categories[category].push({ promptId, ...prompt });
+        }
     });
+
+    console.log('📁 Mapped categories:', Object.keys(categories));
+    console.log('🔍 Active selections:', activeSelections);
 
     // Clear existing content
     container.innerHTML = '';
 
-    // Show loading if no data
-    if (Object.keys(categories).length === 0) {
+    // Show loading if no prompts loaded yet
+    if (Object.keys(currentPrompts).length === 0) {
+        console.log('⏳ No prompts loaded yet, showing spinner');
         container.innerHTML = `
             <div class="loading-state">
                 <div class="loading-spinner"></div>
@@ -271,20 +329,29 @@ function loadPromptCategories() {
         return;
     }
 
-    // Create category sections
-    Object.entries(categories).forEach(([categoryName, prompts]) => {
+    console.log('✅ Creating category sections...');
+
+    // Create category sections - ensure all 8 categories are shown
+    Object.entries(validCategories).forEach(([categoryKey, categoryName]) => {
+        const prompts = categories[categoryKey] || [];
         const categoryDiv = document.createElement('div');
         categoryDiv.className = 'prompt-category';
+
+        // Show active prompt indicator
+        const activePromptId = activeSelections[categoryKey];
+        const activeIndicator = activePromptId ? `<span class="active-indicator">Active: ${activePromptId}</span>` : '<span class="inactive-indicator">No active prompt</span>';
+
         categoryDiv.innerHTML = `
             <div class="category-header">
                 <h3 class="category-title">${categoryName}</h3>
                 <span class="category-count">${prompts.length} prompts</span>
+                ${activeIndicator}
             </div>
             <div class="category-description">
                 Advanced AI prompts for ${categoryName.toLowerCase()} functionality
             </div>
             <div class="prompts-grid">
-                ${prompts.map(prompt => createPromptCard(prompt)).join('')}
+                ${prompts.map(prompt => createPromptCard(prompt, categoryKey)).join('')}
             </div>
         `;
         container.appendChild(categoryDiv);
@@ -294,8 +361,8 @@ function loadPromptCategories() {
 /**
  * Create HTML for a single prompt card
  */
-function createPromptCard(prompt) {
-    const isActive = prompt.status === 'active';
+function createPromptCard(prompt, categoryKey) {
+    const isActive = activeSelections[categoryKey] === prompt.promptId;
     const isCustom = prompt.isCustom;
 
     return `
@@ -303,15 +370,14 @@ function createPromptCard(prompt) {
             <div class="prompt-header">
                 <h4 class="prompt-title">${prompt.name}</h4>
                 <div class="prompt-badges">
-                    ${isActive && !isCustom ? '<span class="default-badge">Default</span>' : ''}
-                    ${isActive && isCustom ? '<span class="active-badge">Active</span>' : ''}
+                    ${isActive && !isCustom ? '<span class="default-badge">Active Default</span>' : ''}
+                    ${isActive && isCustom ? '<span class="active-badge">Active Custom</span>' : ''}
                     ${isCustom ? '<span class="custom-badge">Custom</span>' : '<span class="system-badge">System</span>'}
                 </div>
             </div>
 
             <div class="prompt-meta">
-                <div class="prompt-type">Type: ${prompt.type}</div>
-                ${prompt.memberType ? `<div class="member-type">Member: ${prompt.memberType}</div>` : ''}
+                <div class="prompt-category">Category: ${prompt.category || 'Unknown'}</div>
                 <div class="token-count">${prompt.tokenCount || 0} tokens</div>
             </div>
 
@@ -528,18 +594,63 @@ function testPrompt(promptId) {
  * Duplicate prompt
  */
 function duplicatePrompt(promptId) {
+    console.log('🔄 Duplicating prompt:', promptId);
+
     const prompt = currentPrompts[promptId];
-    if (!prompt) return;
+    if (!prompt) {
+        console.error('Prompt not found:', promptId);
+        console.log('Available prompts:', Object.keys(currentPrompts));
+        return;
+    }
 
-    // Pre-fill the add prompt modal with duplicated data
-    document.getElementById('prompt-name').value = `${prompt.name} (Copy)`;
-    document.getElementById('prompt-type').value = prompt.type;
-    document.getElementById('member-type').value = prompt.memberType || '';
-    document.getElementById('system-prompt').value = prompt.systemPrompt;
-    document.getElementById('user-prompt-template').value = prompt.userPromptTemplate;
-    document.getElementById('prompt-variables').value = prompt.variables ? prompt.variables.join(', ') : '';
+    console.log('📋 Prompt to duplicate:', prompt);
 
+    // Show the modal first
     showAddPromptModal();
+
+    // Then fill the fields after a small delay to ensure modal is rendered
+    setTimeout(() => {
+        const nameField = document.getElementById('prompt-name');
+        const categoryField = document.getElementById('prompt-category');
+        const systemPromptField = document.getElementById('system-prompt');
+        const userTemplateField = document.getElementById('user-prompt-template');
+        const variablesField = document.getElementById('prompt-variables');
+
+        console.log('📝 Form fields found:', {
+            name: !!nameField,
+            category: !!categoryField,
+            system: !!systemPromptField,
+            user: !!userTemplateField,
+            variables: !!variablesField
+        });
+
+        if (nameField) {
+            nameField.value = `${prompt.name} (Copy)`;
+            console.log('✅ Set name:', nameField.value);
+        }
+
+        // Set the category field based on the prompt's category
+        if (categoryField) {
+            const category = prompt.category || getCategoryForPrompt(prompt);
+            categoryField.value = category || '';
+            console.log('✅ Set category:', categoryField.value);
+        }
+
+        if (systemPromptField) {
+            systemPromptField.value = prompt.systemPrompt || '';
+            console.log('✅ Set system prompt length:', systemPromptField.value.length);
+        }
+
+        if (userTemplateField) {
+            userTemplateField.value = prompt.userPromptTemplate || '';
+            console.log('✅ Set user template length:', userTemplateField.value.length);
+        }
+
+        if (variablesField) {
+            variablesField.value = prompt.variables ? prompt.variables.join(', ') : '';
+            console.log('✅ Set variables:', variablesField.value);
+        }
+    }, 100);
 }
 
 /**
@@ -608,14 +719,12 @@ async function handleAddPrompt(event) {
     console.log('📝 Direct element values:');
     const form = event.target;
     console.log(`  prompt-name input: "${form.querySelector('#prompt-name')?.value}"`);
-    console.log(`  prompt-type select: "${form.querySelector('#prompt-type')?.value}"`);
-    console.log(`  member-type select: "${form.querySelector('#member-type')?.value}"`);
+    console.log(`  prompt-category select: "${form.querySelector('#prompt-category')?.value}"`);
     console.log(`  system-prompt textarea: "${form.querySelector('#system-prompt')?.value?.substring(0, 50)}..."`);
 
     const promptData = {
         name: formData.get('prompt-name'),
-        type: formData.get('prompt-type'),
-        memberType: formData.get('member-type') || null,
+        category: formData.get('prompt-category'),
         systemPrompt: formData.get('system-prompt'),
         userPromptTemplate: formData.get('user-prompt-template'),
         variables: formData.get('prompt-variables') ? formData.get('prompt-variables').split(',').map(v => v.trim()) : [],
@@ -629,6 +738,39 @@ async function handleAddPrompt(event) {
         hideAddPromptModal();
     } catch (error) {
         // Error already shown in createPrompt
+    }
+}
+
+/**
+ * Show add prompt modal
+ */
+function showAddPromptModal() {
+    const modal = document.getElementById('add-prompt-modal');
+    if (modal) {
+        modal.style.display = 'block';
+        // Clear form
+        const form = document.getElementById('add-prompt-form');
+        if (form) form.reset();
+    }
+}
+
+/**
+ * Hide add prompt modal
+ */
+function hideAddPromptModal() {
+    const modal = document.getElementById('add-prompt-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+/**
+ * Hide view prompt modal
+ */
+function hideViewPromptModal() {
+    const modal = document.getElementById('view-prompt-modal');
+    if (modal) {
+        modal.style.display = 'none';
     }
 }
 
