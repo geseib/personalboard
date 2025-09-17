@@ -4,7 +4,9 @@
   "description": "AI guidance for Personal Board of Directors application",
   "main": "ai-guidance.js",
   "dependencies": {
-    "@aws-sdk/client-bedrock-runtime": "^3.645.0"
+    "@aws-sdk/client-bedrock-runtime": "^3.645.0",
+    "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@aws-sdk/lib-dynamodb": "^3.0.0"
   },
   "engines": {
     "node": ">=18.x"

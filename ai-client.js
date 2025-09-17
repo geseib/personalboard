@@ -119,6 +119,99 @@ function showAuthenticationModal() {
 }
 
 /**
+ * Validate and activate access code
+ * @param {string} accessCode - 6-digit access code
+ * @returns {Promise<void>} Resolves if successful, throws error if invalid
+ */
+async function validateAccessCode(accessCode) {
+  if (!accessCode) {
+    throw new Error('Access code is required. Please enter your 6-digit code.');
+  }
+
+  // Validate format
+  if (!/^\d{6}$/.test(accessCode)) {
+    throw new Error('Invalid format. Please enter exactly 6 digits.');
+  }
+
+  try {
+    // Generate or retrieve client ID
+    let clientId = localStorage.getItem('clientId');
+    if (!clientId) {
+      clientId = crypto.randomUUID();
+      localStorage.setItem('clientId', clientId);
+    }
+
+    const activateResponse = await fetch(`${AI_API_BASE_URL}/activate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        code: accessCode,
+        clientId
+      })
+    });
+
+    if (!activateResponse.ok) {
+      const errorData = await activateResponse.json().catch(() => ({}));
+      let errorMessage = 'Access code validation failed.';
+      let errorType = 'unknown';
+
+      switch (activateResponse.status) {
+        case 400:
+          if (errorData.message?.includes('Invalid code format')) {
+            errorMessage = 'Invalid format. Please enter exactly 6 digits.';
+            errorType = 'format';
+          } else if (errorData.message?.includes('required')) {
+            errorMessage = 'Access code is required. Please enter your 6-digit code.';
+            errorType = 'required';
+          } else {
+            errorMessage = errorData.message || 'Invalid request. Please check your access code.';
+            errorType = 'invalid';
+          }
+          break;
+        case 401:
+          if (errorData.message?.includes('already used')) {
+            errorMessage = 'This code has already been activated. Each code can only be used once. Please contact your facilitator for a new code.';
+            errorType = 'used';
+          } else if (errorData.message?.includes('Invalid')) {
+            errorMessage = 'This access code is not valid. Please check your code or contact your facilitator.';
+            errorType = 'invalid';
+          } else if (errorData.message?.includes('expired')) {
+            errorMessage = 'This access code has expired. Please contact your facilitator for a new code.';
+            errorType = 'expired';
+          } else {
+            errorMessage = errorData.message || 'Access code not recognized. Please verify your code.';
+            errorType = 'invalid';
+          }
+          break;
+        case 500:
+          errorMessage = 'Server error occurred. Please try again in a few moments.';
+          errorType = 'server';
+          break;
+        default:
+          errorMessage = errorData.message || 'Network error. Please check your connection and try again.';
+          errorType = 'network';
+      }
+
+      // Create error object with type for better handling
+      const error = new Error(errorMessage);
+      error.type = errorType;
+      throw error;
+    }
+
+    const { token: newToken } = await activateResponse.json();
+
+    // Store the token
+    localStorage.setItem('sessionToken', newToken);
+
+  } catch (error) {
+    console.error('AI Guidance API Error:', error);
+    throw error;
+  }
+}
+
+/**
  * Check if user has valid authentication
  * @returns {boolean} True if authenticated
  */
@@ -423,7 +516,7 @@ export function setAPIBaseUrl(url) {
   AI_API_BASE_URL = url;
 }
 
-export { isAuthenticated };
+export { isAuthenticated, validateAccessCode };
 
 /**
  * Example usage for form completion:

@@ -4,22 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Advisor Configuration - Personal Board of Directors</title>
-    <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="admin.css">
 </head>
 <body>
-    <div class="app admin-app" style="background-image: url('/images/Slide2.png')">
+    <div class="app admin-app" style="background-image: url('images/Slide10.png')">
         <!-- Header -->
         <div class="admin-header">
             <div class="admin-header-content">
-                <h1>🤖 AI Advisor Configuration</h1>
+                <h1>AI Advisor Configuration</h1>
                 <p class="admin-subtitle">Manage and configure AI prompts for the Personal Board of Directors application</p>
                 <div class="admin-actions">
                     <button class="admin-btn admin-btn-secondary" onclick="window.location.href='index.html'">
-                        ← Back to App
+                        Back to App
                     </button>
                     <button class="admin-btn admin-btn-primary" onclick="showAddPromptModal()">
-                        + Add New Prompt
+                        Add New Prompt
                     </button>
                 </div>
             </div>
@@ -47,76 +46,27 @@
                 </div>
             </div>
 
+            <!-- Search and Controls -->
+            <div class="admin-controls">
+                <div class="search-section">
+                    <input type="text" id="prompt-search" class="search-input" placeholder="Search prompts...">
+                </div>
+                <div class="control-buttons">
+                    <button class="admin-btn admin-btn-secondary refresh-btn" onclick="refreshData()">
+                        Refresh
+                    </button>
+                    <button class="admin-btn admin-btn-secondary" onclick="exportConfig()">
+                        Export Config
+                    </button>
+                </div>
+            </div>
+
             <!-- Prompt Categories -->
-            <div class="prompt-categories">
-                <!-- Form Completion -->
-                <div class="category-section">
-                    <h2 class="category-title">
-                        <span class="category-icon">📝</span>
-                        Form Completion Guidance
-                    </h2>
-                    <div class="category-description">
-                        Provides intelligent suggestions for completing board member and goal forms
-                    </div>
-                    <div class="prompt-cards" id="form-completion-cards">
-                        <!-- Dynamic content will be loaded here -->
-                    </div>
-                </div>
-
-                <!-- Board Member Advisors -->
-                <div class="category-section">
-                    <h2 class="category-title">
-                        <span class="category-icon">👥</span>
-                        Board Member Advisors
-                    </h2>
-                    <div class="category-description">
-                        Personalized guidance for building relationships with specific board member types
-                    </div>
-                    <div class="prompt-cards" id="board-member-cards">
-                        <!-- Dynamic content will be loaded here -->
-                    </div>
-                </div>
-
-                <!-- Goal Alignment -->
-                <div class="category-section">
-                    <h2 class="category-title">
-                        <span class="category-icon">🎯</span>
-                        Goal & Strategy Guidance
-                    </h2>
-                    <div class="category-description">
-                        Strategic alignment between career goals and board composition
-                    </div>
-                    <div class="prompt-cards" id="goal-strategy-cards">
-                        <!-- Dynamic content will be loaded here -->
-                    </div>
-                </div>
-
-                <!-- Connection & Network -->
-                <div class="category-section">
-                    <h2 class="category-title">
-                        <span class="category-icon">🔗</span>
-                        Connection & Network Building
-                    </h2>
-                    <div class="category-description">
-                        Suggestions for finding and connecting with the right people
-                    </div>
-                    <div class="prompt-cards" id="connection-cards">
-                        <!-- Dynamic content will be loaded here -->
-                    </div>
-                </div>
-
-                <!-- Board Analysis -->
-                <div class="category-section">
-                    <h2 class="category-title">
-                        <span class="category-icon">📊</span>
-                        Board Analysis & Optimization
-                    </h2>
-                    <div class="category-description">
-                        Comprehensive analysis of board composition and effectiveness
-                    </div>
-                    <div class="prompt-cards" id="board-analysis-cards">
-                        <!-- Dynamic content will be loaded here -->
-                    </div>
+            <div class="prompt-categories" id="prompt-categories">
+                <!-- Categories will be dynamically populated by admin.js -->
+                <div class="loading-state">
+                    <div class="loading-spinner"></div>
+                    <p>Loading AI prompt configurations...</p>
                 </div>
             </div>
         </div>
@@ -131,12 +81,12 @@
                 <form id="add-prompt-form" onsubmit="handleAddPrompt(event)">
                     <div class="form-group">
                         <label for="prompt-name">Prompt Name</label>
-                        <input type="text" id="prompt-name" required placeholder="e.g., Enhanced Board Member Advisor">
+                        <input type="text" id="prompt-name" name="prompt-name" required placeholder="e.g., Enhanced Board Member Advisor">
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="prompt-type">Prompt Type</label>
-                        <select id="prompt-type" required>
+                        <select id="prompt-type" name="prompt-type" required>
                             <option value="">Select type...</option>
                             <option value="form_completion">Form Completion</option>
                             <option value="board_member_advisor">Board Member Advisor</option>
@@ -151,7 +101,7 @@
 
                     <div class="form-group">
                         <label for="member-type">Member Type (if applicable)</label>
-                        <select id="member-type">
+                        <select id="member-type" name="member-type">
                             <option value="">Not applicable</option>
                             <option value="mentors">Mentors</option>
                             <option value="coaches">Coaches</option>
@@ -160,20 +110,20 @@
                             <option value="peers">Peers</option>
                         </select>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="system-prompt">System Prompt</label>
-                        <textarea id="system-prompt" rows="8" required placeholder="You are a strategic career advisor..."></textarea>
+                        <textarea id="system-prompt" name="system-prompt" rows="8" required placeholder="You are a strategic career advisor..."></textarea>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="user-prompt-template">User Prompt Template</label>
-                        <textarea id="user-prompt-template" rows="6" required placeholder="Template with variables like {currentFields}, {goals}, etc."></textarea>
+                        <textarea id="user-prompt-template" name="user-prompt-template" rows="6" required placeholder="Template with variables like {currentFields}, {goals}, etc."></textarea>
                     </div>
 
                     <div class="form-group">
                         <label for="prompt-variables">Variables Used</label>
-                        <input type="text" id="prompt-variables" placeholder="currentFields, goals, boardMembers (comma-separated)">
+                        <input type="text" id="prompt-variables" name="prompt-variables" placeholder="currentFields, goals, boardMembers (comma-separated)">
                         <small>Variables that will be replaced in the prompt template</small>
                     </div>
                     
@@ -211,9 +161,9 @@
                             </div>
                         </div>
                         <div class="prompt-section">
-                            <h3>Variables</h3>
-                            <div class="prompt-variables" id="view-variables">
-                                <!-- Variables tags -->
+                            <h3>Configuration</h3>
+                            <div class="prompt-config" id="view-config">
+                                <!-- Configuration details -->
                             </div>
                         </div>
                     </div>

@@ -1,15 +1,18 @@
 {
   "name": "personalboard",
-  "version": "1.0.1",
+  "version": "2.1.0",
   "type": "module",
   "scripts": {
     "start": "parcel index.html",
-    "build": "parcel build index.html",
+    "build": "npm run build:app && npm run build:admin",
+    "build:app": "parcel build index.html",
+    "build:admin": "mkdir -p dist && cp admin.html admin.js admin.css dist/",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "deploy": "./scripts/deploy.sh",
     "deploy:frontend": "./scripts/deploy-frontend.sh"
   },
   "dependencies": {
+    "aws-sdk": "^2.1692.0",
     "jspdf": "^2.5.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"

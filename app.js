@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { jsPDF } from 'jspdf';
 import { connectionLevels } from './utils.js';
-import { getMentorAdvisorGuidance, getBoardMemberAdvisorGuidance, getGoalsAdvisorGuidance, getBoardAnalysisAdvisorGuidance, isAuthenticated } from './ai-client.js';
+import { getMentorAdvisorGuidance, getBoardMemberAdvisorGuidance, getGoalsAdvisorGuidance, getBoardAnalysisAdvisorGuidance, isAuthenticated, validateAccessCode } from './ai-client.js';
 import { FeedbackButton } from './feedback.js';
 import './feedback.css';
 // use direct paths so images resolve without a bundler
@@ -98,6 +98,10 @@ function App() {
     return stored ? JSON.parse(stored) : null;
   });
   const [boardAdviceLoading, setBoardAdviceLoading] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [accessCode, setAccessCode] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
 
   // Function to check if a section meets completion criteria
   const getSectionCompletionStatus = () => {
@@ -189,9 +193,8 @@ function App() {
   const getBoardAdvice = async () => {
     // Check if user is authenticated
     if (!isAuthenticated()) {
-      const genericAdvice = getGenericBoardAdvice();
-      setBoardAdvice(genericAdvice);
-      return genericAdvice;
+      setShowAuthModal(true);
+      return;
     }
     
     setBoardAdviceLoading(true);
@@ -308,10 +311,42 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
     setShowAdvisorModal(false); // Close advisor modal when saving
   };
 
+  const handleAuthentication = async () => {
+    setAuthLoading(true);
+    setAuthError('');
+
+    try {
+      await validateAccessCode(accessCode);
+      setShowAuthModal(false);
+      setAccessCode('');
+      // Show success message
+      alert('Access code activated successfully! You now have access to AI-powered guidance.');
+    } catch (error) {
+      console.error('Authentication error:', error);
+      setAuthError(error.message);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const requireAuthentication = (callback) => {
+    if (!isAuthenticated()) {
+      setShowAuthModal(true);
+      return false;
+    }
+    return callback();
+  };
+
   const handleAdvise = async (currentFormData, modalFormType) => {
+    // Check authentication first
+    if (!isAuthenticated()) {
+      setShowAuthModal(true);
+      return;
+    }
+
     // Use the type passed from FormModal to ensure we're using the correct type
     const typeToUse = modalFormType || formType;
-    
+
     setAdvisorLoading(true);
     setShowAdvisorModal(true);
     
@@ -1483,7 +1518,20 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
       {showPeersVideoModal && <PeersVideoModal onClose={() => setShowPeersVideoModal(false)} />}
       {showBoardVideoModal && <BoardVideoModal onClose={() => setShowBoardVideoModal(false)} />}
       {showAdvisorModal && <AdvisorModal guidance={advisorGuidance} loading={advisorLoading} onClose={() => setShowAdvisorModal(false)} formType={formType} currentForm={editingItem} onCopyToField={handleCopyToField} />}
-      
+
+      {showAuthModal && <AuthModal
+        accessCode={accessCode}
+        setAccessCode={setAccessCode}
+        onAuthenticate={handleAuthentication}
+        onClose={() => {
+          setShowAuthModal(false);
+          setAccessCode('');
+          setAuthError('');
+        }}
+        error={authError}
+        loading={authLoading}
+      />}
+
       <FeedbackButton />
     </div>
   );
@@ -3204,6 +3252,101 @@ function AdvisorModal({ guidance, loading, onClose, formType, currentForm, onCop
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function AuthModal({ accessCode, setAccessCode, onAuthenticate, onClose, error, loading }) {
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (accessCode.trim()) {
+      onAuthenticate();
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const value = e.target.value.replace(/\D/g, '').slice(0, 6); // Only allow 6 digits
+    setAccessCode(value);
+  };
+
+  return (
+    <div className="modal" onClick={handleOverlayClick}>
+      <div className="modal-content" style={{maxWidth: '500px'}}>
+        <div className="modal-header">
+          <h2>AI-Powered Analysis Access</h2>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+
+        <div className="modal-body">
+          <p style={{marginBottom: '20px', color: '#666'}}>
+            To access personalized AI-powered guidance and analysis, please enter your 6-digit access code from your facilitated workshop.
+          </p>
+
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label htmlFor="access-code">Access Code</label>
+              <input
+                id="access-code"
+                type="text"
+                value={accessCode}
+                onChange={handleInputChange}
+                placeholder="000000"
+                maxLength="6"
+                pattern="\d{6}"
+                style={{
+                  fontSize: '18px',
+                  textAlign: 'center',
+                  letterSpacing: '2px',
+                  fontFamily: 'monospace'
+                }}
+                disabled={loading}
+                autoFocus
+              />
+              <small style={{color: '#666'}}>Enter exactly 6 digits</small>
+            </div>
+
+            {error && (
+              <div style={{
+                backgroundColor: '#ffebee',
+                color: '#c62828',
+                padding: '12px',
+                borderRadius: '4px',
+                marginBottom: '16px',
+                border: '1px solid #ffcdd2'
+              }}>
+                {error}
+              </div>
+            )}
+
+            <div className="modal-buttons" style={{marginTop: '20px'}}>
+              <button type="button" onClick={onClose} disabled={loading}>
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="primary"
+                disabled={loading || accessCode.length !== 6}
+              >
+                {loading ? 'Activating...' : 'Activate Access'}
+              </button>
+            </div>
+          </form>
+
+          <div style={{marginTop: '20px', padding: '12px', backgroundColor: '#f5f5f5', borderRadius: '4px'}}>
+            <small style={{color: '#666'}}>
+              <strong>Don't have an access code?</strong><br/>
+              Access codes are provided during facilitated workshops.
+              Contact your facilitator or workshop organizer for assistance.
+            </small>
+          </div>
+        </div>
       </div>
     </div>
   );
