@@ -2504,12 +2504,25 @@ function FormModal({ type, item, onSave, onClose, onAdvise, advisorShowing, onFo
       // Prepare the form fields as a formatted string
       const fieldEntries = Object.entries(currentForm)
         .filter(([key, value]) => {
-          // Only include text fields (not cadence, connection status, etc.)
-          const textFields = ['name', 'role', 'description', 'notes', 'whatToLearn', 'whatTheyGet', 'whatYouTeach', 'whatYouLearn', 'timeframe'];
-          return textFields.includes(key) && value && value.trim();
+          // Only include editable text fields (exclude fixed/dropdown fields)
+          const editableTextFields = ['name', 'role', 'description', 'notes', 'whatToLearn', 'whatTheyGet', 'whatYouTeach', 'whatYouLearn'];
+          // Exclude timeframe (fixed), connection (dropdown), cadence (slider)
+          const excludedFields = ['timeframe', 'connection', 'cadence'];
+          return editableTextFields.includes(key) && !excludedFields.includes(key) && value && value.trim();
         })
         .map(([key, value]) => `**${key}:** ${value}`)
         .join('\n\n');
+
+      // Add instruction note for AI
+      const instructionNote = `
+
+IMPORTANT INSTRUCTIONS:
+- Only improve the text content provided above
+- Do NOT change timeframe fields (these are fixed categories)
+- Do NOT change skill category names like "Business Skills", "Technical Skills", "Organizational Skills"
+- Do NOT change connection levels or cadence values (these are dropdown/slider selections)
+- Focus only on improving grammar, spelling, clarity and professional tone of the actual descriptions and notes
+- Preserve all factual content and meaning exactly`;
 
       if (!fieldEntries) {
         alert('No text content found to polish. Please fill in some fields first.');
@@ -2522,7 +2535,7 @@ function FormModal({ type, item, onSave, onClose, onAdvise, advisorShowing, onFo
 
       const response = await getBoardMemberAdvisorGuidance(
         'writing', // Use writing category
-        { currentFields: fieldEntries }, // Send formatted field data
+        { currentFields: fieldEntries + instructionNote }, // Send formatted field data with instructions
         [], // goals (empty for writing task)
         '', // learnContent (empty for writing task)
         [] // existingMembers (empty for writing task)
@@ -2536,19 +2549,28 @@ function FormModal({ type, item, onSave, onClose, onAdvise, advisorShowing, onFo
       if (improvements && Object.keys(improvements).length > 0) {
         // Apply improvements to form
         const updatedForm = { ...form };
+        let fieldsUpdated = 0;
 
         Object.entries(improvements).forEach(([fieldName, improvedText]) => {
           if (updatedForm.hasOwnProperty(fieldName)) {
             console.log(`Updating field ${fieldName}:`, improvedText);
             updatedForm[fieldName] = improvedText;
+            fieldsUpdated++;
           }
         });
 
-        setForm(updatedForm);
-        if (onFormUpdate) {
-          onFormUpdate(updatedForm);
+        if (fieldsUpdated > 0) {
+          setForm(updatedForm);
+          if (onFormUpdate) {
+            onFormUpdate(updatedForm);
+          }
+          setHasWritingBackup(true);
+
+          // Show success message
+          alert(`✨ Successfully improved ${fieldsUpdated} field${fieldsUpdated > 1 ? 's' : ''}!`);
+        } else {
+          alert('No fields were updated. The AI may not have found improvements to suggest.');
         }
-        setHasWritingBackup(true);
       } else {
         console.log('No improvements found in response');
         alert('No improvements suggested by the AI assistant.');
@@ -2577,17 +2599,24 @@ function FormModal({ type, item, onSave, onClose, onAdvise, advisorShowing, onFo
   const parseWritingResponse = (responseText) => {
     if (!responseText) return {};
 
+    console.log('FULL AI RESPONSE TEXT:');
+    console.log('========================');
+    console.log(responseText);
+    console.log('========================');
     console.log('Parsing writing response:', responseText);
     const improvements = {};
 
     // Try multiple patterns to extract improvements
-    // Pattern 1: **Field Name:** ... **Improved:** ...
-    let fieldPattern = /\*\*Field Name:\*\*\s*([^\n*]+)[^*]*?\*\*Improved:\*\*\s*([^\n*]+?)(?=\n\n|\*\*Field Name:|$)/gis;
+    // Pattern 1: **Field Name:** fieldname **Original:** original **Improved:** improved
+    let fieldPattern = /\*\*Field Name:\*\*\s*([^\n*]+?)\s*\*\*Original:\*\*[\s\S]*?\*\*Improved:\*\*\s*([\s\S]*?)(?=\s*\*\*Field Name:|\s*The improved versions|\s*$)/gis;
     let match;
 
     while ((match = fieldPattern.exec(responseText)) !== null) {
       const fieldName = match[1].trim();
-      const improvedText = match[2].trim();
+      // Clean up improved text - take only the first paragraph and remove any trailing content
+      let improvedText = match[2].trim();
+      // Split on double newlines and take first part (the actual improved text)
+      improvedText = improvedText.split('\n\n')[0].trim();
       console.log(`Found field: ${fieldName} -> ${improvedText}`);
 
       // Map field display names to actual form field names
@@ -2653,6 +2682,74 @@ function FormModal({ type, item, onSave, onClose, onAdvise, advisorShowing, onFo
           improvements[actualFieldName] = fieldValue;
         }
       }
+    }
+
+    // Pattern 3: If still no matches, try extracting any content after "Improved:"
+    if (Object.keys(improvements).length === 0) {
+      console.log('Trying very simple pattern...');
+      // Split by field blocks and extract improved text
+      const fieldBlocks = responseText.split(/\*\*Field Name:\*\*/i);
+      fieldBlocks.forEach(block => {
+        if (!block.trim()) return;
+
+        // Look for field name and improved text
+        const fieldNameMatch = block.match(/^\s*([^\n*]+)/);
+        const improvedMatch = block.match(/\*\*Improved:\*\*\s*([^*\n]+)/i);
+
+        if (fieldNameMatch && improvedMatch) {
+          const fieldName = fieldNameMatch[1].trim();
+          const improvedText = improvedMatch[1].trim();
+
+          console.log(`Simple pattern found: ${fieldName} -> ${improvedText}`);
+
+          // Map to actual field names
+          const fieldMapping = {
+            'name': 'name',
+            'role': 'role',
+            'description': 'description',
+            'notes': 'notes',
+            'whattolearn': 'whatToLearn',
+            'whattheyget': 'whatTheyGet',
+            'whatyouteach': 'whatYouTeach',
+            'whatyoulearn': 'whatYouLearn',
+            'timeframe': 'timeframe'
+          };
+
+          const fieldNameLower = fieldName.toLowerCase().replace(/[^a-z]/g, '');
+          const actualFieldName = fieldMapping[fieldNameLower] || fieldMapping[fieldName.toLowerCase()] || fieldName;
+
+          if (actualFieldName && improvedText) {
+            improvements[actualFieldName] = improvedText;
+          }
+        }
+      });
+    }
+
+    // Pattern 4: Last resort - look for field names from our original data and extract any improved text nearby
+    if (Object.keys(improvements).length === 0) {
+      console.log('Trying last resort pattern - matching original field names...');
+      const expectedFields = ['name', 'role', 'description', 'notes', 'whatToLearn', 'whatTheyGet', 'whatYouTeach', 'whatYouLearn'];
+
+      expectedFields.forEach(fieldName => {
+        // Look for the field name followed by improved content
+        const patterns = [
+          new RegExp(`\\*\\*${fieldName}:\\*\\*[^\\n]*?improved[^\\n]*?([^\\n]+)`, 'gi'),
+          new RegExp(`${fieldName}[^\\n]*?improved[^\\n]*?([^\\n]+)`, 'gi'),
+          new RegExp(`\\*\\*${fieldName}:\\*\\*\\s*([^\\n*]+)`, 'gi')
+        ];
+
+        for (const pattern of patterns) {
+          const match = pattern.exec(responseText);
+          if (match && match[1] && match[1].trim() && !improvements[fieldName]) {
+            const improvedText = match[1].trim();
+            if (improvedText.length > 5 && !improvedText.toLowerCase().includes('original')) {
+              console.log(`Last resort pattern found for ${fieldName}: ${improvedText}`);
+              improvements[fieldName] = improvedText;
+              break;
+            }
+          }
+        }
+      });
     }
 
     console.log('Final parsed improvements:', improvements);
