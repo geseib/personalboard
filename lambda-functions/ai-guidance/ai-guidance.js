@@ -8,21 +8,21 @@ const dynamodb = DynamoDBDocumentClient.from(client);
 const PROMPT_TABLE = process.env.PROMPT_MANAGEMENT_TABLE || process.env.DYNAMODB_TABLE;
 
 /**
- * Get active prompt configuration from DynamoDB
+ * Get active prompt configuration from DynamoDB using ADVISOR#{category} structure
  */
-async function getActivePromptConfig(advisorKey) {
+async function getActivePromptConfig(category) {
     try {
-        // First get the active prompt ID for this advisor type
+        // First get the active prompt ID for this category using ADVISOR#{category}
         const activeResult = await dynamodb.send(new GetCommand({
             TableName: PROMPT_TABLE,
             Key: {
-                PK: `ADVISOR#${advisorKey}`,
+                PK: `ADVISOR#${category}`,
                 SK: 'PROMPT'
             }
         }));
 
         if (!activeResult.Item) {
-            console.log(`No active prompt found for advisor key: ${advisorKey}`);
+            console.log(`No active prompt found for category: ${category}`);
             return null;
         }
 
@@ -55,21 +55,93 @@ async function getActivePromptConfig(advisorKey) {
 function replacePromptVariables(template, data, context) {
     let prompt = template;
 
+    // Handle complete user data (new format)
+    let completeUserData = null;
+    if (data.existingMembers && typeof data.existingMembers === 'object' && !Array.isArray(data.existingMembers)) {
+        completeUserData = data.existingMembers;
+    }
+
+    // Extract member details from currentFormData
+    let memberName = '';
+    let memberRole = '';
+    let currentRelationship = '';
+
+    if (data.currentFormData) {
+        memberName = data.currentFormData.name || '';
+        memberRole = data.currentFormData.role || '';
+        currentRelationship = data.currentFormData.connection || '';
+    }
+
+    console.log('DEBUG - replacePromptVariables extracted:', {
+        memberName,
+        memberRole,
+        currentRelationship,
+        hasCompleteData: !!completeUserData
+    });
+
     // Replace standard variables
-    prompt = prompt.replace(/\{currentFields\}/g, JSON.stringify(data.currentFields || {}));
+    prompt = prompt.replace(/\{currentFields\}/g, JSON.stringify(data.currentFields || data.currentFormData || {}));
     prompt = prompt.replace(/\{goals\}/g, JSON.stringify(data.goals || []));
     prompt = prompt.replace(/\{boardMembers\}/g, JSON.stringify(context.boardMembers || []));
     prompt = prompt.replace(/\{skills\}/g, JSON.stringify(data.skills || []));
 
     // Replace member-specific variables
-    if (data.memberName) {
-        prompt = prompt.replace(/\{memberName\}/g, data.memberName);
-    }
-    if (data.memberRole) {
-        prompt = prompt.replace(/\{memberRole\}/g, data.memberRole);
-    }
-    if (data.currentRelationship) {
-        prompt = prompt.replace(/\{currentRelationship\}/g, data.currentRelationship);
+    prompt = prompt.replace(/\{memberName\}/g, memberName);
+    prompt = prompt.replace(/\{memberRole\}/g, memberRole);
+    prompt = prompt.replace(/\{currentRelationship\}/g, currentRelationship);
+
+    // Replace complete user profile for comprehensive context
+    if (completeUserData) {
+        let profileText = '';
+
+        // Goals
+        if (completeUserData.goals && Array.isArray(completeUserData.goals) && completeUserData.goals.length > 0) {
+            profileText += 'Goals:\n';
+            completeUserData.goals.forEach(goal => {
+                profileText += `- ${goal.timeframe || goal.title || 'Goal'}: ${goal.description || goal.content || ''}\n`;
+                if (goal.notes) profileText += `  Notes: ${goal.notes}\n`;
+            });
+            profileText += '\n';
+        }
+
+        // Superpowers/Skills
+        if (completeUserData.you?.superpowers && Array.isArray(completeUserData.you.superpowers) && completeUserData.you.superpowers.length > 0) {
+            profileText += 'My Key Skills/Superpowers:\n';
+            completeUserData.you.superpowers.forEach(skill => {
+                profileText += `- ${skill.name || skill.title}: ${skill.description || ''}\n`;
+                if (skill.notes) profileText += `  ${skill.notes}\n`;
+            });
+            profileText += '\n';
+        }
+
+        // Existing board members
+        const boardMemberTypes = ['mentors', 'coaches', 'sponsors', 'connectors', 'peers'];
+        boardMemberTypes.forEach(type => {
+            if (completeUserData[type] && Array.isArray(completeUserData[type]) && completeUserData[type].length > 0) {
+                profileText += `Current ${type}:\n`;
+                completeUserData[type].forEach(member => {
+                    profileText += `- ${member.name || 'Unknown'}`;
+                    if (member.role) profileText += ` (${member.role})`;
+                    if (member.connection) profileText += ` - Connection: ${member.connection}`;
+                    if (member.cadence) profileText += ` - Meets: ${member.cadence}`;
+                    profileText += '\n';
+                    if (member.whatToLearn) profileText += `  Learning: ${member.whatToLearn}\n`;
+                    if (member.whatTheyGet) profileText += `  Providing: ${member.whatTheyGet}\n`;
+                    if (member.notes) profileText += `  Notes: ${member.notes}\n`;
+                });
+                profileText += '\n';
+            }
+        });
+
+        // Replace placeholder for complete profile - handle common template patterns
+        prompt = prompt.replace(/\{completeProfile\}/g, profileText);
+        prompt = prompt.replace(/\{my_current_situation\}/g, profileText);
+        prompt = prompt.replace(/\{\}/g, profileText); // Handle empty placeholder
+    } else {
+        // Fallback if no complete data
+        prompt = prompt.replace(/\{completeProfile\}/g, 'No additional profile information available');
+        prompt = prompt.replace(/\{my_current_situation\}/g, 'No additional profile information available');
+        prompt = prompt.replace(/\{\}/g, 'No additional profile information available');
     }
 
     return prompt;
@@ -157,21 +229,26 @@ exports.handler = async (event) => {
       };
     }
 
-    // Map guidance types to advisor keys for DynamoDB lookup
-    const advisorKeyMap = {
-      'form_completion': 'form_completion',
-      'goal_alignment': 'goal_alignment',
-      'connection_suggestions': 'connection_suggestions',
-      'board_analysis': 'board_analysis',
-      'mentor_advisor': 'mentors',
-      'board_member_advisor': 'board_member_advisor',
-      'goals_advisor': 'goals_advisor',
-      'board_analysis_advisor': 'board_analysis_advisor',
-      'superpowers_advisor': 'goals_advisor'
-    };
+    // Map guidance types to categories for DynamoDB lookup using new category-based structure
+    let category;
+    if (type === 'mentor_advisor' || type === 'board_member_advisor') {
+      // For board member advisors, use the specific member type as the category
+      category = data.memberType || 'mentors'; // Use memberType from request data
+    } else {
+      // Map other guidance types to appropriate categories
+      const categoryMap = {
+        'form_completion': 'overall', // General form completion uses overall advisor
+        'goal_alignment': 'goals',
+        'connection_suggestions': 'overall', // Connection suggestions use overall advisor
+        'board_analysis': 'overall',
+        'goals_advisor': 'goals',
+        'board_analysis_advisor': 'overall',
+        'superpowers_advisor': 'skills' // Skills/Superpowers use skills category
+      };
+      category = categoryMap[type];
+    }
 
-    const advisorKey = advisorKeyMap[type];
-    if (!advisorKey) {
+    if (!category) {
       return {
         statusCode: 400,
         headers,
@@ -180,11 +257,13 @@ exports.handler = async (event) => {
     }
 
     // Get active prompt configuration from DynamoDB
-    const promptConfig = await getActivePromptConfig(advisorKey);
+    console.log(`Looking up active prompt for category: ${category}`);
+    const promptConfig = await getActivePromptConfig(category);
+    console.log(`Prompt config found:`, promptConfig ? 'YES' : 'NO');
 
     if (!promptConfig) {
       // Fallback to hardcoded prompts if no DynamoDB configuration found
-      console.log(`No DynamoDB config found for ${advisorKey}, falling back to hardcoded prompts`);
+      console.log(`No DynamoDB config found for category ${category}, falling back to hardcoded prompts`);
 
       let systemPrompt = '';
       let userPrompt = '';
@@ -231,7 +310,7 @@ exports.handler = async (event) => {
         headers,
         body: JSON.stringify({
           success: true,
-          guidance: response.text,
+          guidance: 'local_prompt\n\n' + response.text,
           model: response.model,
           type: type,
           source: 'fallback'
@@ -240,27 +319,44 @@ exports.handler = async (event) => {
     }
 
     // Use DynamoDB configuration
+    console.log(`Using DynamoDB configuration for category: ${category}`);
     const systemPrompt = promptConfig.systemPrompt;
     const userPrompt = replacePromptVariables(promptConfig.userPromptTemplate, data, context);
 
-    const response = await bedrockChat({
-      system: systemPrompt,
-      user: userPrompt,
-      max_tokens: 2000,
-      temperature: 0.3
-    });
+    console.log(`Calling AI with system prompt length: ${systemPrompt ? systemPrompt.length : 0}`);
+    console.log(`User prompt length: ${userPrompt ? userPrompt.length : 0}`);
+    console.log('DEBUG - User prompt preview:', userPrompt ? userPrompt.substring(0, 800) + '...' : 'No user prompt');
+
+    let response;
+    try {
+      response = await bedrockChat({
+        system: systemPrompt,
+        user: userPrompt,
+        max_tokens: 2000,
+        temperature: 0.3
+      });
+
+      console.log(`AI response received, text length: ${response?.text ? response.text.length : 0}`);
+    } catch (error) {
+      console.error(`AI call failed:`, error);
+      throw error;
+    }
+
+    const responseBody = {
+      success: true,
+      guidance: response.text,
+      model: response.model,
+      type: type,
+      source: 'dynamodb',
+      promptId: promptConfig.promptId
+    };
+
+    console.log(`Returning response with guidance length: ${responseBody.guidance ? responseBody.guidance.length : 0}`);
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({
-        success: true,
-        guidance: response.text,
-        model: response.model,
-        type: type,
-        source: 'dynamodb',
-        promptId: promptConfig.promptId
-      })
+      body: JSON.stringify(responseBody)
     };
 
   } catch (error) {
@@ -652,10 +748,25 @@ Remember: Be direct, specific, and focused on actionable insights that create mu
 
 function getBoardMemberAdvisorUserPrompt(data, context) {
   const { memberType, currentFormData, goals, learnContent, existingMembers } = data;
-  
+
+  // Handle both old format (separate parameters) and new format (complete user data)
+  let completeUserData = existingMembers;
+  if (typeof existingMembers === 'object' && !Array.isArray(existingMembers)) {
+    // New format: existingMembers is actually the complete user data object
+    completeUserData = existingMembers;
+  }
+
+  console.log('DEBUG - getBoardMemberAdvisorUserPrompt data:', JSON.stringify({
+    memberType,
+    currentFormData,
+    goals: goals?.length || 0,
+    completeUserDataKeys: Object.keys(completeUserData || {}),
+    hasCompleteData: !!completeUserData
+  }));
+
   let prompt = `I'm working on building a stronger ${memberType.slice(0, -1)} relationship and need your expert guidance.\n\n`;
-  
-  // Current member information
+
+  // Current member information being edited
   if (currentFormData) {
     prompt += `<current_${memberType.slice(0, -1)}_info>\n`;
     Object.entries(currentFormData).forEach(([field, value]) => {
@@ -664,6 +775,54 @@ function getBoardMemberAdvisorUserPrompt(data, context) {
       }
     });
     prompt += `</${memberType.slice(0, -1)}_info>\n\n`;
+  } else {
+    console.log('DEBUG - No currentFormData provided');
+  }
+
+  // Complete user profile for context
+  if (completeUserData && typeof completeUserData === 'object') {
+    prompt += `<my_complete_profile>\n`;
+
+    // Goals
+    if (completeUserData.goals && Array.isArray(completeUserData.goals) && completeUserData.goals.length > 0) {
+      prompt += `Goals:\n`;
+      completeUserData.goals.forEach(goal => {
+        prompt += `- ${goal.timeframe || goal.title || 'Goal'}: ${goal.description || goal.content || ''}\n`;
+        if (goal.notes) prompt += `  Notes: ${goal.notes}\n`;
+      });
+      prompt += `\n`;
+    }
+
+    // Superpowers/Skills
+    if (completeUserData.you?.superpowers && Array.isArray(completeUserData.you.superpowers) && completeUserData.you.superpowers.length > 0) {
+      prompt += `My Key Skills/Superpowers:\n`;
+      completeUserData.you.superpowers.forEach(skill => {
+        prompt += `- ${skill.name || skill.title}: ${skill.description || ''}\n`;
+        if (skill.notes) prompt += `  ${skill.notes}\n`;
+      });
+      prompt += `\n`;
+    }
+
+    // Existing board members
+    const boardMemberTypes = ['mentors', 'coaches', 'sponsors', 'connectors', 'peers'];
+    boardMemberTypes.forEach(type => {
+      if (completeUserData[type] && Array.isArray(completeUserData[type]) && completeUserData[type].length > 0) {
+        prompt += `Current ${type}:\n`;
+        completeUserData[type].forEach(member => {
+          prompt += `- ${member.name || 'Unknown'}`;
+          if (member.role) prompt += ` (${member.role})`;
+          if (member.connection) prompt += ` - Connection: ${member.connection}`;
+          if (member.cadence) prompt += ` - Meets: ${member.cadence}`;
+          prompt += `\n`;
+          if (member.whatToLearn) prompt += `  Learning: ${member.whatToLearn}\n`;
+          if (member.whatTheyGet) prompt += `  Providing: ${member.whatTheyGet}\n`;
+          if (member.notes) prompt += `  Notes: ${member.notes}\n`;
+        });
+        prompt += `\n`;
+      }
+    });
+
+    prompt += `</my_complete_profile>\n\n`;
   }
   
   // Context about this type of board member

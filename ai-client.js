@@ -456,6 +456,7 @@ export async function getBoardAnalysis(boardData, goals) {
  */
 export async function getMentorAdvisorGuidance(currentFormData, goals, learnContent, existingMentors) {
   return getAIGuidance('mentor_advisor', {
+    memberType: 'mentors', // Ensure memberType is included
     currentFormData,
     goals,
     learnContent,

@@ -349,16 +349,63 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
 
     setAdvisorLoading(true);
     setShowAdvisorModal(true);
-    
+
     try {
+      // Create comprehensive user data like the backup function does
+      let completeUserData = { ...data };
+
+      // Merge in current form data if editing (unsaved changes)
+      if (currentFormData && typeToUse) {
+        if (typeToUse === 'goals') {
+          completeUserData = {
+            ...completeUserData,
+            goals: [
+              ...(data.goals || []).filter((_, index) => index !== editingIndex),
+              currentFormData
+            ]
+          };
+        } else if (typeToUse === 'superpowers') {
+          completeUserData = {
+            ...completeUserData,
+            you: {
+              ...(data.you || {}),
+              superpowers: [
+                ...(data.you?.superpowers || []).filter((_, index) => index !== editingIndex),
+                currentFormData
+              ]
+            }
+          };
+        } else if (typeToUse !== 'board') {
+          // For board member types (mentors, coaches, etc.)
+          completeUserData = {
+            ...completeUserData,
+            [typeToUse]: [
+              ...(data[typeToUse] || []).filter((_, index) => index !== editingIndex),
+              currentFormData
+            ]
+          };
+        }
+      }
+
+      console.log('Complete user data being sent to AI:', completeUserData);
+
       let result;
-      
+
       if (typeToUse === 'goals') {
         // Goals advisor
         result = await getGoalsAdvisorGuidance(
           currentFormData,
-          data.goals || [],
-          data // Pass all board data for context
+          completeUserData.goals || [],
+          completeUserData // Pass complete user data
+        );
+      } else if (typeToUse === 'superpowers') {
+        // Superpowers advisor - map to skills category
+        result = await getBoardMemberAdvisorGuidance(
+          'skills', // Map superpowers to skills category for lambda
+          currentFormData,
+          completeUserData.goals || [],
+          "Your unique strengths and capabilities that set you apart. These are the superpowers that make you valuable in your career and help you achieve your goals. Focus on identifying, developing, and leveraging these core strengths.",
+          completeUserData // Pass complete user data instead of just superpowers
         );
       } else if (typeToUse === 'board') {
         // Board analysis advisor - show inline instead of modal
@@ -375,19 +422,20 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
           'connectors': "Well-networked individuals who excel at making introductions and expanding your professional network. They know people across industries and functions, and are generous with their connections. Connectors help you meet the right people at the right time.",
           'peers': "Colleagues at similar career levels who provide mutual support, collaboration, and shared learning. They offer different perspectives, help you navigate challenges, and can become long-term professional allies. Peer relationships are typically reciprocal and ongoing."
         };
-        
+
         const learnContent = learnContentMap[typeToUse] || learnContentMap['mentors'];
-        const existingMembers = data[typeToUse] || [];
-        
+
         result = await getBoardMemberAdvisorGuidance(
           typeToUse,
           currentFormData,
-          data.goals || [],
+          completeUserData.goals || [],
           learnContent,
-          existingMembers
+          completeUserData // Pass complete user data instead of just existingMembers
         );
       }
-      
+
+      console.log('AI Guidance Result:', result);
+      console.log('Guidance text:', result?.guidance);
       setAdvisorGuidance(result.guidance);
     } catch (error) {
       console.error('Failed to get AI guidance:', error);
@@ -2406,7 +2454,10 @@ function FormModal({ type, item, onSave, onClose, onAdvise, advisorShowing, onFo
   };
   
   const [form, setForm] = useState(item || getDefaultForm());
-  
+  const [originalForm, setOriginalForm] = useState(null); // For rollback functionality
+  const [isWritingLoading, setIsWritingLoading] = useState(false);
+  const [hasWritingBackup, setHasWritingBackup] = useState(false);
+
   const [cadenceIndex, setCadenceIndex] = useState(cadenceOptions.indexOf(form.cadence) >= 0 ? cadenceOptions.indexOf(form.cadence) : 3);
   
   // Sync external item changes to local form state (for AdvisorModal copy functionality)
@@ -2440,6 +2491,172 @@ function FormModal({ type, item, onSave, onClose, onAdvise, advisorShowing, onFo
   
   const save = () => {
     onSave(form);
+  };
+
+  // Writing cleanup functionality
+  const handleWritingCleanup = async (currentForm, formType) => {
+    setIsWritingLoading(true);
+
+    try {
+      // Store backup for rollback
+      setOriginalForm({ ...form });
+
+      // Prepare the form fields as a formatted string
+      const fieldEntries = Object.entries(currentForm)
+        .filter(([key, value]) => {
+          // Only include text fields (not cadence, connection status, etc.)
+          const textFields = ['name', 'role', 'description', 'notes', 'whatToLearn', 'whatTheyGet', 'whatYouTeach', 'whatYouLearn', 'timeframe'];
+          return textFields.includes(key) && value && value.trim();
+        })
+        .map(([key, value]) => `**${key}:** ${value}`)
+        .join('\n\n');
+
+      if (!fieldEntries) {
+        alert('No text content found to polish. Please fill in some fields first.');
+        setIsWritingLoading(false);
+        return;
+      }
+
+      // Call the writing assistant AI
+      const { getBoardMemberAdvisorGuidance } = await import('./ai-client.js');
+
+      const response = await getBoardMemberAdvisorGuidance(
+        'writing', // Use writing category
+        { currentFields: fieldEntries }, // Send formatted field data
+        [], // goals (empty for writing task)
+        '', // learnContent (empty for writing task)
+        [] // existingMembers (empty for writing task)
+      );
+
+      // Parse the response to extract improved field values
+      console.log('AI Writing Response:', response.guidance);
+      const improvements = parseWritingResponse(response.guidance);
+      console.log('Parsed improvements:', improvements);
+
+      if (improvements && Object.keys(improvements).length > 0) {
+        // Apply improvements to form
+        const updatedForm = { ...form };
+
+        Object.entries(improvements).forEach(([fieldName, improvedText]) => {
+          if (updatedForm.hasOwnProperty(fieldName)) {
+            console.log(`Updating field ${fieldName}:`, improvedText);
+            updatedForm[fieldName] = improvedText;
+          }
+        });
+
+        setForm(updatedForm);
+        if (onFormUpdate) {
+          onFormUpdate(updatedForm);
+        }
+        setHasWritingBackup(true);
+      } else {
+        console.log('No improvements found in response');
+        alert('No improvements suggested by the AI assistant.');
+      }
+
+    } catch (error) {
+      console.error('Writing cleanup error:', error);
+      alert('Failed to polish writing. Please try again.');
+    }
+
+    setIsWritingLoading(false);
+  };
+
+  const handleWritingRollback = () => {
+    if (originalForm) {
+      setForm(originalForm);
+      if (onFormUpdate) {
+        onFormUpdate(originalForm);
+      }
+      setHasWritingBackup(false);
+      setOriginalForm(null);
+    }
+  };
+
+  // Parse AI response to extract field improvements
+  const parseWritingResponse = (responseText) => {
+    if (!responseText) return {};
+
+    console.log('Parsing writing response:', responseText);
+    const improvements = {};
+
+    // Try multiple patterns to extract improvements
+    // Pattern 1: **Field Name:** ... **Improved:** ...
+    let fieldPattern = /\*\*Field Name:\*\*\s*([^\n*]+)[^*]*?\*\*Improved:\*\*\s*([^\n*]+?)(?=\n\n|\*\*Field Name:|$)/gis;
+    let match;
+
+    while ((match = fieldPattern.exec(responseText)) !== null) {
+      const fieldName = match[1].trim();
+      const improvedText = match[2].trim();
+      console.log(`Found field: ${fieldName} -> ${improvedText}`);
+
+      // Map field display names to actual form field names
+      const fieldMapping = {
+        'name': 'name',
+        'role': 'role',
+        'role/background': 'role',
+        'description': 'description',
+        'notes': 'notes',
+        'whattolearn': 'whatToLearn',
+        'what to learn from them': 'whatToLearn',
+        'whattolearn': 'whatToLearn',
+        'whattheyget': 'whatTheyGet',
+        'what they get from you': 'whatTheyGet',
+        'whattheygetfromyou': 'whatTheyGet',
+        'what you teach': 'whatYouTeach',
+        'whatyouteach': 'whatYouTeach',
+        'what you learn': 'whatYouLearn',
+        'whatyoulearn': 'whatYouLearn',
+        'timeframe': 'timeframe'
+      };
+
+      const fieldNameLower = fieldName.toLowerCase().replace(/[^a-z]/g, '');
+      const actualFieldName = fieldMapping[fieldNameLower] || fieldMapping[fieldName.toLowerCase()] || fieldName;
+
+      if (actualFieldName && improvedText && improvedText !== '[Original text]' && improvedText !== '[Enhanced version]') {
+        improvements[actualFieldName] = improvedText;
+      }
+    }
+
+    // If no matches found with first pattern, try simpler pattern
+    if (Object.keys(improvements).length === 0) {
+      console.log('Trying alternate pattern...');
+      // Pattern 2: Look for **fieldname:** followed by improved text
+      fieldPattern = /\*\*([^:*]+):\*\*\s*([^\n*]+)/gi;
+
+      while ((match = fieldPattern.exec(responseText)) !== null) {
+        const fieldName = match[1].trim();
+        const fieldValue = match[2].trim();
+
+        // Skip if this looks like a label rather than content
+        if (fieldName.toLowerCase().includes('original') ||
+            fieldName.toLowerCase().includes('field name') ||
+            fieldValue.toLowerCase().includes('original text')) {
+          continue;
+        }
+
+        const fieldNameLower = fieldName.toLowerCase().replace(/[^a-z]/g, '');
+        const fieldMapping = {
+          'name': 'name',
+          'role': 'role',
+          'description': 'description',
+          'notes': 'notes',
+          'whattolearn': 'whatToLearn',
+          'whattheyget': 'whatTheyGet',
+          'whatyouteach': 'whatYouTeach',
+          'whatyoulearn': 'whatYouLearn',
+          'timeframe': 'timeframe'
+        };
+
+        const actualFieldName = fieldMapping[fieldNameLower] || fieldName;
+        if (actualFieldName && fieldValue) {
+          improvements[actualFieldName] = fieldValue;
+        }
+      }
+    }
+
+    console.log('Final parsed improvements:', improvements);
+    return improvements;
   };
   
   return (
@@ -2584,17 +2801,67 @@ function FormModal({ type, item, onSave, onClose, onAdvise, advisorShowing, onFo
             <button onClick={save}>Save</button>
           </Tooltip>
           {onAdvise && (
-            <Tooltip text="Get AI-powered guidance and recommendations for this entry">
-              <button 
-                onClick={() => onAdvise(form, type)}
-                style={{
-                  backgroundColor: '#10b981',
-                  color: 'white'
-                }}
-              >
-                Advise
-              </button>
-            </Tooltip>
+            <>
+              <Tooltip text="Polish grammar, spelling, and writing style without changing meaning">
+                <button
+                  onClick={() => handleWritingCleanup(form, type)}
+                  style={{
+                    backgroundColor: '#8b5cf6',
+                    color: 'white',
+                    position: 'relative'
+                  }}
+                  disabled={isWritingLoading}
+                >
+                  {isWritingLoading ? (
+                    <>
+                      <span style={{ opacity: 0.7 }}>✨ Polishing...</span>
+                    </>
+                  ) : (
+                    <>
+                      ✨ Polish Writing
+                      {hasWritingBackup && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleWritingRollback();
+                          }}
+                          style={{
+                            position: 'absolute',
+                            right: '-8px',
+                            top: '-8px',
+                            width: '20px',
+                            height: '20px',
+                            borderRadius: '50%',
+                            backgroundColor: '#374151',
+                            color: 'white',
+                            border: 'none',
+                            fontSize: '12px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                          title="Rollback to original text"
+                        >
+                          ↶
+                        </button>
+                      )}
+                    </>
+                  )}
+                </button>
+              </Tooltip>
+              <Tooltip text="Get AI-powered guidance and recommendations for this entry">
+                <button
+                  onClick={() => onAdvise(form, type)}
+                  style={{
+                    backgroundColor: '#10b981',
+                    color: 'white'
+                  }}
+                >
+                  Advise
+                </button>
+              </Tooltip>
+            </>
           )}
           <Tooltip text="Cancel and close this form">
             <button onClick={onClose}>Cancel</button>
@@ -3014,58 +3281,164 @@ function AdvisorModal({ guidance, loading, onClose, formType, currentForm, onCop
           </div>
         ) : guidance ? (
           <div>
-            {questions && questions.length > 0 && (
-              <div style={{marginBottom: '32px'}}>
-                <h3 style={{
-                  color: '#2563eb',
-                  fontSize: '18px',
-                  marginBottom: '16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}>
-                  ❓ Questions to Consider
-                </h3>
-                <div style={{
-                  backgroundColor: '#eff6ff',
-                  padding: '20px',
-                  borderRadius: '8px',
-                  borderLeft: '4px solid #2563eb'
-                }}>
-                  {questions.map((question, index) => (
-                    <div key={index} style={{
+            {/* Check if we have structured content */}
+            {(questions && questions.length > 0) || (recommendations && recommendations.length > 0) || (suggestedEntries && suggestedEntries.length > 0) ? (
+              <div>
+                {questions && questions.length > 0 && (
+                  <div style={{marginBottom: '32px'}}>
+                    <h3 style={{
+                      color: '#2563eb',
+                      fontSize: '18px',
+                      marginBottom: '16px',
                       display: 'flex',
-                      alignItems: 'flex-start',
-                      marginBottom: '12px',
+                      alignItems: 'center',
                       gap: '8px'
                     }}>
-                      <div style={{flex: 1, lineHeight: '1.6'}}>
-                        {question}
-                      </div>
-                      <button
-                        onClick={() => handleAddClick(question)}
-                        style={{
-                          backgroundColor: '#2563eb',
-                          color: 'white',
-                          border: 'none',
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          fontSize: '12px',
-                          cursor: 'pointer',
-                          flexShrink: 0,
-                          fontWeight: '500'
-                        }}
-                        title="Add this question to a form field"
-                      >
-                        Add
-                      </button>
+                      ❓ Questions to Consider
+                    </h3>
+                    <div style={{
+                      backgroundColor: '#eff6ff',
+                      padding: '20px',
+                      borderRadius: '8px',
+                      borderLeft: '4px solid #2563eb'
+                    }}>
+                      {questions.map((question, index) => (
+                        <div key={index} style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          marginBottom: '12px',
+                          gap: '8px'
+                        }}>
+                          <div style={{flex: 1, lineHeight: '1.6'}}>
+                            {question}
+                          </div>
+                          <button
+                            onClick={() => handleAddClick(question)}
+                            style={{
+                              backgroundColor: '#2563eb',
+                              color: 'white',
+                              border: 'none',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                              flexShrink: 0,
+                              fontWeight: '500'
+                            }}
+                            title="Add this question to a form field"
+                          >
+                            Add
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
+                  </div>
+                )}
 
-            {recommendations && recommendations.length > 0 && (
+                {recommendations && recommendations.length > 0 && (
+                  <div>
+                    <h3 style={{
+                      color: '#10b981',
+                      fontSize: '18px',
+                      marginBottom: '16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      💡 Recommendations
+                    </h3>
+                    <div style={{
+                      backgroundColor: '#f0fdf4',
+                      padding: '20px',
+                      borderRadius: '8px',
+                      borderLeft: '4px solid #10b981'
+                    }}>
+                      {recommendations.map((recommendation, index) => (
+                        <div key={index} style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          marginBottom: '12px',
+                          gap: '8px'
+                        }}>
+                          <div style={{flex: 1, lineHeight: '1.6'}}>
+                            {recommendation}
+                          </div>
+                          <button
+                            onClick={() => handleAddClick(recommendation)}
+                            style={{
+                              backgroundColor: '#10b981',
+                              color: 'white',
+                              border: 'none',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                              flexShrink: 0,
+                              fontWeight: '500'
+                            }}
+                            title="Add this recommendation to a form field"
+                          >
+                            Add
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {suggestedEntries && suggestedEntries.length > 0 && (
+                  <div style={{marginTop: '32px'}}>
+                    <h3 style={{
+                      color: '#f59e0b',
+                      fontSize: '18px',
+                      marginBottom: '16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      ✨ Suggested Entries
+                    </h3>
+                    <div style={{
+                      backgroundColor: '#fffbeb',
+                      padding: '20px',
+                      borderRadius: '8px',
+                      borderLeft: '4px solid #f59e0b'
+                    }}>
+                      {suggestedEntries.map((entry, index) => (
+                        <div key={index} style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          marginBottom: '12px',
+                          gap: '8px'
+                        }}>
+                          <div style={{flex: 1, lineHeight: '1.6'}}>
+                            {entry}
+                          </div>
+                          <button
+                            onClick={() => handleAddClick(entry)}
+                            style={{
+                              backgroundColor: '#f59e0b',
+                              color: 'white',
+                              border: 'none',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                              flexShrink: 0,
+                              fontWeight: '500'
+                            }}
+                            title="Add this suggested entry to a form field"
+                          >
+                            Add
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Fallback: Display raw guidance text when no structured sections found */
               <div>
                 <h3 style={{
                   color: '#10b981',
@@ -3075,95 +3448,35 @@ function AdvisorModal({ guidance, loading, onClose, formType, currentForm, onCop
                   alignItems: 'center',
                   gap: '8px'
                 }}>
-                  💡 Recommendations
+                  💡 AI Guidance
                 </h3>
                 <div style={{
                   backgroundColor: '#f0fdf4',
                   padding: '20px',
                   borderRadius: '8px',
-                  borderLeft: '4px solid #10b981'
+                  borderLeft: '4px solid #10b981',
+                  whiteSpace: 'pre-wrap',
+                  lineHeight: '1.6'
                 }}>
-                  {recommendations.map((recommendation, index) => (
-                    <div key={index} style={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      marginBottom: '12px',
-                      gap: '8px'
-                    }}>
-                      <div style={{flex: 1, lineHeight: '1.6'}}>
-                        {recommendation}
-                      </div>
-                      <button
-                        onClick={() => handleAddClick(recommendation)}
-                        style={{
-                          backgroundColor: '#10b981',
-                          color: 'white',
-                          border: 'none',
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          fontSize: '12px',
-                          cursor: 'pointer',
-                          flexShrink: 0,
-                          fontWeight: '500'
-                        }}
-                        title="Add this recommendation to a form field"
-                      >
-                        Add
-                      </button>
-                    </div>
-                  ))}
+                  {guidance}
                 </div>
-              </div>
-            )}
-
-            {suggestedEntries && suggestedEntries.length > 0 && (
-              <div style={{marginTop: '32px'}}>
-                <h3 style={{
-                  color: '#f59e0b',
-                  fontSize: '18px',
-                  marginBottom: '16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}>
-                  ✨ Suggested Entries
-                </h3>
-                <div style={{
-                  backgroundColor: '#fffbeb',
-                  padding: '20px',
-                  borderRadius: '8px',
-                  borderLeft: '4px solid #f59e0b'
-                }}>
-                  {suggestedEntries.map((entry, index) => (
-                    <div key={index} style={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      marginBottom: '12px',
-                      gap: '8px'
-                    }}>
-                      <div style={{flex: 1, lineHeight: '1.6'}}>
-                        {entry}
-                      </div>
-                      <button
-                        onClick={() => handleAddClick(entry)}
-                        style={{
-                          backgroundColor: '#f59e0b',
-                          color: 'white',
-                          border: 'none',
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          fontSize: '12px',
-                          cursor: 'pointer',
-                          flexShrink: 0,
-                          fontWeight: '500'
-                        }}
-                        title="Add this suggested entry to a form field"
-                      >
-                        Add
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                <button
+                  onClick={() => handleAddClick(guidance)}
+                  style={{
+                    backgroundColor: '#10b981',
+                    color: 'white',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    marginTop: '16px',
+                    fontWeight: '500'
+                  }}
+                  title="Add this guidance to a form field"
+                >
+                  Add to Form
+                </button>
               </div>
             )}
           </div>
@@ -3177,28 +3490,38 @@ function AdvisorModal({ guidance, loading, onClose, formType, currentForm, onCop
           <button onClick={onClose}>Close</button>
         </div>
 
-        {/* Field Selection Modal */}
+        {/* Field Selection Modal - positioned at higher z-index and centered */}
         {showFieldSelection && (
-          <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            zIndex: 1002,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
+          <>
+            {/* Backdrop - positioned outside and behind modal */}
             <div style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              zIndex: 1002
+            }} onClick={() => setShowFieldSelection(false)} />
+            {/* Modal content - positioned on top of backdrop */}
+            <div style={{
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
               backgroundColor: 'white',
               padding: '24px',
               borderRadius: '8px',
               boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
               maxWidth: '400px',
-              width: '90%'
-            }}>
+              width: '90%',
+              zIndex: 1003 // Higher than backdrop and AdvisorModal
+            }}
+            onClick={(e) => e.stopPropagation()} // Prevent clicks from bubbling
+            >
+              <div style={{
+                position: 'relative'
+              }}>
               <h3 style={{margin: '0 0 16px 0', color: '#374151'}}>Add Content To:</h3>
               <div style={{marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '8px'}}>
                 {getAvailableFields().map(field => (
@@ -3249,8 +3572,9 @@ function AdvisorModal({ guidance, loading, onClose, formType, currentForm, onCop
                   Cancel
                 </button>
               </div>
+              </div>
             </div>
-          </div>
+          </>
         )}
       </div>
     </div>

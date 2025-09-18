@@ -52,6 +52,11 @@ const ADVISOR_CATEGORIES = {
         name: 'Overall Board Advisor',
         description: 'Holistic advisors for comprehensive board guidance',
         defaultPrompt: 'overall_default'
+    },
+    'writing': {
+        name: 'Writing Assistant',
+        description: 'Grammar, spelling, and writing improvement assistant',
+        defaultPrompt: 'writing_default'
     }
 };
 
@@ -60,26 +65,92 @@ const INITIAL_PROMPTS = [
     // Skills & Superpowers
     {
         promptId: 'skills_default',
-        name: 'Skills & Superpowers Advisor',
+        name: 'Skills & Superpowers Development Advisor',
         category: 'skills',
         status: 'active',
         isCustom: false,
-        tokenCount: 1200,
-        systemPrompt: 'You are an expert career advisor specializing in identifying and developing professional skills and superpowers...',
-        userPromptTemplate: 'Help me identify and develop my skills:\n\nCurrent Skills: {skills}\nCareer Goals: {goals}\nCurrent Situation: {currentFields}\n\nPlease provide guidance on developing my superpowers...',
-        variables: ['skills', 'goals', 'currentFields']
+        tokenCount: 1500,
+        systemPrompt: 'You are an expert career advisor specializing in identifying, developing, and leveraging professional skills and superpowers. You help professionals discover their unique strengths, develop marketable skills, and create compelling skill narratives. You excel at providing specific, actionable skill development recommendations and crafting engaging skill descriptions.',
+        userPromptTemplate: `# Skills & Superpowers Development Consultation
+
+## Current Skill Context
+**Current Skills & Superpowers:** {skills}
+
+## Complete Career Profile
+**Career Goals:** {goals}
+
+**Current Board of Directors:** {boardMembers}
+
+**Current Situation:** {my_current_situation}
+
+**Skill Being Developed:** {currentFields}
+
+## Guidance Request
+Please provide structured guidance organized into the following sections:
+
+# Questions
+Provide 3-5 reflective questions to help me better understand and articulate this skill, such as:
+- Questions about specific examples of using this skill
+- Questions about the impact and value this skill creates
+- Questions about how this skill differentiates me from others
+- Questions about growth opportunities with this skill
+
+# Recommendations
+Provide 3-5 actionable recommendations for developing and leveraging this skill:
+- Specific ways to strengthen and demonstrate this skill
+- Opportunities to apply this skill in current or future roles
+- Ways to gain recognition for this skill
+- Methods to measure progress in this skill area
+
+# Suggested Entries
+Provide 3-5 compelling, specific skill descriptions or superpower statements that I could add to my profile:
+- Clear, action-oriented skill descriptions
+- Quantified achievements that demonstrate this skill
+- Market-relevant skill positioning statements
+- Unique value propositions based on this skill
+
+Focus on making each suggestion specific, actionable, and directly applicable to my career goals and current situation.`,
+        variables: ['skills', 'goals', 'boardMembers', 'my_current_situation', 'currentFields']
     },
     // Goals & Vision
     {
         promptId: 'goals_default',
-        name: 'Goals & Career Vision Advisor',
+        name: 'Strategic Goals & Career Vision Advisor',
         category: 'goals',
         status: 'active',
         isCustom: false,
-        tokenCount: 1300,
-        systemPrompt: 'You are a strategic career advisor helping professionals set and achieve meaningful career goals...',
-        userPromptTemplate: 'Help me with my career goals:\n\nCurrent Goals: {goals}\nCurrent Situation: {currentFields}\nExisting Board: {boardMembers}\n\nPlease provide strategic guidance on goal achievement...',
-        variables: ['goals', 'currentFields', 'boardMembers']
+        tokenCount: 1500,
+        systemPrompt: 'You are a strategic career advisor specializing in goal setting, career visioning, and strategic planning. You help professionals create clear, actionable career goals that align with their values, strengths, and market opportunities. You excel at breaking down complex career aspirations into manageable steps and connecting goals to specific board member relationships and development strategies.',
+        userPromptTemplate: `# Strategic Career Goals Consultation
+
+## Current Goal Context
+**Goal Being Addressed:** {currentFields}
+
+## Complete Career Profile
+**All Current Goals:** {goals}
+
+**Current Board of Directors:** {boardMembers}
+
+**My Complete Situation:** {my_current_situation}
+
+## Analysis Request
+Please provide a comprehensive strategic analysis focusing on:
+
+1. **Goal Clarity & Alignment**: Assess how well this specific goal aligns with my overall career trajectory and other stated goals
+
+2. **Strategic Pathway**: Outline 3-5 specific, actionable steps to achieve this goal with realistic timelines
+
+3. **Board Leveraging Strategy**: Identify specific board members who could help with this goal and how to engage them
+
+4. **Success Metrics**: Define clear, measurable indicators of progress toward this goal
+
+5. **Risk Assessment & Mitigation**: Identify potential obstacles and strategies to overcome them
+
+6. **Resource Requirements**: Specify what skills, knowledge, or resources I need to develop or acquire
+
+## Output Format
+Please structure your response with clear headings and actionable recommendations. Focus on strategic depth while keeping advice practical and immediately implementable.`,
+        variables: ['currentFields', 'goals', 'boardMembers', 'my_current_situation']
     },
     // Board Member Categories
     {
@@ -148,6 +219,50 @@ const INITIAL_PROMPTS = [
         systemPrompt: 'You are a strategic advisor specializing in analyzing Personal Boards of Directors and providing comprehensive board strategy recommendations...',
         userPromptTemplate: 'Analyze my current board and provide strategic recommendations:\n\nCurrent Board Members:\n{boardMembers}\n\nMy Profile:\n{currentFields}\n\nMy Goals:\n{goals}\n\nPlease provide comprehensive board analysis and strategic recommendations...',
         variables: ['boardMembers', 'currentFields', 'goals']
+    },
+    // Writing Assistant
+    {
+        promptId: 'writing_default',
+        name: 'Professional Writing Assistant',
+        category: 'writing',
+        status: 'active',
+        isCustom: false,
+        tokenCount: 1200,
+        systemPrompt: 'You are a professional writing assistant specializing in improving grammar, spelling, clarity, and professional tone without changing the core meaning or intent of the content. You help make writing more polished, concise, and impactful while preserving the author\'s voice and message.',
+        userPromptTemplate: `# Professional Writing Enhancement Request
+
+## Original Content to Improve
+{currentFields}
+
+## Instructions
+Please improve the writing by:
+1. **Grammar & Spelling**: Correct any grammatical errors, spelling mistakes, and punctuation issues
+2. **Clarity & Flow**: Enhance sentence structure and readability while maintaining the original meaning
+3. **Professional Tone**: Ensure appropriate professional language and tone
+4. **Conciseness**: Remove unnecessary words while preserving all key information
+5. **Impact**: Strengthen word choice to make the content more compelling
+
+## Important Guidelines
+- **PRESERVE MEANING**: Do not change the core meaning, intent, or factual content
+- **MAINTAIN VOICE**: Keep the author's personality and communication style
+- **NO ADDITIONS**: Do not add new information, claims, or content not present in the original
+- **FIELD-BY-FIELD**: Provide improved versions for each field separately
+
+## Response Format
+Please provide the improved content organized by field, using this exact structure:
+
+### Improved Content
+
+**Field Name:** [Exact field name]
+**Original:** [Original text]
+**Improved:** [Enhanced version]
+
+**Field Name:** [Next field name]
+**Original:** [Original text]
+**Improved:** [Enhanced version]
+
+Focus on making each field more professional, clear, and polished while keeping the exact same meaning and information.`,
+        variables: ['currentFields']
     }
 ];
 
@@ -525,7 +640,8 @@ async function seedDatabase() {
         { category: 'sponsors', promptId: 'sponsors_default' },
         { category: 'connectors', promptId: 'connectors_default' },
         { category: 'peers', promptId: 'peers_default' },
-        { category: 'overall', promptId: 'overall_default' }
+        { category: 'overall', promptId: 'overall_default' },
+        { category: 'writing', promptId: 'writing_default' }
     ];
 
     for (const selection of activeSelections) {
