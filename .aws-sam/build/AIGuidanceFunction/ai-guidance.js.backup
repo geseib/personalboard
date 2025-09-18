@@ -1,151 +1,5 @@
 // ai-guidance.js
 const { bedrockChat } = require('./bedrock-chat');
-const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, GetCommand } = require('@aws-sdk/lib-dynamodb');
-
-const client = new DynamoDBClient();
-const dynamodb = DynamoDBDocumentClient.from(client);
-const PROMPT_TABLE = process.env.PROMPT_MANAGEMENT_TABLE || process.env.DYNAMODB_TABLE;
-
-/**
- * Get active prompt configuration from DynamoDB using ADVISOR#{category} structure
- */
-async function getActivePromptConfig(category) {
-    try {
-        // First get the active prompt ID for this category using ADVISOR#{category}
-        const activeResult = await dynamodb.send(new GetCommand({
-            TableName: PROMPT_TABLE,
-            Key: {
-                PK: `ADVISOR#${category}`,
-                SK: 'PROMPT'
-            }
-        }));
-
-        if (!activeResult.Item) {
-            console.log(`No active prompt found for category: ${category}`);
-            return null;
-        }
-
-        const activePromptId = activeResult.Item.activePromptId;
-
-        // Now get the prompt configuration
-        const promptResult = await dynamodb.send(new GetCommand({
-            TableName: PROMPT_TABLE,
-            Key: {
-                PK: `PROMPT#${activePromptId}`,
-                SK: 'CONFIG'
-            }
-        }));
-
-        if (!promptResult.Item) {
-            console.log(`Prompt configuration not found for ID: ${activePromptId}`);
-            return null;
-        }
-
-        return promptResult.Item;
-    } catch (error) {
-        console.error('Error getting active prompt config:', error);
-        return null;
-    }
-}
-
-/**
- * Replace variables in prompt template
- */
-function replacePromptVariables(template, data, context) {
-    let prompt = template;
-
-    // Handle complete user data (new format)
-    let completeUserData = null;
-    if (data.existingMembers && typeof data.existingMembers === 'object' && !Array.isArray(data.existingMembers)) {
-        completeUserData = data.existingMembers;
-    }
-
-    // Extract member details from currentFormData
-    let memberName = '';
-    let memberRole = '';
-    let currentRelationship = '';
-
-    if (data.currentFormData) {
-        memberName = data.currentFormData.name || '';
-        memberRole = data.currentFormData.role || '';
-        currentRelationship = data.currentFormData.connection || '';
-    }
-
-    console.log('DEBUG - replacePromptVariables extracted:', {
-        memberName,
-        memberRole,
-        currentRelationship,
-        hasCompleteData: !!completeUserData
-    });
-
-    // Replace standard variables
-    prompt = prompt.replace(/\{currentFields\}/g, JSON.stringify(data.currentFields || data.currentFormData || {}));
-    prompt = prompt.replace(/\{goals\}/g, JSON.stringify(data.goals || []));
-    prompt = prompt.replace(/\{boardMembers\}/g, JSON.stringify(context.boardMembers || []));
-    prompt = prompt.replace(/\{skills\}/g, JSON.stringify(data.skills || []));
-
-    // Replace member-specific variables
-    prompt = prompt.replace(/\{memberName\}/g, memberName);
-    prompt = prompt.replace(/\{memberRole\}/g, memberRole);
-    prompt = prompt.replace(/\{currentRelationship\}/g, currentRelationship);
-
-    // Replace complete user profile for comprehensive context
-    if (completeUserData) {
-        let profileText = '';
-
-        // Goals
-        if (completeUserData.goals && Array.isArray(completeUserData.goals) && completeUserData.goals.length > 0) {
-            profileText += 'Goals:\n';
-            completeUserData.goals.forEach(goal => {
-                profileText += `- ${goal.timeframe || goal.title || 'Goal'}: ${goal.description || goal.content || ''}\n`;
-                if (goal.notes) profileText += `  Notes: ${goal.notes}\n`;
-            });
-            profileText += '\n';
-        }
-
-        // Superpowers/Skills
-        if (completeUserData.you?.superpowers && Array.isArray(completeUserData.you.superpowers) && completeUserData.you.superpowers.length > 0) {
-            profileText += 'My Key Skills/Superpowers:\n';
-            completeUserData.you.superpowers.forEach(skill => {
-                profileText += `- ${skill.name || skill.title}: ${skill.description || ''}\n`;
-                if (skill.notes) profileText += `  ${skill.notes}\n`;
-            });
-            profileText += '\n';
-        }
-
-        // Existing board members
-        const boardMemberTypes = ['mentors', 'coaches', 'sponsors', 'connectors', 'peers'];
-        boardMemberTypes.forEach(type => {
-            if (completeUserData[type] && Array.isArray(completeUserData[type]) && completeUserData[type].length > 0) {
-                profileText += `Current ${type}:\n`;
-                completeUserData[type].forEach(member => {
-                    profileText += `- ${member.name || 'Unknown'}`;
-                    if (member.role) profileText += ` (${member.role})`;
-                    if (member.connection) profileText += ` - Connection: ${member.connection}`;
-                    if (member.cadence) profileText += ` - Meets: ${member.cadence}`;
-                    profileText += '\n';
-                    if (member.whatToLearn) profileText += `  Learning: ${member.whatToLearn}\n`;
-                    if (member.whatTheyGet) profileText += `  Providing: ${member.whatTheyGet}\n`;
-                    if (member.notes) profileText += `  Notes: ${member.notes}\n`;
-                });
-                profileText += '\n';
-            }
-        });
-
-        // Replace placeholder for complete profile - handle common template patterns
-        prompt = prompt.replace(/\{completeProfile\}/g, profileText);
-        prompt = prompt.replace(/\{my_current_situation\}/g, profileText);
-        prompt = prompt.replace(/\{\}/g, profileText); // Handle empty placeholder
-    } else {
-        // Fallback if no complete data
-        prompt = prompt.replace(/\{completeProfile\}/g, 'No additional profile information available');
-        prompt = prompt.replace(/\{my_current_situation\}/g, 'No additional profile information available');
-        prompt = prompt.replace(/\{\}/g, 'No additional profile information available');
-    }
-
-    return prompt;
-}
 
 /**
  * AWS Lambda handler for AI guidance on Personal Board of Directors
@@ -229,134 +83,74 @@ exports.handler = async (event) => {
       };
     }
 
-    // Map guidance types to categories for DynamoDB lookup using new category-based structure
-    let category;
-    if (type === 'mentor_advisor' || type === 'board_member_advisor') {
-      // For board member advisors, use the specific member type as the category
-      category = data.memberType || 'mentors'; // Use memberType from request data
-    } else {
-      // Map other guidance types to appropriate categories
-      const categoryMap = {
-        'form_completion': 'overall', // General form completion uses overall advisor
-        'goal_alignment': 'goals',
-        'connection_suggestions': 'overall', // Connection suggestions use overall advisor
-        'board_analysis': 'overall',
-        'goals_advisor': 'goals',
-        'board_analysis_advisor': 'overall',
-        'superpowers_advisor': 'skills' // Skills/Superpowers use skills category
-      };
-      category = categoryMap[type];
+    let systemPrompt = '';
+    let userPrompt = '';
+
+    switch (type) {
+      case 'form_completion':
+        systemPrompt = getFormCompletionSystemPrompt();
+        userPrompt = getFormCompletionUserPrompt(data, context);
+        break;
+      
+      case 'goal_alignment':
+        systemPrompt = getGoalAlignmentSystemPrompt();
+        userPrompt = getGoalAlignmentUserPrompt(data, context);
+        break;
+      
+      case 'connection_suggestions':
+        systemPrompt = getConnectionSuggestionsSystemPrompt();
+        userPrompt = getConnectionSuggestionsUserPrompt(data, context);
+        break;
+      
+      case 'board_analysis':
+        systemPrompt = getBoardAnalysisSystemPrompt();
+        userPrompt = getBoardAnalysisUserPrompt(data, context);
+        break;
+      
+      case 'mentor_advisor':
+        systemPrompt = getMentorAdvisorSystemPrompt();
+        userPrompt = getMentorAdvisorUserPrompt(data, context);
+        break;
+      
+      case 'board_member_advisor':
+        systemPrompt = getBoardMemberAdvisorSystemPrompt(data.memberType);
+        userPrompt = getBoardMemberAdvisorUserPrompt(data, context);
+        break;
+      
+      case 'goals_advisor':
+        systemPrompt = getGoalsAdvisorSystemPrompt();
+        userPrompt = getGoalsAdvisorUserPrompt(data, context);
+        break;
+      
+      case 'board_analysis_advisor':
+        systemPrompt = getBoardAnalysisAdvisorSystemPrompt();
+        userPrompt = getBoardAnalysisAdvisorUserPrompt(data, context);
+        break;
+      
+      default:
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ error: `Unknown guidance type: ${type}` })
+        };
     }
 
-    if (!category) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ error: `Unknown guidance type: ${type}` })
-      };
-    }
-
-    // Get active prompt configuration from DynamoDB
-    console.log(`Looking up active prompt for category: ${category}`);
-    const promptConfig = await getActivePromptConfig(category);
-    console.log(`Prompt config found:`, promptConfig ? 'YES' : 'NO');
-
-    if (!promptConfig) {
-      // Fallback to hardcoded prompts if no DynamoDB configuration found
-      console.log(`No DynamoDB config found for category ${category}, falling back to hardcoded prompts`);
-
-      let systemPrompt = '';
-      let userPrompt = '';
-
-      switch (type) {
-        case 'form_completion':
-          systemPrompt = getFormCompletionSystemPrompt();
-          userPrompt = getFormCompletionUserPrompt(data, context);
-          break;
-        case 'board_member_advisor':
-          systemPrompt = getBoardMemberAdvisorSystemPrompt(data.memberType);
-          userPrompt = getBoardMemberAdvisorUserPrompt(data, context);
-          break;
-        case 'mentor_advisor':
-          systemPrompt = getMentorAdvisorSystemPrompt();
-          userPrompt = getMentorAdvisorUserPrompt(data, context);
-          break;
-        case 'goals_advisor':
-        case 'superpowers_advisor':
-          systemPrompt = getSuperpowersAdvisorSystemPrompt();
-          userPrompt = getSuperpowersAdvisorUserPrompt(data, context);
-          break;
-        case 'board_analysis_advisor':
-          systemPrompt = getBoardAnalysisAdvisorSystemPrompt();
-          userPrompt = getBoardAnalysisAdvisorUserPrompt(data, context);
-          break;
-        default:
-          return {
-            statusCode: 400,
-            headers,
-            body: JSON.stringify({ error: `No configuration found for guidance type: ${type}` })
-          };
-      }
-
-      const response = await bedrockChat({
-        system: systemPrompt,
-        user: userPrompt,
-        max_tokens: 2000,
-        temperature: 0.3
-      });
-
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({
-          success: true,
-          guidance: 'local_prompt\n\n' + response.text,
-          model: response.model,
-          type: type,
-          source: 'fallback'
-        })
-      };
-    }
-
-    // Use DynamoDB configuration
-    console.log(`Using DynamoDB configuration for category: ${category}`);
-    const systemPrompt = promptConfig.systemPrompt;
-    const userPrompt = replacePromptVariables(promptConfig.userPromptTemplate, data, context);
-
-    console.log(`Calling AI with system prompt length: ${systemPrompt ? systemPrompt.length : 0}`);
-    console.log(`User prompt length: ${userPrompt ? userPrompt.length : 0}`);
-    console.log('DEBUG - User prompt preview:', userPrompt ? userPrompt.substring(0, 800) + '...' : 'No user prompt');
-
-    let response;
-    try {
-      response = await bedrockChat({
-        system: systemPrompt,
-        user: userPrompt,
-        max_tokens: 2000,
-        temperature: 0.3
-      });
-
-      console.log(`AI response received, text length: ${response?.text ? response.text.length : 0}`);
-    } catch (error) {
-      console.error(`AI call failed:`, error);
-      throw error;
-    }
-
-    const responseBody = {
-      success: true,
-      guidance: response.text,
-      model: response.model,
-      type: type,
-      source: 'dynamodb',
-      promptId: promptConfig.promptId
-    };
-
-    console.log(`Returning response with guidance length: ${responseBody.guidance ? responseBody.guidance.length : 0}`);
+    const response = await bedrockChat({
+      system: systemPrompt,
+      user: userPrompt,
+      max_tokens: 2000,
+      temperature: 0.3
+    });
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify(responseBody)
+      body: JSON.stringify({
+        success: true,
+        guidance: response.text,
+        model: response.model,
+        type: type
+      })
     };
 
   } catch (error) {
@@ -706,7 +500,7 @@ function getBoardMemberAdvisorSystemPrompt(memberType) {
   const info = memberTypeInfo[memberType] || memberTypeInfo['mentors'];
   
   return `<role>
-You are an expert career advisor specializing in ${memberType} relationships within professional boards of directors. Your expertise lies in helping professionals build meaningful, strategic relationships with ${info.role} that accelerate career growth through mutual value creation.
+You are an expert career advisor specializing in ${memberType} relationships within professional boards of directors. Your expertise lies in helping professionals build meaningful, strategic relationships with ${info.role} that accelerate career growth.
 </role>
 
 <objectives>
@@ -715,58 +509,38 @@ You are an expert career advisor specializing in ${memberType} relationships wit
 - Provide pointed questions that reveal blind spots and opportunities in ${info.relationship}
 - Offer concrete recommendations for optimal ${memberType.slice(0, -1)} engagement
 - Help maximize the unique value that ${info.value.toLowerCase()}
-- Help identify how user's skills can strengthen relationships and create mutual benefit
-- Uncover opportunities where common interests and complementary skills create doors
 </objectives>
 
 <approach>
-- Ask probing questions that help clarify the relationship's strategic value and mutual benefit potential
+- Ask probing questions that help clarify the relationship's strategic value
 - Challenge assumptions and push for specificity in goals and expectations
 - Provide actionable next steps that can be implemented immediately
 - Focus on building authentic, mutually beneficial professional relationships
 - Consider the broader context of their career goals and existing professional network
-- Analyze how the user's skills and experiences can benefit the board member
-- Look for common interests, shared connections, and complementary expertise that open opportunities
-- Suggest ways to discover mutual interests and create meaningful value exchanges
 </approach>
 
 <output_format>
 Provide your response in exactly two sections:
 
 # Questions
-[4-6 pointed questions that dig deeper into their ${memberType.slice(0, -1)} relationship strategy, reveal blind spots, clarify goals, and uncover opportunities for mutual value creation through their skills and interests. Format each question as a numbered list item or bullet point.]
+[4-6 pointed questions that dig deeper into their ${memberType.slice(0, -1)} relationship strategy, reveal blind spots, and clarify goals. Format each question as a numbered list item or bullet point.]
 
-# Recommendations
-[4-6 specific, actionable recommendations for building and optimizing this ${memberType.slice(0, -1)} relationship, including concrete next steps they can take within the next 30 days. Always include guidance on reviewing their LinkedIn profile to identify shared connections, common experiences, interests, conversation starters, and ways their skills might be valuable to this board member. Format each recommendation as a numbered list item or bullet point.]
+# Recommendations  
+[4-6 specific, actionable recommendations for building and optimizing this ${memberType.slice(0, -1)} relationship, including concrete next steps they can take within the next 30 days. Always include guidance on reviewing their LinkedIn profile to identify shared connections, common experiences, interests, and conversation starters before outreach. Format each recommendation as a numbered list item or bullet point.]
 
 # Suggested Entries
-[3-4 short, specific, relevant suggested entries they could add to their form fields. Format as brief bullet points that they can directly copy and paste. Focus on practical, actionable content that matches their specific situation, goals, and opportunities for skills-based mutual value creation.]
+[3-4 short, specific, relevant suggested entries they could add to their form fields. Format as brief bullet points that they can directly copy and paste. Focus on practical, actionable content that matches their specific situation and goals.]
 </output_format>
 
-Remember: Be direct, specific, and focused on actionable insights that create mutual value through skills leveraging and relationship building with this ${memberType.slice(0, -1)}.`;
+Remember: Be direct, specific, and focused on actionable insights that will genuinely improve their professional relationship with this ${memberType.slice(0, -1)}.`;
 }
 
 function getBoardMemberAdvisorUserPrompt(data, context) {
   const { memberType, currentFormData, goals, learnContent, existingMembers } = data;
-
-  // Handle both old format (separate parameters) and new format (complete user data)
-  let completeUserData = existingMembers;
-  if (typeof existingMembers === 'object' && !Array.isArray(existingMembers)) {
-    // New format: existingMembers is actually the complete user data object
-    completeUserData = existingMembers;
-  }
-
-  console.log('DEBUG - getBoardMemberAdvisorUserPrompt data:', JSON.stringify({
-    memberType,
-    currentFormData,
-    goals: goals?.length || 0,
-    completeUserDataKeys: Object.keys(completeUserData || {}),
-    hasCompleteData: !!completeUserData
-  }));
-
+  
   let prompt = `I'm working on building a stronger ${memberType.slice(0, -1)} relationship and need your expert guidance.\n\n`;
-
-  // Current member information being edited
+  
+  // Current member information
   if (currentFormData) {
     prompt += `<current_${memberType.slice(0, -1)}_info>\n`;
     Object.entries(currentFormData).forEach(([field, value]) => {
@@ -775,54 +549,6 @@ function getBoardMemberAdvisorUserPrompt(data, context) {
       }
     });
     prompt += `</${memberType.slice(0, -1)}_info>\n\n`;
-  } else {
-    console.log('DEBUG - No currentFormData provided');
-  }
-
-  // Complete user profile for context
-  if (completeUserData && typeof completeUserData === 'object') {
-    prompt += `<my_complete_profile>\n`;
-
-    // Goals
-    if (completeUserData.goals && Array.isArray(completeUserData.goals) && completeUserData.goals.length > 0) {
-      prompt += `Goals:\n`;
-      completeUserData.goals.forEach(goal => {
-        prompt += `- ${goal.timeframe || goal.title || 'Goal'}: ${goal.description || goal.content || ''}\n`;
-        if (goal.notes) prompt += `  Notes: ${goal.notes}\n`;
-      });
-      prompt += `\n`;
-    }
-
-    // Superpowers/Skills
-    if (completeUserData.you?.superpowers && Array.isArray(completeUserData.you.superpowers) && completeUserData.you.superpowers.length > 0) {
-      prompt += `My Key Skills/Superpowers:\n`;
-      completeUserData.you.superpowers.forEach(skill => {
-        prompt += `- ${skill.name || skill.title}: ${skill.description || ''}\n`;
-        if (skill.notes) prompt += `  ${skill.notes}\n`;
-      });
-      prompt += `\n`;
-    }
-
-    // Existing board members
-    const boardMemberTypes = ['mentors', 'coaches', 'sponsors', 'connectors', 'peers'];
-    boardMemberTypes.forEach(type => {
-      if (completeUserData[type] && Array.isArray(completeUserData[type]) && completeUserData[type].length > 0) {
-        prompt += `Current ${type}:\n`;
-        completeUserData[type].forEach(member => {
-          prompt += `- ${member.name || 'Unknown'}`;
-          if (member.role) prompt += ` (${member.role})`;
-          if (member.connection) prompt += ` - Connection: ${member.connection}`;
-          if (member.cadence) prompt += ` - Meets: ${member.cadence}`;
-          prompt += `\n`;
-          if (member.whatToLearn) prompt += `  Learning: ${member.whatToLearn}\n`;
-          if (member.whatTheyGet) prompt += `  Providing: ${member.whatTheyGet}\n`;
-          if (member.notes) prompt += `  Notes: ${member.notes}\n`;
-        });
-        prompt += `\n`;
-      }
-    });
-
-    prompt += `</my_complete_profile>\n\n`;
   }
   
   // Context about this type of board member
@@ -966,7 +692,6 @@ You are an expert career strategist specializing in professional board of direct
 - Assess how well their board aligns with their career goals and timeline
 - Provide strategic recommendations for strengthening their professional ecosystem
 - Evaluate the quality and strategic value of existing relationships
-- Help identify opportunities to leverage user's skills for mutual value creation with board members
 </objectives>
 
 <approach>
@@ -975,31 +700,26 @@ You are an expert career strategist specializing in professional board of direct
 - Consider the balance between different types of support and guidance
 - Assess alignment between their goals and their support network capabilities
 - Identify specific actions to optimize their board's effectiveness
-- Analyze how the user's skills can be leveraged to strengthen board relationships and achieve career goals
-- Look for opportunities where skills create mutual value and open doors to new connections
 </approach>
 
 <output_format>
 Provide your response in exactly two sections:
 
 # Questions
-[4-6 strategic questions designed to reveal deeper insights about their board effectiveness, relationship quality, strategic alignment with career goals, and opportunities to leverage their skills for mutual benefit.]
+[4-6 strategic questions about their board composition, relationship effectiveness, and network optimization opportunities]
 
-# Recommendations
-[4-6 comprehensive recommendations covering board optimization, relationship enhancement, strategic additions, skills leveraging opportunities, and specific action steps for the next 90 days.]
-
-# Suggested Entries
-[3-4 specific, actionable items they could implement immediately to improve their board effectiveness, including relationship management strategies, board member additions, or ways to apply their skills for mutual value creation.]
+# Recommendations  
+[4-6 specific, prioritized recommendations for strengthening their professional board, including concrete actions they can take within 30-60 days]
 </output_format>
 
-Remember: Think like a senior executive coach focused on strategic relationship portfolio optimization, skills leveraging, and long-term career success through mutual value creation.`;
+Remember: Focus on strategic network optimization that creates synergies between different types of professional relationships and accelerates their career progression.`;
 }
 
 function getBoardAnalysisAdvisorUserPrompt(data, context) {
   const { boardData } = data;
-
-  let prompt = `I want a comprehensive analysis of my professional board of directors. Please evaluate the overall composition, identify gaps and opportunities, and help me optimize this network for maximum career impact. Include opportunities for how I can leverage my skills to create mutual value with board members and strengthen these relationships.\n\n`;
-
+  
+  let prompt = `I want a comprehensive analysis of my professional board of directors. Please evaluate the overall composition, identify gaps and opportunities, and help me optimize this network for maximum career impact.\n\n`;
+  
   // Goals for context
   if (boardData.goals && boardData.goals.length > 0) {
     prompt += `<my_career_goals>\n`;
@@ -1009,18 +729,6 @@ function getBoardAnalysisAdvisorUserPrompt(data, context) {
       prompt += `\n`;
     });
     prompt += `</my_career_goals>\n\n`;
-  }
-
-  // Skills for context
-  if (boardData.skills && boardData.skills.length > 0) {
-    prompt += `<my_skills_and_superpowers>\n`;
-    boardData.skills.forEach((skill, index) => {
-      prompt += `${index + 1}. ${skill.name}`;
-      if (skill.description) prompt += `: ${skill.description}`;
-      if (skill.notes) prompt += ` (${skill.notes})`;
-      prompt += `\n`;
-    });
-    prompt += `</my_skills_and_superpowers>\n\n`;
   }
   
   // Comprehensive board breakdown
@@ -1060,104 +768,6 @@ function getBoardAnalysisAdvisorUserPrompt(data, context) {
   prompt += `</complete_board_analysis>\n\n`;
   
   prompt += `Please provide a comprehensive analysis of my professional board composition, identify strategic gaps and opportunities, and recommend specific actions to optimize this network for maximum career acceleration.`;
-
-  return prompt;
-}
-
-function getSuperpowersAdvisorSystemPrompt() {
-  return `<role>
-You are an expert career strategist and skills development coach specializing in helping professionals identify, develop, and strategically leverage their core competencies. Your expertise lies in helping people discover their "superpowers" - the unique combination of skills that can differentiate them in their career and create mutual value in professional relationships.
-</role>
-
-<objectives>
-- Help identify 2-4 key skills that can become central to their career identity and goals
-- Provide guidance on how to leverage these skills for career advancement
-- Suggest ways to use these skills to give back to board members and create mutual value
-- Identify opportunities where skills create competitive advantage and open doors
-- Connect skills development to broader career strategy and professional relationships
-</objectives>
-
-<approach>
-- Focus on skills that have the highest impact potential and differentiation value
-- Consider how skills can be applied to achieve their specific career goals
-- Identify opportunities where skills can benefit board members and strengthen relationships
-- Look for intersections between skills, goals, and market opportunities
-- Suggest ways to develop and showcase these skills strategically
-- Consider both technical expertise and soft skills that create unique value
-</approach>
-
-<context_awareness>
-Skills are categorized as:
-- Technical Skills: Programming, tools, platforms, methodologies (Examples: Python, AWS, React)
-- Business Skills: Industry expertise and domain knowledge (Examples: Healthcare, fintech, e-commerce)
-- Organization Skills: Leadership and management abilities (Examples: Public speaking, project management)
-</context_awareness>
-
-<output_format>
-Structure your response using these exact headings:
-
-# Questions
-[4-6 pointed questions designed to help them identify their most valuable and differentiating skills, understand how to apply them strategically, and discover opportunities for mutual value creation with their board.]
-
-# Recommendations
-[4-6 specific recommendations for developing, leveraging, and showcasing their key skills, including how to use these skills to strengthen board relationships and advance their career goals.]
-
-# Suggested Entries
-[3-4 concrete, specific skill descriptions, examples, or development actions they could add to their skills sections that would create clear competitive advantage and relationship value.]
-</output_format>
-
-Remember: Focus on helping them identify the few key skills that can become their career "superpowers" - the ones that differentiate them, advance their goals, and create value for others.`;
-}
-
-function getSuperpowersAdvisorUserPrompt(data, context) {
-  const { skillCategory, currentDescription, currentNotes, allSkills, goals, boardData } = data;
-
-  let prompt = `I need expert guidance on identifying and leveraging my key skills ("superpowers") for career advancement and board relationship building.\n\n`;
-
-  // Current skill being worked on
-  if (skillCategory) {
-    prompt += `<current_skill_being_worked_on>\n`;
-    prompt += `Skill Category: ${skillCategory}\n`;
-    if (currentDescription) prompt += `Current Description: ${currentDescription}\n`;
-    if (currentNotes) prompt += `Current Notes/Examples: ${currentNotes}\n`;
-    prompt += `</current_skill_being_worked_on>\n\n`;
-  }
-
-  // All skills
-  if (allSkills && allSkills.length > 0) {
-    prompt += `<all_my_skills>\n`;
-    allSkills.forEach((skill, index) => {
-      prompt += `\n${index + 1}. ${skill.name}:\n`;
-      if (skill.description) prompt += `   Description: ${skill.description}\n`;
-      if (skill.notes) prompt += `   Notes: ${skill.notes}\n`;
-    });
-    prompt += `</all_my_skills>\n\n`;
-  }
-
-  // Goals for context
-  if (goals && goals.length > 0) {
-    prompt += `<my_career_goals>\n`;
-    goals.forEach((goal, index) => {
-      prompt += `${index + 1}. ${goal.title}`;
-      if (goal.timeframe) prompt += ` (${goal.timeframe})`;
-      prompt += `\n`;
-      if (goal.description) prompt += `   ${goal.description}\n`;
-    });
-    prompt += `</my_career_goals>\n\n`;
-  }
-
-  // Board context
-  if (boardData) {
-    prompt += `<my_board_context>\n`;
-    ['mentors', 'coaches', 'sponsors', 'connectors', 'peers'].forEach(type => {
-      if (boardData[type] && boardData[type].length > 0) {
-        prompt += `${type.charAt(0).toUpperCase() + type.slice(1)}: ${boardData[type].length} members\n`;
-      }
-    });
-    prompt += `</my_board_context>\n\n`;
-  }
-
-  prompt += `Please help me identify the most strategically valuable skills to focus on, how to leverage them for my career goals, and ways to use these skills to create mutual value with my board members and strengthen those relationships.`;
-
+  
   return prompt;
 }

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Debug Test</title>
+</head>
+<body>
+    <h1>Admin Debug Test</h1>
+    <div id="output"></div>
+    <script>
+        async function testAdmin() {
+            const output = document.getElementById('output');
+
+            try {
+                // Fetch the prompts
+                const response = await fetch('https://hvr92xfbo6.execute-api.us-east-1.amazonaws.com/production/admin/prompts');
+                const data = await response.json();
+
+                output.innerHTML += '<h2>Raw Data:</h2>';
+                output.innerHTML += '<pre>' + JSON.stringify(data.stats, null, 2) + '</pre>';
+
+                // Process like admin.js does
+                const validCategories = {
+                    'skills': 'Skills & Superpowers',
+                    'goals': 'Goals & Vision',
+                    'mentors': 'Mentors',
+                    'coaches': 'Coaches',
+                    'sponsors': 'Sponsors',
+                    'connectors': 'Connectors',
+                    'peers': 'Peers',
+                    'overall': 'Overall Board Advisor'
+                };
+
+                const currentPrompts = {};
+                data.prompts.forEach(prompt => {
+                    currentPrompts[prompt.promptId] = prompt;
+                });
+
+                const categories = {};
+                Object.entries(currentPrompts).forEach(([promptId, prompt]) => {
+                    let category = prompt.category;
+
+                    // Map old structure
+                    if (!category) {
+                        if (prompt.memberType) {
+                            category = prompt.memberType;
+                        } else if (prompt.type === 'goals_advisor' || prompt.type === 'superpowers_advisor') {
+                            category = prompt.name && prompt.name.includes('Superpower') ? 'skills' : 'goals';
+                        } else if (prompt.type === 'board_analysis_advisor' || prompt.type === 'board_analysis') {
+                            category = 'overall';
+                        } else if (prompt.type === 'form_completion') {
+                            category = 'overall';
+                        } else if (prompt.type === 'mentor_advisor' && !prompt.memberType) {
+                            category = 'mentors';
+                        } else if (prompt.type === 'board_member_advisor') {
+                            category = 'overall';
+                        }
+                    }
+
+                    if (category && validCategories[category]) {
+                        if (!categories[category]) categories[category] = [];
+                        categories[category].push({ promptId, ...prompt });
+                    }
+                });
+
+                output.innerHTML += '<h2>Categories Found:</h2>';
+                Object.entries(validCategories).forEach(([key, name]) => {
+                    const prompts = categories[key] || [];
+                    output.innerHTML += `<h3>${name} (${key}): ${prompts.length} prompts</h3>`;
+                    prompts.forEach(p => {
+                        output.innerHTML += `<li>${p.promptId}: ${p.name}</li>`;
+                    });
+                });
+
+            } catch (error) {
+                output.innerHTML += '<h2>Error:</h2>';
+                output.innerHTML += '<pre>' + error.toString() + '</pre>';
+                console.error(error);
+            }
+        }
+
+        testAdmin();
+    </script>
+</body>
+</html>

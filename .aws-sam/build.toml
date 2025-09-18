@@ -5,7 +5,7 @@ codeuri = "/Users/georgeseib/Documents/projects/personalboard/lambda-functions/a
 runtime = "nodejs18.x"
 architecture = "x86_64"
 handler = "ai-guidance.handler"
-manifest_hash = "864e450fec082eb09df7c0fbd6d7069f"
+manifest_hash = "56fcd7edd9633473aee7390194b03e7a"
 packagetype = "Zip"
 functions = ["AIGuidanceFunction"]
 
@@ -26,5 +26,14 @@ handler = "authorizer.handler"
 manifest_hash = "2d45366e7aabaaa4ebbadc784150af3f"
 packagetype = "Zip"
 functions = ["AuthorizerFunction", "ActivateFunction", "GenerateCodesFunction"]
+
+[function_build_definitions.e719c2fd-c240-4db9-b985-46b6928d2edf]
+codeuri = "/Users/georgeseib/Documents/projects/personalboard/lambda-functions/admin-data"
+runtime = "nodejs18.x"
+architecture = "x86_64"
+handler = "admin-data.handler"
+manifest_hash = "3570116a445ec12c866939bcc70e12fa"
+packagetype = "Zip"
+functions = ["AdminDataFunction"]
 
 [layer_build_definitions]

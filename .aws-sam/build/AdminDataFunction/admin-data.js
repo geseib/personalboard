@@ -1,0 +1,667 @@
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, DeleteCommand } = require('@aws-sdk/lib-dynamodb');
+
+const client = new DynamoDBClient();
+const dynamodb = DynamoDBDocumentClient.from(client);
+const TABLE_NAME = process.env.PROMPT_MANAGEMENT_TABLE || process.env.DYNAMODB_TABLE;
+
+const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+    'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
+};
+
+// Advisor category definitions
+const ADVISOR_CATEGORIES = {
+    'skills': {
+        name: 'Skills & Superpowers',
+        description: 'Advisors for identifying and developing your core skills and strengths',
+        defaultPrompt: 'skills_default'
+    },
+    'goals': {
+        name: 'Goals & Vision',
+        description: 'Advisors for setting and achieving career goals',
+        defaultPrompt: 'goals_default'
+    },
+    'mentors': {
+        name: 'Mentors',
+        description: 'Relationship advisors for mentor connections',
+        defaultPrompt: 'mentors_default'
+    },
+    'coaches': {
+        name: 'Coaches',
+        description: 'Relationship advisors for coaching connections',
+        defaultPrompt: 'coaches_default'
+    },
+    'sponsors': {
+        name: 'Sponsors',
+        description: 'Relationship advisors for sponsor connections',
+        defaultPrompt: 'sponsors_default'
+    },
+    'connectors': {
+        name: 'Connectors',
+        description: 'Relationship advisors for connector relationships',
+        defaultPrompt: 'connectors_default'
+    },
+    'peers': {
+        name: 'Peers',
+        description: 'Relationship advisors for peer connections',
+        defaultPrompt: 'peers_default'
+    },
+    'overall': {
+        name: 'Overall Board Advisor',
+        description: 'Holistic advisors for comprehensive board guidance',
+        defaultPrompt: 'overall_default'
+    },
+    'writing': {
+        name: 'Writing Assistant',
+        description: 'Grammar, spelling, and writing improvement assistant',
+        defaultPrompt: 'writing_default'
+    }
+};
+
+// Initial prompt configuration data with new structure
+const INITIAL_PROMPTS = [
+    // Skills & Superpowers
+    {
+        promptId: 'skills_default',
+        name: 'Skills & Superpowers Development Advisor',
+        category: 'skills',
+        status: 'active',
+        isCustom: false,
+        tokenCount: 1500,
+        systemPrompt: 'You are an expert career advisor specializing in identifying, developing, and leveraging professional skills and superpowers. You help professionals discover their unique strengths, develop marketable skills, and create compelling skill narratives. You excel at providing specific, actionable skill development recommendations and crafting engaging skill descriptions.',
+        userPromptTemplate: `# Skills & Superpowers Development Consultation
+
+## Current Skill Context
+**Current Skills & Superpowers:** {skills}
+
+## Complete Career Profile
+**Career Goals:** {goals}
+
+**Current Board of Directors:** {boardMembers}
+
+**Current Situation:** {my_current_situation}
+
+**Skill Being Developed:** {currentFields}
+
+## Guidance Request
+Please provide structured guidance organized into the following sections:
+
+# Questions
+Provide 3-5 reflective questions to help me better understand and articulate this skill, such as:
+- Questions about specific examples of using this skill
+- Questions about the impact and value this skill creates
+- Questions about how this skill differentiates me from others
+- Questions about growth opportunities with this skill
+
+# Recommendations
+Provide 3-5 actionable recommendations for developing and leveraging this skill:
+- Specific ways to strengthen and demonstrate this skill
+- Opportunities to apply this skill in current or future roles
+- Ways to gain recognition for this skill
+- Methods to measure progress in this skill area
+
+# Suggested Entries
+Provide 3-5 compelling, specific skill descriptions or superpower statements that I could add to my profile:
+- Clear, action-oriented skill descriptions
+- Quantified achievements that demonstrate this skill
+- Market-relevant skill positioning statements
+- Unique value propositions based on this skill
+
+Focus on making each suggestion specific, actionable, and directly applicable to my career goals and current situation.`,
+        variables: ['skills', 'goals', 'boardMembers', 'my_current_situation', 'currentFields']
+    },
+    // Goals & Vision
+    {
+        promptId: 'goals_default',
+        name: 'Strategic Goals & Career Vision Advisor',
+        category: 'goals',
+        status: 'active',
+        isCustom: false,
+        tokenCount: 1500,
+        systemPrompt: 'You are a strategic career advisor specializing in goal setting, career visioning, and strategic planning. You help professionals create clear, actionable career goals that align with their values, strengths, and market opportunities. You excel at breaking down complex career aspirations into manageable steps and connecting goals to specific board member relationships and development strategies.',
+        userPromptTemplate: `# Strategic Career Goals Consultation
+
+## Current Goal Context
+**Goal Being Addressed:** {currentFields}
+
+## Complete Career Profile
+**All Current Goals:** {goals}
+
+**Current Board of Directors:** {boardMembers}
+
+**My Complete Situation:** {my_current_situation}
+
+## Analysis Request
+Please provide a comprehensive strategic analysis focusing on:
+
+1. **Goal Clarity & Alignment**: Assess how well this specific goal aligns with my overall career trajectory and other stated goals
+
+2. **Strategic Pathway**: Outline 3-5 specific, actionable steps to achieve this goal with realistic timelines
+
+3. **Board Leveraging Strategy**: Identify specific board members who could help with this goal and how to engage them
+
+4. **Success Metrics**: Define clear, measurable indicators of progress toward this goal
+
+5. **Risk Assessment & Mitigation**: Identify potential obstacles and strategies to overcome them
+
+6. **Resource Requirements**: Specify what skills, knowledge, or resources I need to develop or acquire
+
+## Output Format
+Please structure your response with clear headings and actionable recommendations. Focus on strategic depth while keeping advice practical and immediately implementable.`,
+        variables: ['currentFields', 'goals', 'boardMembers', 'my_current_situation']
+    },
+    // Board Member Categories
+    {
+        promptId: 'mentors_default',
+        name: 'Mentor Relationship Advisor',
+        category: 'mentors',
+        status: 'active',
+        isCustom: false,
+        tokenCount: 1320,
+        systemPrompt: 'You are an expert advisor helping professionals build and maintain effective mentoring relationships...',
+        userPromptTemplate: 'Help me with this mentoring relationship:\n\nMentor: {memberName}\nRole/Background: {memberRole}\nRelationship Stage: {currentRelationship}\n\nMy Current Situation:\n{currentFields}\n\nMy Career Goals:\n{goals}\n\nPlease provide guidance...',
+        variables: ['memberName', 'memberRole', 'currentRelationship', 'currentFields', 'goals']
+    },
+    {
+        promptId: 'coaches_default',
+        name: 'Coach Relationship Advisor',
+        category: 'coaches',
+        status: 'active',
+        isCustom: false,
+        tokenCount: 1290,
+        systemPrompt: 'You are an expert advisor helping professionals work effectively with professional coaches...',
+        userPromptTemplate: 'Help me optimize my coaching relationship:\n\nCoach: {memberName}\nSpecialty: {memberRole}\nCurrent Focus: {currentRelationship}\n\nMy Profile:\n{currentFields}\n\nMy Goals:\n{goals}\n\nPlease advise...',
+        variables: ['memberName', 'memberRole', 'currentRelationship', 'currentFields', 'goals']
+    },
+    {
+        promptId: 'sponsors_default',
+        name: 'Sponsor Relationship Advisor',
+        category: 'sponsors',
+        status: 'active',
+        isCustom: false,
+        tokenCount: 1380,
+        systemPrompt: 'You are an expert advisor helping professionals build and leverage sponsorship relationships...',
+        userPromptTemplate: 'Help me with this sponsorship relationship:\n\nSponsor: {memberName}\nPosition: {memberRole}\nCurrent Status: {currentRelationship}\n\nMy Profile:\n{currentFields}\n\nMy Aspirations:\n{goals}\n\nPlease provide strategic advice...',
+        variables: ['memberName', 'memberRole', 'currentRelationship', 'currentFields', 'goals']
+    },
+    {
+        promptId: 'connectors_default',
+        name: 'Connector Relationship Advisor',
+        category: 'connectors',
+        status: 'active',
+        isCustom: false,
+        tokenCount: 1250,
+        systemPrompt: 'You are an expert advisor helping professionals build relationships with well-connected individuals...',
+        userPromptTemplate: 'Help me build this connector relationship:\n\nConnector: {memberName}\nNetwork/Industry: {memberRole}\nConnection Level: {currentRelationship}\n\nMy Background:\n{currentFields}\n\nMy Goals:\n{goals}\n\nPlease advise...',
+        variables: ['memberName', 'memberRole', 'currentRelationship', 'currentFields', 'goals']
+    },
+    {
+        promptId: 'peers_default',
+        name: 'Peer Relationship Advisor',
+        category: 'peers',
+        status: 'active',
+        isCustom: false,
+        tokenCount: 1200,
+        systemPrompt: 'You are an expert advisor helping professionals build valuable peer-to-peer relationships...',
+        userPromptTemplate: 'Help me develop this peer relationship:\n\nPeer: {memberName}\nRole/Background: {memberRole}\nCurrent Dynamic: {currentRelationship}\n\nMy Profile:\n{currentFields}\n\nMy Objectives:\n{goals}\n\nPlease provide guidance...',
+        variables: ['memberName', 'memberRole', 'currentRelationship', 'currentFields', 'goals']
+    },
+    // Overall Board Advisor
+    {
+        promptId: 'overall_default',
+        name: 'Comprehensive Board Strategy Advisor',
+        category: 'overall',
+        status: 'active',
+        isCustom: false,
+        tokenCount: 1400,
+        systemPrompt: 'You are a strategic advisor specializing in analyzing Personal Boards of Directors and providing comprehensive board strategy recommendations...',
+        userPromptTemplate: 'Analyze my current board and provide strategic recommendations:\n\nCurrent Board Members:\n{boardMembers}\n\nMy Profile:\n{currentFields}\n\nMy Goals:\n{goals}\n\nPlease provide comprehensive board analysis and strategic recommendations...',
+        variables: ['boardMembers', 'currentFields', 'goals']
+    },
+    // Writing Assistant
+    {
+        promptId: 'writing_default',
+        name: 'Professional Writing Assistant',
+        category: 'writing',
+        status: 'active',
+        isCustom: false,
+        tokenCount: 1200,
+        systemPrompt: 'You are a professional writing assistant specializing in improving grammar, spelling, clarity, and professional tone without changing the core meaning or intent of the content. You help make writing more polished, concise, and impactful while preserving the author\'s voice and message.',
+        userPromptTemplate: `# Professional Writing Enhancement Request
+
+## Original Content to Improve
+{currentFields}
+
+## Instructions
+Please improve the writing by:
+1. **Grammar & Spelling**: Correct any grammatical errors, spelling mistakes, and punctuation issues
+2. **Clarity & Flow**: Enhance sentence structure and readability while maintaining the original meaning
+3. **Professional Tone**: Ensure appropriate professional language and tone
+4. **Conciseness**: Remove unnecessary words while preserving all key information
+5. **Impact**: Strengthen word choice to make the content more compelling
+
+## Important Guidelines
+- **PRESERVE MEANING**: Do not change the core meaning, intent, or factual content
+- **MAINTAIN VOICE**: Keep the author's personality and communication style
+- **NO ADDITIONS**: Do not add new information, claims, or content not present in the original
+- **FIELD-BY-FIELD**: Provide improved versions for each field separately
+
+## Response Format
+Please provide the improved content organized by field, using this exact structure:
+
+### Improved Content
+
+**Field Name:** [Exact field name]
+**Original:** [Original text]
+**Improved:** [Enhanced version]
+
+**Field Name:** [Next field name]
+**Original:** [Original text]
+**Improved:** [Enhanced version]
+
+Focus on making each field more professional, clear, and polished while keeping the exact same meaning and information.`,
+        variables: ['currentFields']
+    }
+];
+
+exports.handler = async (event) => {
+    console.log('Event:', JSON.stringify(event, null, 2));
+
+    try {
+        // Handle CORS preflight
+        if (event.httpMethod === 'OPTIONS') {
+            return {
+                statusCode: 200,
+                headers: corsHeaders,
+                body: ''
+            };
+        }
+
+        const { httpMethod, path } = event;
+
+        if (httpMethod === 'GET' && path === '/admin/prompts') {
+            return await getPrompts();
+        } else if (httpMethod === 'POST' && path === '/admin/prompts') {
+            console.log('🔍 Raw event.body:', event.body);
+            console.log('🔍 isBase64Encoded:', event.isBase64Encoded);
+            console.log('🔍 Content-Type header:', event.headers['content-type'] || event.headers['Content-Type']);
+
+            const body = event.isBase64Encoded ?
+                Buffer.from(event.body, 'base64').toString('utf-8') :
+                event.body;
+
+            console.log('📥 Decoded body:', body);
+            console.log('📥 Body length:', body.length, 'characters');
+
+            const promptData = JSON.parse(body);
+            console.log('📋 Parsed prompt data:', JSON.stringify(promptData, null, 2));
+
+            // Check for null values
+            const nullFields = Object.entries(promptData).filter(([key, value]) => value === null);
+            if (nullFields.length > 0) {
+                console.log('⚠️ NULL FIELDS DETECTED:', nullFields.map(([key]) => key));
+            }
+
+            return await createPrompt(promptData);
+        } else if (httpMethod === 'PUT' && path.startsWith('/admin/prompts/') && path.endsWith('/activate')) {
+            const promptId = path.split('/')[3];
+            return await activatePrompt(promptId);
+        } else if (httpMethod === 'PUT' && path.startsWith('/admin/prompts/') && !path.endsWith('/activate')) {
+            const promptId = path.split('/')[3];
+            const body = event.isBase64Encoded ?
+                Buffer.from(event.body, 'base64').toString('utf-8') :
+                event.body;
+            const promptData = JSON.parse(body);
+            return await updatePrompt(promptId, promptData);
+        } else if (httpMethod === 'DELETE' && path.startsWith('/admin/prompts/')) {
+            const promptId = path.split('/')[3];
+            return await deletePrompt(promptId);
+        } else if (httpMethod === 'GET' && path === '/admin/seed') {
+            return await seedDatabase();
+        }
+
+        return {
+            statusCode: 404,
+            headers: corsHeaders,
+            body: JSON.stringify({ error: 'Not found' })
+        };
+
+    } catch (error) {
+        console.error('Error:', error);
+        return {
+            statusCode: 500,
+            headers: corsHeaders,
+            body: JSON.stringify({ error: error.message })
+        };
+    }
+};
+
+async function getPrompts() {
+    // Get all prompts
+    const promptsResult = await dynamodb.send(new ScanCommand({
+        TableName: TABLE_NAME,
+        FilterExpression: 'begins_with(PK, :pk)',
+        ExpressionAttributeValues: {
+            ':pk': 'PROMPT#'
+        }
+    }));
+
+    const prompts = promptsResult.Items.map(item => ({
+        promptId: item.PK.replace('PROMPT#', ''),
+        ...item
+    }));
+
+    // Get active selections using ADVISOR#{category} structure
+    const activeResult = await dynamodb.send(new ScanCommand({
+        TableName: TABLE_NAME,
+        FilterExpression: 'begins_with(PK, :pk) AND SK = :sk',
+        ExpressionAttributeValues: {
+            ':pk': 'ADVISOR#',
+            ':sk': 'PROMPT'
+        }
+    }));
+
+    const activeSelections = {};
+    activeResult.Items.forEach(item => {
+        const category = item.PK.replace('ADVISOR#', '');
+        activeSelections[category] = item.activePromptId;
+    });
+
+    // Calculate stats
+    const totalPrompts = prompts.length;
+    const activePrompts = Object.keys(activeSelections).length;
+    const avgTokens = prompts.reduce((sum, p) => sum + (p.tokenCount || 0), 0) / totalPrompts;
+
+    return {
+        statusCode: 200,
+        headers: corsHeaders,
+        body: JSON.stringify({
+            prompts,
+            activeSelections,
+            stats: {
+                totalPrompts,
+                activePrompts,
+                avgTokens: Math.round(avgTokens)
+            }
+        })
+    };
+}
+
+async function createPrompt(promptData) {
+    const promptId = promptData.promptId || `custom_${Date.now()}`;
+
+    // Validate category
+    if (!promptData.category || !ADVISOR_CATEGORIES[promptData.category]) {
+        return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ error: 'Invalid or missing category. Must be one of: ' + Object.keys(ADVISOR_CATEGORIES).join(', ') })
+        };
+    }
+
+    const item = {
+        PK: `PROMPT#${promptId}`,
+        SK: 'CONFIG',
+        promptId,
+        name: promptData.name,
+        category: promptData.category,
+        status: 'inactive',
+        isCustom: true,
+        tokenCount: promptData.tokenCount || 1500,
+        systemPrompt: promptData.systemPrompt,
+        userPromptTemplate: promptData.userPromptTemplate,
+        variables: promptData.variables || [],
+        createdAt: new Date().toISOString()
+    };
+
+    console.log('💾 Item being stored in DynamoDB:', JSON.stringify(item, null, 2));
+
+    // Check for null values in the item
+    const nullFields = Object.entries(item).filter(([key, value]) => value === null);
+    if (nullFields.length > 0) {
+        console.log('⚠️ NULL FIELDS IN DYNAMODB ITEM:', nullFields.map(([key]) => key));
+    }
+
+    await dynamodb.send(new PutCommand({
+        TableName: TABLE_NAME,
+        Item: item
+    }));
+
+    console.log('✅ Successfully stored item with promptId:', promptId);
+
+    return {
+        statusCode: 201,
+        headers: corsHeaders,
+        body: JSON.stringify({ promptId, message: 'Prompt created successfully' })
+    };
+}
+
+async function updatePrompt(promptId, promptData) {
+    console.log('🔄 UPDATE DEBUG: Starting update for promptId:', promptId);
+    console.log('🔄 UPDATE DEBUG: Prompt data:', JSON.stringify(promptData, null, 2));
+
+    // First check if the prompt exists
+    const existingResult = await dynamodb.send(new GetCommand({
+        TableName: TABLE_NAME,
+        Key: {
+            PK: `PROMPT#${promptId}`,
+            SK: 'CONFIG'
+        }
+    }));
+
+    if (!existingResult.Item) {
+        console.log('🔄 UPDATE DEBUG: Prompt not found');
+        return {
+            statusCode: 404,
+            headers: corsHeaders,
+            body: JSON.stringify({ error: 'Prompt not found' })
+        };
+    }
+
+    console.log('🔄 UPDATE DEBUG: Existing prompt:', JSON.stringify(existingResult.Item, null, 2));
+
+    // Only allow updates to custom prompts
+    if (!existingResult.Item.isCustom) {
+        console.log('🔄 UPDATE DEBUG: Cannot update system prompt');
+        return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ error: 'Cannot update system prompts' })
+        };
+    }
+
+    // Create updated item, preserving metadata
+    const updatedItem = {
+        PK: `PROMPT#${promptId}`,
+        SK: 'CONFIG',
+        promptId,
+        name: promptData.name,
+        type: promptData.type,
+        memberType: promptData.memberType || null,
+        status: existingResult.Item.status, // Preserve existing status
+        isCustom: true,
+        tokenCount: promptData.tokenCount || 1500,
+        systemPrompt: promptData.systemPrompt,
+        userPromptTemplate: promptData.userPromptTemplate,
+        variables: promptData.variables || [],
+        createdAt: existingResult.Item.createdAt, // Preserve creation date
+        updatedAt: new Date().toISOString()
+    };
+
+    console.log('🔄 UPDATE DEBUG: Updated item:', JSON.stringify(updatedItem, null, 2));
+
+    await dynamodb.send(new PutCommand({
+        TableName: TABLE_NAME,
+        Item: updatedItem
+    }));
+
+    console.log('✅ Successfully updated prompt with promptId:', promptId);
+
+    return {
+        statusCode: 200,
+        headers: corsHeaders,
+        body: JSON.stringify({ promptId, message: 'Prompt updated successfully' })
+    };
+}
+
+async function activatePrompt(promptId) {
+    // Get prompt details
+    const promptResult = await dynamodb.send(new GetCommand({
+        TableName: TABLE_NAME,
+        Key: {
+            PK: `PROMPT#${promptId}`,
+            SK: 'CONFIG'
+        }
+    }));
+
+    if (!promptResult.Item) {
+        return {
+            statusCode: 404,
+            headers: corsHeaders,
+            body: JSON.stringify({ error: 'Prompt not found' })
+        };
+    }
+
+    const prompt = promptResult.Item;
+
+    // Determine category from either the new category field or the old type/memberType fields
+    let category = prompt.category;
+
+    // If no category field, map from old structure
+    if (!category) {
+        // Map memberType or type to category
+        if (prompt.memberType) {
+            // Board member types map directly to categories
+            category = prompt.memberType; // mentors, coaches, sponsors, connectors, peers
+        } else if (prompt.type === 'goals_advisor' || prompt.type === 'superpowers_advisor') {
+            // Map goals_advisor to either skills or goals (for now use skills for superpowers)
+            category = prompt.name && prompt.name.includes('Superpower') ? 'skills' : 'goals';
+        } else if (prompt.type === 'board_analysis_advisor' || prompt.type === 'board_analysis') {
+            category = 'overall';
+        } else if (prompt.type === 'form_completion') {
+            category = 'overall'; // Form completion is an overall board function
+        }
+    }
+
+    if (!category || !ADVISOR_CATEGORIES[category]) {
+        return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ error: `Invalid or unmapped category for prompt: ${prompt.type || prompt.memberType || 'unknown'}` })
+        };
+    }
+
+    // Update active selection using ADVISOR#{category} structure
+    await dynamodb.send(new PutCommand({
+        TableName: TABLE_NAME,
+        Item: {
+            PK: `ADVISOR#${category}`,
+            SK: 'PROMPT',
+            activePromptId: promptId,
+            updatedAt: new Date().toISOString()
+        }
+    }));
+
+    return {
+        statusCode: 200,
+        headers: corsHeaders,
+        body: JSON.stringify({ message: 'Prompt activated successfully' })
+    };
+}
+
+async function deletePrompt(promptId) {
+    // Only allow deletion of custom prompts
+    const promptResult = await dynamodb.send(new GetCommand({
+        TableName: TABLE_NAME,
+        Key: {
+            PK: `PROMPT#${promptId}`,
+            SK: 'CONFIG'
+        }
+    }));
+
+    if (!promptResult.Item) {
+        return {
+            statusCode: 404,
+            headers: corsHeaders,
+            body: JSON.stringify({ error: 'Prompt not found' })
+        };
+    }
+
+    if (!promptResult.Item.isCustom) {
+        return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ error: 'Cannot delete default prompts' })
+        };
+    }
+
+    await dynamodb.send(new DeleteCommand({
+        TableName: TABLE_NAME,
+        Key: {
+            PK: `PROMPT#${promptId}`,
+            SK: 'CONFIG'
+        }
+    }));
+
+    return {
+        statusCode: 200,
+        headers: corsHeaders,
+        body: JSON.stringify({ message: 'Prompt deleted successfully' })
+    };
+}
+
+async function seedDatabase() {
+    // Seed prompts
+    for (const prompt of INITIAL_PROMPTS) {
+        const item = {
+            PK: `PROMPT#${prompt.promptId}`,
+            SK: 'CONFIG',
+            ...prompt,
+            createdAt: new Date().toISOString()
+        };
+
+        await dynamodb.send(new PutCommand({
+            TableName: TABLE_NAME,
+            Item: item,
+            ConditionExpression: 'attribute_not_exists(PK)'
+        })).catch(err => {
+            if (err.name !== 'ConditionalCheckFailedException') throw err;
+        });
+    }
+
+    // Seed active selections using ADVISOR#{category} structure
+    const activeSelections = [
+        { category: 'skills', promptId: 'skills_default' },
+        { category: 'goals', promptId: 'goals_default' },
+        { category: 'mentors', promptId: 'mentors_default' },
+        { category: 'coaches', promptId: 'coaches_default' },
+        { category: 'sponsors', promptId: 'sponsors_default' },
+        { category: 'connectors', promptId: 'connectors_default' },
+        { category: 'peers', promptId: 'peers_default' },
+        { category: 'overall', promptId: 'overall_default' },
+        { category: 'writing', promptId: 'writing_default' }
+    ];
+
+    for (const selection of activeSelections) {
+        await dynamodb.send(new PutCommand({
+            TableName: TABLE_NAME,
+            Item: {
+                PK: `ADVISOR#${selection.category}`,
+                SK: 'PROMPT',
+                activePromptId: selection.promptId,
+                updatedAt: new Date().toISOString()
+            },
+            ConditionExpression: 'attribute_not_exists(PK)'
+        })).catch(err => {
+            if (err.name !== 'ConditionalCheckFailedException') throw err;
+        });
+    }
+
+    return {
+        statusCode: 200,
+        headers: corsHeaders,
+        body: JSON.stringify({ message: 'Database seeded successfully' })
+    };
+}

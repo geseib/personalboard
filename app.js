@@ -17,6 +17,7 @@ const pages = [
   { key: 'connectors', title: 'Connectors', image: '/images/Slide4.png', quote: 'Connections spark growth.', quotePosition: 'center' },
   { key: 'sponsors', title: 'Sponsors', image: '/images/Slide8.png', quote: 'Sponsorship elevates.', quotePosition: 'bottom-right' },
   { key: 'peers', title: 'Peers', image: '/images/Slide9.png', quote: 'Peers share the path.', quotePosition: 'bottom-right' },
+  { key: 'writing', title: 'Writing', image: '/images/Slide6.png', quote: 'Clear writing unlocks opportunities.', quotePosition: 'bottom-left' },
   { key: 'board', title: 'Board', image: '/images/Slide10.png', quote: '', quotePosition: 'center' }
 ];
 
@@ -151,7 +152,7 @@ function App() {
   // Function to determine which section should show "Start Here"
   const getStartHereSection = () => {
     const completionStatus = getSectionCompletionStatus();
-    const sectionsOrder = ['you', 'goals', 'mentors', 'coaches', 'sponsors', 'peers', 'connectors'];
+    const sectionsOrder = ['you', 'goals', 'mentors', 'coaches', 'sponsors', 'peers', 'connectors', 'writing'];
     
     // Find the leftmost incomplete section
     for (const section of sectionsOrder) {
@@ -767,6 +768,10 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
       coaches: {
         brief: 'Your Skill Developers',
         detail: 'Coaches focus on helping you develop specific skills and capabilities. Unlike mentors who provide broad wisdom, coaches zero in on particular areas where you need improvement and push you to achieve your potential. They provide targeted feedback, skill development strategies, and accountability for improvement.'
+      },
+      writing: {
+        brief: 'Your Communication Engine',
+        detail: 'Clear, compelling writing amplifies your ideas and creates opportunities. Strong writing skills help you articulate ideas clearly, influence decision-makers, build professional credibility, and advance your career through effective communication across all channels.'
       },
       connectors: {
         brief: 'Your Network Expanders',
@@ -1506,7 +1511,7 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
         </div>
       )}
       <div className="content">
-        {current === 'intro' ? <Intro onLearnClick={() => setShowIntroLearn(true)} onVideoClick={() => setShowVideoModal(true)} /> : current === 'you' ? <You data={data.you || {superpowers: [], mentees: []}} onEdit={handleEdit} onDelete={handleDelete} /> : current === 'goals' ? <Goals items={data[current] || []} onEdit={handleEdit} /> : current === 'board' ? <Board data={data} boardAdvice={boardAdvice} boardAdviceLoading={boardAdviceLoading} /> : current === 'mentors' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} /> : current === 'coaches' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} /> : <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} />}
+        {current === 'intro' ? <Intro onLearnClick={() => setShowIntroLearn(true)} onVideoClick={() => setShowVideoModal(true)} /> : current === 'you' ? <You data={data.you || {superpowers: [], mentees: []}} onEdit={handleEdit} onDelete={handleDelete} /> : current === 'goals' ? <Goals items={data[current] || []} onEdit={handleEdit} /> : current === 'board' ? <Board data={data} boardAdvice={boardAdvice} boardAdviceLoading={boardAdviceLoading} /> : current === 'mentors' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} /> : current === 'coaches' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} /> : current === 'writing' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} /> : <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} />}
       </div>
       <nav className="nav">
         {pages.map(p => {
@@ -1713,7 +1718,7 @@ function You({ data, onEdit, onDelete }) {
     <div className="you-section">
       {/* Superpowers Row */}
       <div className="section-row">
-        <h2 style={{color: '#10b981', marginBottom: '16px', borderBottom: '2px solid #10b981', paddingBottom: '8px'}}>Your Superpowers</h2>
+        <h2 style={{color: '#10b981', marginBottom: '16px', borderBottom: '2px solid #10b981', paddingBottom: '8px', fontSize: '24px', fontWeight: 'bold'}}>Your Superpowers</h2>
         <div className="list">
           {data.superpowers && data.superpowers.map((item, idx) => {
             const getSkillTooltip = (skillCategory) => {
@@ -1752,7 +1757,7 @@ function You({ data, onEdit, onDelete }) {
 
       {/* Mentees Row */}
       <div className="section-row">
-        <h2 style={{color: '#8b5cf6', marginBottom: '16px', borderBottom: '2px solid #8b5cf6', paddingBottom: '8px'}}>Your Mentees</h2>
+        <h2 style={{color: '#8b5cf6', marginBottom: '16px', borderBottom: '2px solid #8b5cf6', paddingBottom: '8px', fontSize: '24px', fontWeight: 'bold'}}>Your Mentees</h2>
         <div className="list">
           {data.mentees && data.mentees.map((item, idx) => (
             <div key={idx} className="card mentee-card">
@@ -2249,13 +2254,22 @@ function LearnModal({ type, onClose, onAddClick }) {
       whatTheyGet: 'Mentors gain: fresh perspectives on industry trends, fulfillment from developing talent, potential future collaborators or team members, staying connected to emerging talent, validation of their expertise, and the satisfaction of giving back. Your success reflects well on them.'
     },
     coaches: {
-      title: 'Coaches: Your Skill Developers', 
+      title: 'Coaches: Your Skill Developers',
       description: 'Coaches are focused on helping you develop specific skills and capabilities. Unlike mentors who provide broad wisdom, coaches zero in on particular areas where you need improvement and push you to achieve your potential.',
       importance: 'Coaches refine potential by providing targeted feedback, skill development strategies, and accountability for improvement. They help bridge the gap between where you are and where you want to be in specific competencies.',
       whatToLookFor: 'Seek someone with deep expertise in the skills you want to develop, who can provide constructive feedback and structured learning approaches. They might be peers, superiors, or even external professionals who excel in areas where you want to grow.',
       howTheyHelp: 'Coaches give you specific exercises, feedback on your performance, and hold you accountable for skill development. They help you practice, refine techniques, and build confidence in areas critical to your success.',
       whatToLearn: 'From coaches, learn: specific technical skills, presentation techniques, communication styles, time management methods, problem-solving approaches, productivity systems, and performance optimization strategies. Focus on actionable techniques you can immediately apply.',
       whatTheyGet: 'Coaches gain: practice in teaching and articulating their expertise, validation of their knowledge, potential consulting opportunities, refinement of their own skills through teaching, professional satisfaction from developing others, and expanded influence in their field.'
+    },
+    writing: {
+      title: 'Writing: Your Communication Engine',
+      description: 'Clear, compelling writing is one of the most valuable professional skills. It amplifies your ideas, builds your reputation, and creates opportunities. Whether crafting emails, proposals, reports, or thought leadership content, strong writing sets you apart.',
+      importance: 'Writing clarity translates to career advancement. Poor writing obscures good ideas, while clear writing makes complex concepts accessible and persuasive. In remote work environments and global organizations, written communication often carries more weight than verbal communication.',
+      whatToLookFor: 'Focus on clarity, conciseness, and purpose in every piece of writing. Good professional writing serves the reader\'s needs, gets to the point quickly, and motivates action. Look for opportunities to practice different formats: emails, reports, proposals, presentations, and social content.',
+      howTheyHelp: 'Strong writing skills help you: articulate ideas clearly, influence decision-makers, build professional credibility, create lasting impact through documentation, expand your reach through content sharing, and advance your career through thought leadership.',
+      whatToLearn: 'Develop skills in: email efficiency, report structure, persuasive proposals, executive summaries, social media content, presentation scripts, meeting agendas, project documentation, and thought leadership articles. Practice adapting tone and style for different audiences.',
+      whatTheyGet: 'Investing in writing pays dividends through: increased visibility and recognition, more effective communication with teams and stakeholders, enhanced personal brand and reputation, greater influence in meetings and decisions, and expanded career opportunities through clear expression of ideas.'
     },
     connectors: {
       title: 'Connectors: Your Network Expanders',

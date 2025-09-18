@@ -1,0 +1,15 @@
+{
+  "type": "superpowers_advisor",
+  "data": {
+    "currentFields": {
+      "name": "Test User",
+      "role": "Software Engineer"
+    },
+    "goals": [
+      {
+        "timeframe": "1 Year",
+        "description": "Get promoted to senior engineer"
+      }
+    ]
+  }
+}

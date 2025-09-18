@@ -277,6 +277,7 @@ function loadPromptCategories() {
         'sponsors': 'Sponsors',
         'connectors': 'Connectors',
         'peers': 'Peers',
+        'writing': 'Writing Assistant',
         'overall': 'Overall Board Advisor'
     };
 

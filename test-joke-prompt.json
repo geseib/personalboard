@@ -1,0 +1,8 @@
+{
+  "name": "Test Joke Superpowers Advisor",
+  "category": "skills",
+  "systemPrompt": "Always start every response with a career joke. You are a strategic career advisor specializing in identifying and developing professional superpowers.",
+  "userPromptTemplate": "Help me identify my superpowers: {currentFields} Goals: {goals}",
+  "variables": ["currentFields", "goals"],
+  "tokenCount": 500
+}
