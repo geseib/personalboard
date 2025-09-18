@@ -102,6 +102,7 @@ function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [accessCode, setAccessCode] = useState('');
   const [authError, setAuthError] = useState('');
+  const [writingResultsModal, setWritingResultsModal] = useState({ show: false });
   const [authLoading, setAuthLoading] = useState(false);
 
   // Function to check if a section meets completion criteria
@@ -1585,6 +1586,11 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
         loading={authLoading}
       />}
 
+      <WritingResultsModal
+        modal={writingResultsModal}
+        onClose={() => setWritingResultsModal({ show: false })}
+      />
+
       <FeedbackButton />
     </div>
   );
@@ -2581,18 +2587,35 @@ IMPORTANT INSTRUCTIONS:
           setHasWritingBackup(true);
 
           // Show success message
-          alert(`✨ Successfully improved ${fieldsUpdated} field${fieldsUpdated > 1 ? 's' : ''}!`);
+          setWritingResultsModal({
+            show: true,
+            type: 'success',
+            fieldsUpdated,
+            improvements
+          });
         } else {
-          alert('No fields were updated. The AI may not have found improvements to suggest.');
+          setWritingResultsModal({
+            show: true,
+            type: 'info',
+            message: 'No fields were updated. The AI may not have found improvements to suggest.'
+          });
         }
       } else {
         console.log('No improvements found in response');
-        alert('No improvements suggested by the AI assistant.');
+        setWritingResultsModal({
+          show: true,
+          type: 'info',
+          message: 'No improvements suggested by the AI assistant.'
+        });
       }
 
     } catch (error) {
       console.error('Writing cleanup error:', error);
-      alert('Failed to polish writing. Please try again.');
+      setWritingResultsModal({
+        show: true,
+        type: 'error',
+        message: 'Failed to polish writing. Please try again.'
+      });
     }
 
     setIsWritingLoading(false);
@@ -3946,6 +3969,171 @@ function PeersVideoModal({ onClose }) {
         
         <div className="modal-buttons" style={{marginTop: '20px'}}>
           <button onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WritingResultsModal({ modal, onClose }) {
+  if (!modal.show) return null;
+
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
+  const getIcon = () => {
+    switch (modal.type) {
+      case 'success': return '✨';
+      case 'error': return '❌';
+      case 'info': default: return 'ℹ️';
+    }
+  };
+
+  const getColor = () => {
+    switch (modal.type) {
+      case 'success': return '#10b981';
+      case 'error': return '#ef4444';
+      case 'info': default: return '#3b82f6';
+    }
+  };
+
+  const getBgColor = () => {
+    switch (modal.type) {
+      case 'success': return '#f0fdf4';
+      case 'error': return '#fef2f2';
+      case 'info': default: return '#eff6ff';
+    }
+  };
+
+  return (
+    <div className="modal" onClick={handleOverlayClick} style={{
+      background: 'rgba(0, 0, 0, 0.5)',
+      backdropFilter: 'blur(8px)'
+    }}>
+      <div className="modal-content" style={{
+        maxWidth: '500px',
+        background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+        borderRadius: '20px',
+        border: `2px solid ${getColor()}`,
+        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+        animation: 'modalSlideIn 0.3s ease',
+        overflow: 'hidden'
+      }}>
+        <div style={{
+          background: `linear-gradient(135deg, ${getColor()} 0%, ${getColor()}dd 100%)`,
+          color: 'white',
+          padding: '24px 30px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <span style={{ fontSize: '32px' }}>{getIcon()}</span>
+          <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '600' }}>
+            {modal.type === 'success' && 'Writing Enhanced!'}
+            {modal.type === 'error' && 'Enhancement Failed'}
+            {modal.type === 'info' && 'Writing Assistant'}
+          </h2>
+        </div>
+
+        <div style={{ padding: '30px' }}>
+          {modal.type === 'success' ? (
+            <div>
+              <div style={{
+                background: getBgColor(),
+                border: `1px solid ${getColor()}33`,
+                borderRadius: '12px',
+                padding: '20px',
+                marginBottom: '20px'
+              }}>
+                <p style={{
+                  margin: '0 0 16px 0',
+                  fontSize: '18px',
+                  fontWeight: '600',
+                  color: getColor()
+                }}>
+                  Successfully improved {modal.fieldsUpdated} field{modal.fieldsUpdated > 1 ? 's' : ''}!
+                </p>
+
+                {modal.improvements && Object.keys(modal.improvements).length > 0 && (
+                  <div>
+                    <p style={{ margin: '0 0 12px 0', fontWeight: '500', color: '#374151' }}>
+                      Enhanced fields:
+                    </p>
+                    <ul style={{
+                      margin: 0,
+                      paddingLeft: '20px',
+                      color: '#475569',
+                      lineHeight: '1.6'
+                    }}>
+                      {Object.keys(modal.improvements).map(field => (
+                        <li key={field} style={{ marginBottom: '4px' }}>
+                          <strong>{field.charAt(0).toUpperCase() + field.slice(1)}</strong>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              <div style={{
+                background: '#fef3c7',
+                border: '1px solid #f59e0b33',
+                borderRadius: '8px',
+                padding: '12px',
+                fontSize: '14px',
+                color: '#92400e'
+              }}>
+                💡 <strong>Tip:</strong> Use the circular arrow button to undo changes if needed.
+              </div>
+            </div>
+          ) : (
+            <div style={{
+              background: getBgColor(),
+              border: `1px solid ${getColor()}33`,
+              borderRadius: '12px',
+              padding: '20px',
+              textAlign: 'center'
+            }}>
+              <p style={{
+                margin: 0,
+                fontSize: '16px',
+                color: '#374151',
+                lineHeight: '1.6'
+              }}>
+                {modal.message}
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div style={{
+          padding: '20px 30px',
+          borderTop: `1px solid ${getColor()}22`,
+          display: 'flex',
+          justifyContent: 'center'
+        }}>
+          <button
+            onClick={onClose}
+            style={{
+              background: `linear-gradient(135deg, ${getColor()} 0%, ${getColor()}dd 100%)`,
+              color: 'white',
+              border: 'none',
+              padding: '12px 24px',
+              borderRadius: '8px',
+              fontSize: '16px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'transform 0.2s ease',
+              boxShadow: `0 4px 12px ${getColor()}44`
+            }}
+            onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
+            onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+          >
+            Got it!
+          </button>
         </div>
       </div>
     </div>
