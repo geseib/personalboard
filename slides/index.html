@@ -3,534 +3,186 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Personal Board of Directors - Guided Walkthrough</title>
-    <link rel="stylesheet" href="slides.css">
+    <title>Personal Board of Directors - Choose Your Experience</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .launcher-container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 60px;
+            text-align: center;
+            max-width: 800px;
+            width: 100%;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            font-size: 1.3rem;
+            margin-bottom: 50px;
+            opacity: 0.9;
+            line-height: 1.6;
+        }
+
+        .options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 40px;
+        }
+
+        .option-card {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 16px;
+            padding: 40px 30px;
+            text-decoration: none;
+            color: white;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .option-card:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+        }
+
+        .option-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .option-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .option-description {
+            font-size: 1rem;
+            opacity: 0.9;
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        .option-features {
+            list-style: none;
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .option-features li {
+            margin-bottom: 8px;
+        }
+
+        .option-features li:before {
+            content: '✨ ';
+            margin-right: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .launcher-container {
+                padding: 40px 30px;
+            }
+
+            h1 {
+                font-size: 2.5rem;
+            }
+
+            .subtitle {
+                font-size: 1.1rem;
+            }
+
+            .options {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .option-card {
+                padding: 30px 25px;
+            }
+
+            .option-icon {
+                font-size: 2.5rem;
+            }
+
+            .option-title {
+                font-size: 1.3rem;
+            }
+        }
+
+        .footer {
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+    </style>
 </head>
 <body>
-    <!-- Slide 1: Introduction -->
-    <section class="slide active" id="slide-intro" data-bg="../images/Slide2.png">
-        <div class="slide-content">
-            <h1>Personal Board of Directors</h1>
-            <h2>A Strategic Approach to Career Growth</h2>
-            <div class="slide-text">
-                <p>Just as companies have boards to guide strategic decisions, you can assemble your own advisory board to accelerate your career growth.</p>
-                <ul>
-                    <li>🎯 Build strategic relationships</li>
-                    <li>📈 Accelerate career development</li>
-                    <li>🤝 Create mutual value networks</li>
-                    <li>🚀 Unlock new opportunities</li>
+    <div class="launcher-container">
+        <h1>Personal Board of Directors</h1>
+        <p class="subtitle">
+            Build your strategic advisory network with guided learning and AI-powered insights
+        </p>
+
+        <div class="options">
+            <a href="presentation.html" class="option-card">
+                <span class="option-icon">📚</span>
+                <div class="option-title">Learn First</div>
+                <div class="option-description">
+                    Start with our guided presentation to understand the concepts and best practices
+                </div>
+                <ul class="option-features">
+                    <li>10-slide walkthrough</li>
+                    <li>Comprehensive guidance</li>
+                    <li>Interactive navigation</li>
+                    <li>Mobile-friendly design</li>
                 </ul>
-            </div>
-        </div>
-        <div class="slide-navigation">
-            <button class="nav-btn next-btn" onclick="nextSlide()">Start Your Journey →</button>
-        </div>
-    </section>
+            </a>
 
-    <!-- Slide 2: Know Yourself First -->
-    <section class="slide" id="slide-you" data-bg="../images/Slide11.png">
-        <div class="slide-content">
-            <h1>Know Yourself First</h1>
-            <div class="quote">"Know yourself first."</div>
-            <div class="slide-text">
-                <h3>Define Your Superpowers</h3>
-                <p>Before building your board, identify your unique strengths across three key areas:</p>
-                <div class="three-columns">
-                    <div class="skill-category">
-                        <h4>🛠️ Technical Skills</h4>
-                        <p>Programming, tools, platforms, methodologies. Examples: Python, AWS, React.</p>
-                    </div>
-                    <div class="skill-category">
-                        <h4>💼 Business Skills</h4>
-                        <p>Industry expertise and domain knowledge. Examples: Healthcare, fintech, e-commerce.</p>
-                    </div>
-                    <div class="skill-category">
-                        <h4>👑 Organization Skills</h4>
-                        <p>Leadership and management abilities. Examples: Public speaking, project management.</p>
-                    </div>
+            <a href="../index.html" class="option-card">
+                <span class="option-icon">🚀</span>
+                <div class="option-title">Build Your Board</div>
+                <div class="option-description">
+                    Jump directly into the application to start building your Personal Board of Directors
                 </div>
-                <div class="advice-box">
-                    <strong>💡 Pro Tip:</strong> Rate each skill (Beginner/Intermediate/Advanced/Expert) and provide specific examples. This clarity helps you identify the right board members to complement your strengths and address your development areas.
-                </div>
-            </div>
-        </div>
-        <div class="slide-navigation">
-            <button class="nav-btn prev-btn" onclick="prevSlide()">← Back</button>
-            <button class="nav-btn next-btn" onclick="nextSlide()">Define Goals →</button>
-        </div>
-    </section>
-
-    <!-- Slide 3: Set Your Vision -->
-    <section class="slide" id="slide-goals" data-bg="../images/Slide12.png">
-        <div class="slide-content">
-            <h1>Set Your Vision</h1>
-            <div class="quote">"Your vision shapes your board."</div>
-            <div class="slide-text">
-                <h3>Define Goals Across Three Timeframes</h3>
-                <div class="three-columns">
-                    <div class="goal-timeframe">
-                        <h4>📅 3 Months (Immediate)</h4>
-                        <p>Specific, actionable objectives you can accomplish this quarter.</p>
-                        <div class="examples">
-                            Examples:
-                            <ul>
-                                <li>Complete certification program</li>
-                                <li>Launch new project</li>
-                                <li>Expand network in target industry</li>
-                            </ul>
-                        </div>
-                    </div>
-                    <div class="goal-timeframe">
-                        <h4>📈 1 Year Goals</h4>
-                        <p>Medium-term career milestones and skill development targets.</p>
-                        <div class="examples">
-                            Examples:
-                            <ul>
-                                <li>Get promoted to senior role</li>
-                                <li>Master new technology stack</li>
-                                <li>Lead cross-functional initiative</li>
-                            </ul>
-                        </div>
-                    </div>
-                    <div class="goal-timeframe">
-                        <h4>🌟 5+ Years (Vision)</h4>
-                        <p>Long-term career aspirations and leadership ambitions.</p>
-                        <div class="examples">
-                            Examples:
-                            <ul>
-                                <li>Become industry thought leader</li>
-                                <li>Start own company</li>
-                                <li>Join executive team</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-                <div class="advice-box">
-                    <strong>🎯 Strategic Insight:</strong> Your goals determine what type of board members you need. Different ambitions require different advisors - align your board composition with your vision.
-                </div>
-            </div>
-        </div>
-        <div class="slide-navigation">
-            <button class="nav-btn prev-btn" onclick="prevSlide()">← Back</button>
-            <button class="nav-btn next-btn" onclick="nextSlide()">Build Your Board →</button>
-        </div>
-    </section>
-
-    <!-- Slide 4: Board Overview -->
-    <section class="slide" id="slide-board-overview" data-bg="../images/Slide10.png">
-        <div class="slide-content">
-            <h1>Your Personal Board of Directors</h1>
-            <div class="slide-text">
-                <h3>Five Essential Board Member Types</h3>
-                <div class="board-grid">
-                    <div class="board-member-preview">
-                        <h4>🧭 Mentors</h4>
-                        <p>Senior advisors for wisdom and strategic guidance</p>
-                        <span class="frequency">Quarterly meetings</span>
-                    </div>
-                    <div class="board-member-preview">
-                        <h4>⚡ Coaches</h4>
-                        <p>Skill-builders for competency development</p>
-                        <span class="frequency">Weekly/Bi-weekly</span>
-                    </div>
-                    <div class="board-member-preview">
-                        <h4>🚀 Sponsors</h4>
-                        <p>Influential advocates for career advancement</p>
-                        <span class="frequency">As needed</span>
-                    </div>
-                    <div class="board-member-preview">
-                        <h4>🔗 Connectors</h4>
-                        <p>Network expanders for strategic introductions</p>
-                        <span class="frequency">Monthly/Quarterly</span>
-                    </div>
-                    <div class="board-member-preview">
-                        <h4>🤝 Peers</h4>
-                        <p>Colleagues for mutual support and collaboration</p>
-                        <span class="frequency">Ongoing</span>
-                    </div>
-                </div>
-                <div class="advice-box">
-                    <strong>⚖️ Balance is Key:</strong> A well-rounded board includes 2-3 members in each category, with relationships at different stages of development. Quality over quantity - focus on meaningful connections.
-                </div>
-            </div>
-        </div>
-        <div class="slide-navigation">
-            <button class="nav-btn prev-btn" onclick="prevSlide()">← Back</button>
-            <button class="nav-btn next-btn" onclick="nextSlide()">Meet Your Mentors →</button>
-        </div>
-    </section>
-
-    <!-- Slide 5: Mentors -->
-    <section class="slide" id="slide-mentors" data-bg="../images/Slide7.png">
-        <div class="slide-content">
-            <h1>Mentors: Your Strategic Advisors</h1>
-            <div class="quote">"A mentor opens doors."</div>
-            <div class="slide-text">
-                <h3>What Mentors Provide</h3>
-                <ul class="benefits-list">
-                    <li>🧠 <strong>Strategic Wisdom:</strong> Big-picture guidance and industry insights</li>
-                    <li>🎯 <strong>Career Navigation:</strong> Help with major decisions and transitions</li>
-                    <li>📊 <strong>Industry Context:</strong> Understanding of trends and opportunities</li>
-                    <li>🛡️ <strong>Risk Mitigation:</strong> Advice to avoid common pitfalls</li>
-                    <li>🌅 <strong>Long-term Perspective:</strong> Focus on sustainable career growth</li>
+                <ul class="option-features">
+                    <li>AI-powered guidance</li>
+                    <li>Goal setting tools</li>
+                    <li>Relationship tracking</li>
+                    <li>PDF export capability</li>
                 </ul>
-                
-                <h3>How to Approach Mentors</h3>
-                <div class="approach-steps">
-                    <div class="step">
-                        <span class="step-number">1</span>
-                        <div>
-                            <strong>Research & Connect:</strong> Identify senior leaders in your field through LinkedIn, industry events, or internal networks.
-                        </div>
-                    </div>
-                    <div class="step">
-                        <span class="step-number">2</span>
-                        <div>
-                            <strong>Value-First Approach:</strong> Offer insights, research, or assistance before asking for guidance.
-                        </div>
-                    </div>
-                    <div class="step">
-                        <span class="step-number">3</span>
-                        <div>
-                            <strong>Structure Meetings:</strong> Come with specific questions and agenda for quarterly 30-45 minute sessions.
-                        </div>
-                    </div>
-                </div>
-
-                <div class="advice-box">
-                    <strong>🎯 AI Guidance Available:</strong> Use the app's AI advisor to get personalized questions and talking points tailored to your specific mentor relationships and goals.
-                </div>
-            </div>
+            </a>
         </div>
-        <div class="slide-navigation">
-            <button class="nav-btn prev-btn" onclick="prevSlide()">← Back</button>
-            <button class="nav-btn next-btn" onclick="nextSlide()">Meet Your Coaches →</button>
-        </div>
-    </section>
 
-    <!-- Slide 6: Coaches -->
-    <section class="slide" id="slide-coaches" data-bg="../images/Slide6.png">
-        <div class="slide-content">
-            <h1>Coaches: Your Skill Builders</h1>
-            <div class="quote">"Coaches refine potential."</div>
-            <div class="slide-text">
-                <h3>What Coaches Provide</h3>
-                <ul class="benefits-list">
-                    <li>⚡ <strong>Hands-on Skill Development:</strong> Practical guidance and feedback</li>
-                    <li>🎯 <strong>Performance Improvement:</strong> Help optimize current role effectiveness</li>
-                    <li>🔧 <strong>Technical Expertise:</strong> Deep knowledge in specific domains</li>
-                    <li>📈 <strong>Regular Practice:</strong> Consistent development through iterations</li>
-                    <li>🏆 <strong>Immediate Application:</strong> Skills you can use right away</li>
-                </ul>
-                
-                <h3>Coach Relationship Dynamics</h3>
-                <div class="relationship-info">
-                    <div class="frequency-box">
-                        <h4>📅 Meeting Frequency</h4>
-                        <p>Weekly to bi-weekly sessions for active skill building</p>
-                    </div>
-                    <div class="duration-box">
-                        <h4>⏱️ Session Duration</h4>
-                        <p>30-60 minutes with hands-on practice and feedback</p>
-                    </div>
-                </div>
-
-                <h3>Finding the Right Coach</h3>
-                <div class="coach-types">
-                    <div class="coach-type">
-                        <strong>Internal Coaches:</strong> Senior colleagues, team leads, or specialists within your organization
-                    </div>
-                    <div class="coach-type">
-                        <strong>External Coaches:</strong> Industry experts, consultants, or professional coaches with specific expertise
-                    </div>
-                    <div class="coach-type">
-                        <strong>Peer Coaches:</strong> Colleagues with complementary skills for mutual development
-                    </div>
-                </div>
-
-                <div class="advice-box">
-                    <strong>💡 Pro Tip:</strong> The best coaches are 2-3 levels ahead in the specific skill you want to develop. They remember the learning journey and can provide practical, actionable guidance.
-                </div>
-            </div>
-        </div>
-        <div class="slide-navigation">
-            <button class="nav-btn prev-btn" onclick="prevSlide()">← Back</button>
-            <button class="nav-btn next-btn" onclick="nextSlide()">Meet Your Sponsors →</button>
-        </div>
-    </section>
-
-    <!-- Slide 7: Sponsors -->
-    <section class="slide" id="slide-sponsors" data-bg="../images/Slide8.png">
-        <div class="slide-content">
-            <h1>Sponsors: Your Career Champions</h1>
-            <div class="quote">"Sponsorship elevates."</div>
-            <div class="slide-text">
-                <h3>What Sponsors Provide</h3>
-                <ul class="benefits-list">
-                    <li>🏆 <strong>Active Advocacy:</strong> Champion your advancement in closed-door meetings</li>
-                    <li>🚪 <strong>Opportunity Access:</strong> Open doors to roles, projects, and visibility</li>
-                    <li>⚡ <strong>Political Capital:</strong> Use their influence to support your career moves</li>
-                    <li>🛡️ <strong>Air Cover:</strong> Provide protection during challenging situations</li>
-                    <li>📢 <strong>Amplification:</strong> Elevate your contributions and achievements</li>
-                </ul>
-                
-                <h3>The Sponsorship Equation</h3>
-                <div class="sponsorship-equation">
-                    <div class="equation-part">
-                        <h4>Your Value</h4>
-                        <p>Exceptional performance, strategic thinking, and business impact</p>
-                    </div>
-                    <div class="equation-plus">+</div>
-                    <div class="equation-part">
-                        <h4>Their Investment</h4>
-                        <p>Reputation, political capital, and advocacy effort</p>
-                    </div>
-                    <div class="equation-equals">=</div>
-                    <div class="equation-part">
-                        <h4>Mutual Success</h4>
-                        <p>Your advancement reflects well on their judgment and leadership</p>
-                    </div>
-                </div>
-
-                <h3>Earning Sponsorship</h3>
-                <div class="earning-steps">
-                    <div class="step">
-                        <span class="step-number">1</span>
-                        <strong>Deliver Excellence:</strong> Consistently exceed expectations in high-visibility work
-                    </div>
-                    <div class="step">
-                        <span class="step-number">2</span>
-                        <strong>Demonstrate Potential:</strong> Show strategic thinking and leadership qualities
-                    </div>
-                    <div class="step">
-                        <span class="step-number">3</span>
-                        <strong>Build Trust:</strong> Develop authentic relationship through regular interaction
-                    </div>
-                    <div class="step">
-                        <span class="step-number">4</span>
-                        <strong>Make Them Look Good:</strong> Your success should enhance their reputation
-                    </div>
-                </div>
-
-                <div class="advice-box">
-                    <strong>⚠️ Key Insight:</strong> Sponsorship is earned, not requested. Focus on becoming someone worth sponsoring through exceptional performance and strategic value creation.
-                </div>
-            </div>
-        </div>
-        <div class="slide-navigation">
-            <button class="nav-btn prev-btn" onclick="prevSlide()">← Back</button>
-            <button class="nav-btn next-btn" onclick="nextSlide()">Meet Your Connectors →</button>
-        </div>
-    </section>
-
-    <!-- Slide 8: Connectors -->
-    <section class="slide" id="slide-connectors" data-bg="../images/Slide4.png">
-        <div class="slide-content">
-            <h1>Connectors: Your Network Expanders</h1>
-            <div class="quote">"Connections spark growth."</div>
-            <div class="slide-text">
-                <h3>What Connectors Provide</h3>
-                <ul class="benefits-list">
-                    <li>🌐 <strong>Network Access:</strong> Introductions to people across industries and functions</li>
-                    <li>🎯 <strong>Strategic Connections:</strong> Targeted introductions aligned with your goals</li>
-                    <li>⚡ <strong>Opportunity Intelligence:</strong> Early awareness of job openings and projects</li>
-                    <li>🔍 <strong>Market Insights:</strong> Information from diverse industry sources</li>
-                    <li>🤝 <strong>Relationship Facilitation:</strong> Help you build meaningful professional relationships</li>
-                </ul>
-                
-                <h3>Types of Connectors</h3>
-                <div class="connector-types">
-                    <div class="connector-type">
-                        <h4>🏢 Industry Connectors</h4>
-                        <p>Well-networked professionals within your specific industry or functional area</p>
-                    </div>
-                    <div class="connector-type">
-                        <h4>🌍 Cross-Industry Connectors</h4>
-                        <p>People who span multiple industries and bring diverse perspectives</p>
-                    </div>
-                    <div class="connector-type">
-                        <h4>🎯 Specialized Connectors</h4>
-                        <p>Experts in specific areas like recruiting, investing, or technology</p>
-                    </div>
-                </div>
-
-                <h3>Working with Connectors</h3>
-                <div class="connector-guidelines">
-                    <div class="guideline">
-                        <strong>Be Specific:</strong> Clearly articulate who you want to meet and why
-                    </div>
-                    <div class="guideline">
-                        <strong>Follow Through:</strong> Always follow up on introductions they make
-                    </div>
-                    <div class="guideline">
-                        <strong>Reciprocate:</strong> Look for ways to make introductions for them
-                    </div>
-                    <div class="guideline">
-                        <strong>Report Back:</strong> Let them know how their introductions went
-                    </div>
-                </div>
-
-                <div class="advice-box">
-                    <strong>🔄 Give to Get:</strong> The best connectors are generous with their networks. Show appreciation by being a connector yourself - always look for ways to help others in your network connect.
-                </div>
-            </div>
-        </div>
-        <div class="slide-navigation">
-            <button class="nav-btn prev-btn" onclick="prevSlide()">← Back</button>
-            <button class="nav-btn next-btn" onclick="nextSlide()">Meet Your Peers →</button>
-        </div>
-    </section>
-
-    <!-- Slide 9: Peers -->
-    <section class="slide" id="slide-peers" data-bg="../images/Slide9.png">
-        <div class="slide-content">
-            <h1>Peers: Your Journey Partners</h1>
-            <div class="quote">"Peers share the path."</div>
-            <div class="slide-text">
-                <h3>What Peers Provide</h3>
-                <ul class="benefits-list">
-                    <li>🤝 <strong>Mutual Support:</strong> Reciprocal advice and encouragement</li>
-                    <li>👁️ <strong>Fresh Perspectives:</strong> Different viewpoints on common challenges</li>
-                    <li>⚡ <strong>Real-time Learning:</strong> Share experiences and solutions as they happen</li>
-                    <li>🛡️ <strong>Safe Sounding Board:</strong> Test ideas without hierarchy concerns</li>
-                    <li>🔄 <strong>Collaborative Growth:</strong> Learn and develop together</li>
-                </ul>
-                
-                <h3>Types of Peer Relationships</h3>
-                <div class="peer-types">
-                    <div class="peer-type">
-                        <h4>🏢 Internal Peers</h4>
-                        <p>Colleagues within your organization at similar career levels</p>
-                        <ul>
-                            <li>Cross-functional partners</li>
-                            <li>Same-level team members</li>
-                            <li>Project collaborators</li>
-                        </ul>
-                    </div>
-                    <div class="peer-type">
-                        <h4>🌐 External Peers</h4>
-                        <p>Professionals in similar roles at other organizations</p>
-                        <ul>
-                            <li>Industry association members</li>
-                            <li>Alumni network contacts</li>
-                            <li>Professional community members</li>
-                        </ul>
-                    </div>
-                    <div class="peer-type">
-                        <h4>🎯 Specialized Peers</h4>
-                        <p>People with complementary skills or shared interests</p>
-                        <ul>
-                            <li>Mastermind groups</li>
-                            <li>Professional development cohorts</li>
-                            <li>Special interest communities</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <h3>Building Strong Peer Networks</h3>
-                <div class="peer-strategies">
-                    <div class="strategy">
-                        <strong>🎯 Be Intentional:</strong> Actively seek out peers with complementary strengths and shared values
-                    </div>
-                    <div class="strategy">
-                        <strong>📅 Stay Connected:</strong> Regular check-ins, coffee chats, and informal updates
-                    </div>
-                    <div class="strategy">
-                        <strong>🤝 Be Generous:</strong> Share opportunities, insights, and connections freely
-                    </div>
-                    <div class="strategy">
-                        <strong>🏆 Celebrate Success:</strong> Genuinely support each other's achievements
-                    </div>
-                </div>
-
-                <div class="advice-box">
-                    <strong>💫 The Power of Peers:</strong> Your peer network often becomes your most valuable long-term professional asset. Today's peer is tomorrow's sponsor, connector, or business partner.
-                </div>
-            </div>
-        </div>
-        <div class="slide-navigation">
-            <button class="nav-btn prev-btn" onclick="prevSlide()">← Back</button>
-            <button class="nav-btn next-btn" onclick="nextSlide()">Taking Action →</button>
-        </div>
-    </section>
-
-    <!-- Slide 10: Taking Action -->
-    <section class="slide" id="slide-action" data-bg="../images/Slide10.png">
-        <div class="slide-content">
-            <h1>Taking Action with Your Board</h1>
-            <div class="slide-text">
-                <h3>🎯 Making Your Board Effective</h3>
-                
-                <div class="action-sections">
-                    <div class="action-section">
-                        <h4>📅 Establish Regular Cadence</h4>
-                        <ul>
-                            <li>Set recurring meetings aligned with each member's suggested frequency</li>
-                            <li>Prepare specific questions and updates for each interaction</li>
-                            <li>Respect their time by being organized and focused</li>
-                            <li>Follow up on advice received and report back on outcomes</li>
-                        </ul>
-                    </div>
-
-                    <div class="action-section">
-                        <h4>🔄 Continuously Refine Your Board</h4>
-                        <ul>
-                            <li>Regularly assess if current members align with your evolving goals</li>
-                            <li>Add new members as you enter different career phases</li>
-                            <li>Gracefully transition relationships when priorities shift</li>
-                            <li>Keep connections warm even when not actively engaged</li>
-                        </ul>
-                    </div>
-
-                    <div class="action-section">
-                        <h4>💡 Make Engagements Impactful</h4>
-                        <ul>
-                            <li>Come prepared with specific challenges or decisions</li>
-                            <li>Share wins and progress to maintain engagement</li>
-                            <li>Offer value in return - share insights, make introductions</li>
-                            <li>Be vulnerable about struggles and ask for specific help</li>
-                        </ul>
-                    </div>
-
-                    <div class="action-section">
-                        <h4>📊 Track and Measure Success</h4>
-                        <ul>
-                            <li>Monitor progress toward your defined goals</li>
-                            <li>Document key insights and advice from each member</li>
-                            <li>Evaluate relationship quality and mutual value creation</li>
-                            <li>Adjust your board composition as your career evolves</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <div class="cta-box">
-                    <h3>🚀 Ready to Build Your Board?</h3>
-                    <p>Use the Personal Board of Directors application to document your superpowers, set clear goals, and systematically build your advisory relationships.</p>
-                    <div class="cta-features">
-                        <span>✨ AI-Powered Guidance</span>
-                        <span>📋 Structured Planning</span>
-                        <span>📊 Progress Tracking</span>
-                        <span>💾 Secure Data Storage</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="slide-navigation">
-            <button class="nav-btn prev-btn" onclick="prevSlide()">← Back</button>
-            <button class="nav-btn start-app-btn" onclick="window.open('../index.html', '_blank')">Launch Application →</button>
-        </div>
-    </section>
-
-    <!-- Slide Progress Indicator -->
-    <div class="slide-progress">
-        <div class="progress-bar">
-            <div class="progress-fill"></div>
-        </div>
-        <div class="slide-counter">
-            <span id="current-slide">1</span> / <span id="total-slides">10</span>
+        <div class="footer">
+            <p>💡 <strong>Recommended:</strong> New users should start with "Learn First" to understand the framework before building their board.</p>
         </div>
     </div>
-
-    <script src="slides.js"></script>
 </body>
 </html>
