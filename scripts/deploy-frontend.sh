@@ -97,6 +97,13 @@ if [ -d "public/images" ]; then
         --cache-control "public, max-age=86400"
 fi
 
+# Copy images from root directory if they exist (for slides)
+if [ -d "images" ]; then
+    echo -e "${YELLOW}🖼️  Syncing images from root directory...${NC}"
+    aws s3 sync images/ s3://$BUCKET_NAME/images/ \
+        --cache-control "public, max-age=86400"
+fi
+
 # Apply the bucket policy (in case it's missing)
 echo -e "${YELLOW}🔒 Ensuring bucket policy is applied...${NC}"
 cat > /tmp/bucket-policy.json <<EOF

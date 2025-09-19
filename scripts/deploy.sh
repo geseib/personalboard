@@ -110,6 +110,13 @@ if [ -d "public/images" ]; then
         --cache-control "public, max-age=86400"
 fi
 
+# Copy images from root directory if they exist (for slides)
+if [ -d "images" ]; then
+    echo -e "${YELLOW}🖼️  Syncing images from root directory...${NC}"
+    aws s3 sync images/ s3://$BUCKET_NAME/images/ \
+        --cache-control "public, max-age=86400"
+fi
+
 # Create CloudFront invalidation
 echo -e "${YELLOW}♻️  Creating CloudFront invalidation...${NC}"
 INVALIDATION_ID=$(aws cloudfront create-invalidation \
