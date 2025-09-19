@@ -1488,12 +1488,8 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
             </button>
           </BottomTooltip>
           <BottomTooltip text="Analyze your entire board composition and get strategic recommendations">
-            <button 
-              onClick={() => {
-                setFormType('board');
-                setShowAdvisorModal(false); // Ensure modal is closed before calling handleAdvise
-                handleAdvise(null);
-              }}
+            <button
+              onClick={getBoardAdvice}
               style={{
                 backgroundColor: '#10b981',
                 color: 'white'
