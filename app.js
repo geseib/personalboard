@@ -17,7 +17,6 @@ const pages = [
   { key: 'connectors', title: 'Connectors', image: '/images/Slide4.png', quote: 'Connections spark growth.', quotePosition: 'center' },
   { key: 'sponsors', title: 'Sponsors', image: '/images/Slide8.png', quote: 'Sponsorship elevates.', quotePosition: 'bottom-right' },
   { key: 'peers', title: 'Peers', image: '/images/Slide9.png', quote: 'Peers share the path.', quotePosition: 'bottom-right' },
-  { key: 'writing', title: 'Writing', image: '/images/Slide6.png', quote: 'Clear writing unlocks opportunities.', quotePosition: 'bottom-left' },
   { key: 'board', title: 'Board', image: '/images/Slide10.png', quote: '', quotePosition: 'center' }
 ];
 
@@ -153,7 +152,7 @@ function App() {
   // Function to determine which section should show "Start Here"
   const getStartHereSection = () => {
     const completionStatus = getSectionCompletionStatus();
-    const sectionsOrder = ['you', 'goals', 'mentors', 'coaches', 'sponsors', 'peers', 'connectors', 'writing'];
+    const sectionsOrder = ['you', 'goals', 'mentors', 'coaches', 'sponsors', 'peers', 'connectors'];
     
     // Find the leftmost incomplete section
     for (const section of sectionsOrder) {
@@ -1512,7 +1511,7 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
         </div>
       )}
       <div className="content">
-        {current === 'intro' ? <Intro onLearnClick={() => setShowIntroLearn(true)} onVideoClick={() => setShowVideoModal(true)} /> : current === 'you' ? <You data={data.you || {superpowers: [], mentees: []}} onEdit={handleEdit} onDelete={handleDelete} /> : current === 'goals' ? <Goals items={data[current] || []} onEdit={handleEdit} /> : current === 'board' ? <Board data={data} boardAdvice={boardAdvice} boardAdviceLoading={boardAdviceLoading} /> : current === 'mentors' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} /> : current === 'coaches' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} /> : current === 'writing' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} /> : <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} />}
+        {current === 'intro' ? <Intro onLearnClick={() => setShowIntroLearn(true)} onVideoClick={() => setShowVideoModal(true)} /> : current === 'you' ? <You data={data.you || {superpowers: [], mentees: []}} onEdit={handleEdit} onDelete={handleDelete} /> : current === 'goals' ? <Goals items={data[current] || []} onEdit={handleEdit} /> : current === 'board' ? <Board data={data} boardAdvice={boardAdvice} boardAdviceLoading={boardAdviceLoading} /> : current === 'mentors' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} /> : current === 'coaches' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} /> : <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} />}
       </div>
       <nav className="nav">
         {pages.map(p => {
@@ -2267,15 +2266,6 @@ function LearnModal({ type, onClose, onAddClick }) {
       howTheyHelp: 'Coaches give you specific exercises, feedback on your performance, and hold you accountable for skill development. They help you practice, refine techniques, and build confidence in areas critical to your success.',
       whatToLearn: 'From coaches, learn: specific technical skills, presentation techniques, communication styles, time management methods, problem-solving approaches, productivity systems, and performance optimization strategies. Focus on actionable techniques you can immediately apply.',
       whatTheyGet: 'Coaches gain: practice in teaching and articulating their expertise, validation of their knowledge, potential consulting opportunities, refinement of their own skills through teaching, professional satisfaction from developing others, and expanded influence in their field.'
-    },
-    writing: {
-      title: 'Writing: Your Communication Engine',
-      description: 'Clear, compelling writing is one of the most valuable professional skills. It amplifies your ideas, builds your reputation, and creates opportunities. Whether crafting emails, proposals, reports, or thought leadership content, strong writing sets you apart.',
-      importance: 'Writing clarity translates to career advancement. Poor writing obscures good ideas, while clear writing makes complex concepts accessible and persuasive. In remote work environments and global organizations, written communication often carries more weight than verbal communication.',
-      whatToLookFor: 'Focus on clarity, conciseness, and purpose in every piece of writing. Good professional writing serves the reader\'s needs, gets to the point quickly, and motivates action. Look for opportunities to practice different formats: emails, reports, proposals, presentations, and social content.',
-      howTheyHelp: 'Strong writing skills help you: articulate ideas clearly, influence decision-makers, build professional credibility, create lasting impact through documentation, expand your reach through content sharing, and advance your career through thought leadership.',
-      whatToLearn: 'Develop skills in: email efficiency, report structure, persuasive proposals, executive summaries, social media content, presentation scripts, meeting agendas, project documentation, and thought leadership articles. Practice adapting tone and style for different audiences.',
-      whatTheyGet: 'Investing in writing pays dividends through: increased visibility and recognition, more effective communication with teams and stakeholders, enhanced personal brand and reputation, greater influence in meetings and decisions, and expanded career opportunities through clear expression of ideas.'
     },
     connectors: {
       title: 'Connectors: Your Network Expanders',
