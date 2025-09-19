@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Advisor Configuration - Personal Board of Directors</title>
+    <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+    <div class="app admin-app" style="background-image: url('images/Slide6.png')">
+        <!-- Header -->
+        <div class="admin-header">
+            <div class="admin-header-content">
+                <h1>AI Advisor Configuration</h1>
+                <p class="admin-subtitle">Manage and configure AI prompts for the Personal Board of Directors application</p>
+                <div class="admin-actions">
+                    <button class="admin-btn admin-btn-secondary" onclick="window.location.href='index.html'">
+                        Back to App
+                    </button>
+                    <button class="admin-btn admin-btn-primary" onclick="showAddPromptModal()">
+                        Add New Prompt
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="admin-content">
+            <!-- Stats Overview -->
+            <div class="admin-stats">
+                <div class="stat-card">
+                    <div class="stat-number" id="total-prompts">8</div>
+                    <div class="stat-label">Total Prompts</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="active-prompts">8</div>
+                    <div class="stat-label">Active Prompts</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="avg-tokens">1250</div>
+                    <div class="stat-label">Avg Tokens</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">v2.0</div>
+                    <div class="stat-label">API Version</div>
+                </div>
+            </div>
+
+            <!-- Search and Controls -->
+            <div class="admin-controls">
+                <div class="search-section">
+                    <input type="text" id="prompt-search" class="search-input" placeholder="Search prompts...">
+                </div>
+                <div class="control-buttons">
+                    <button class="admin-btn admin-btn-secondary refresh-btn" onclick="refreshData()">
+                        Refresh
+                    </button>
+                    <button class="admin-btn admin-btn-secondary" onclick="exportConfig()">
+                        Export Config
+                    </button>
+                </div>
+            </div>
+
+            <!-- Prompt Categories -->
+            <div class="prompt-categories" id="prompt-categories">
+                <!-- Categories will be dynamically populated by admin.js -->
+                <div class="loading-state">
+                    <div class="loading-spinner"></div>
+                    <p>Loading AI prompt configurations...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Prompt Modal -->
+        <div id="add-prompt-modal" class="modal" style="display: none;">
+            <div class="modal-content admin-modal-content">
+                <div class="modal-header">
+                    <h2>Add New AI Prompt</h2>
+                    <button class="modal-close" onclick="hideAddPromptModal()">×</button>
+                </div>
+                <form id="add-prompt-form" onsubmit="handleAddPrompt(event)">
+                    <div class="form-group">
+                        <label for="prompt-name">Prompt Name</label>
+                        <input type="text" id="prompt-name" name="prompt-name" required placeholder="e.g., Enhanced Board Member Advisor">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="prompt-category">Category</label>
+                        <select id="prompt-category" name="prompt-category" required>
+                            <option value="">Select category...</option>
+                            <option value="skills">Skills & Superpowers</option>
+                            <option value="goals">Goals & Vision</option>
+                            <option value="mentors">Mentors</option>
+                            <option value="coaches">Coaches</option>
+                            <option value="sponsors">Sponsors</option>
+                            <option value="connectors">Connectors</option>
+                            <option value="peers">Peers</option>
+                            <option value="writing">Writing Assistant</option>
+                            <option value="overall">Overall Board Advisor</option>
+                        </select>
+                        <small>Choose the advisor category this prompt will be used for</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="system-prompt">System Prompt</label>
+                        <textarea id="system-prompt" name="system-prompt" rows="8" required placeholder="You are a strategic career advisor..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="user-prompt-template">User Prompt Template</label>
+                        <textarea id="user-prompt-template" name="user-prompt-template" rows="6" required placeholder="Template with variables like {currentFields}, {goals}, etc."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="prompt-variables">Variables Used</label>
+                        <input type="text" id="prompt-variables" name="prompt-variables" placeholder="currentFields, goals, boardMembers (comma-separated)">
+                        <small>Variables that will be replaced in the prompt template</small>
+                    </div>
+                    
+                    <div class="modal-actions">
+                        <button type="button" class="admin-btn admin-btn-secondary" onclick="hideAddPromptModal()">
+                            Cancel
+                        </button>
+                        <button type="submit" class="admin-btn admin-btn-primary">
+                            Create Prompt
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- View Prompt Modal -->
+        <div id="view-prompt-modal" class="modal" style="display: none;">
+            <div class="modal-content admin-modal-content large-modal">
+                <div class="modal-header">
+                    <h2 id="view-prompt-title">Prompt Details</h2>
+                    <button class="modal-close" onclick="hideViewPromptModal()">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="prompt-details">
+                        <div class="prompt-section">
+                            <h3>System Prompt</h3>
+                            <div class="prompt-content" id="view-system-prompt">
+                                <!-- System prompt content -->
+                            </div>
+                        </div>
+                        <div class="prompt-section">
+                            <h3>User Prompt Template</h3>
+                            <div class="prompt-content" id="view-user-prompt">
+                                <!-- User prompt template -->
+                            </div>
+                        </div>
+                        <div class="prompt-section">
+                            <h3>Configuration</h3>
+                            <div class="prompt-config" id="view-config">
+                                <!-- Configuration details -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button class="admin-btn admin-btn-secondary" onclick="hideViewPromptModal()">
+                        Close
+                    </button>
+                    <button class="admin-btn admin-btn-primary" onclick="editPrompt()">
+                        Edit Prompt
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+</html>
