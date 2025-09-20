@@ -61,6 +61,25 @@ function replacePromptVariables(template, data, context) {
         completeUserData = data.existingMembers;
     }
 
+    // Handle board analysis data - when data contains boardData property
+    if (data.boardData && typeof data.boardData === 'object') {
+        // For board analysis, use boardData as the main data source
+        const boardData = data.boardData;
+
+        // Extract goals from boardData
+        if (boardData.goals) {
+            data.goals = boardData.goals;
+        }
+
+        // Extract skills from boardData.you.superpowers
+        if (boardData.you && boardData.you.superpowers) {
+            data.skills = boardData.you.superpowers;
+        }
+
+        // Set completeUserData to boardData for profile replacement
+        completeUserData = boardData;
+    }
+
     // Extract member details from currentFormData
     let memberName = '';
     let memberRole = '';
@@ -76,7 +95,8 @@ function replacePromptVariables(template, data, context) {
         memberName,
         memberRole,
         currentRelationship,
-        hasCompleteData: !!completeUserData
+        hasCompleteData: !!completeUserData,
+        hasBoardData: !!data.boardData
     });
 
     // Replace standard variables
@@ -1001,7 +1021,7 @@ function getBoardAnalysisAdvisorUserPrompt(data, context) {
   let prompt = `I want a comprehensive analysis of my professional board of directors. Please evaluate the overall composition, identify gaps and opportunities, and help me optimize this network for maximum career impact. Include opportunities for how I can leverage my skills to create mutual value with board members and strengthen these relationships.\n\n`;
 
   // Goals for context
-  if (boardData.goals && boardData.goals.length > 0) {
+  if (boardData && boardData.goals && boardData.goals.length > 0) {
     prompt += `<my_career_goals>\n`;
     boardData.goals.forEach(goal => {
       prompt += `${goal.timeframe}: ${goal.description}`;
@@ -1011,10 +1031,10 @@ function getBoardAnalysisAdvisorUserPrompt(data, context) {
     prompt += `</my_career_goals>\n\n`;
   }
 
-  // Skills for context
-  if (boardData.skills && boardData.skills.length > 0) {
+  // Skills/Superpowers for context - handle the 'you' section
+  if (boardData && boardData.you && boardData.you.superpowers && boardData.you.superpowers.length > 0) {
     prompt += `<my_skills_and_superpowers>\n`;
-    boardData.skills.forEach((skill, index) => {
+    boardData.you.superpowers.forEach((skill, index) => {
       prompt += `${index + 1}. ${skill.name}`;
       if (skill.description) prompt += `: ${skill.description}`;
       if (skill.notes) prompt += ` (${skill.notes})`;

@@ -47,6 +47,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         console.log('🚀 Initializing Admin Interface...');
         await loadPromptData();
         loadPromptCategories();
+        setupSearch();
         console.log('✅ Admin interface ready');
     } catch (error) {
         console.error('❌ Failed to initialize admin interface:', error);
@@ -99,6 +100,90 @@ function setCachedData(data) {
 function clearCache() {
     localStorage.removeItem(CACHE_KEY);
     localStorage.removeItem(CACHE_TIMESTAMP_KEY);
+}
+
+/**
+ * Setup search functionality
+ */
+function setupSearch() {
+    const searchInput = document.getElementById('prompt-search');
+    const clearBtn = document.getElementById('clear-search');
+
+    if (!searchInput || !clearBtn) return;
+
+    // Handle input changes
+    searchInput.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase().trim();
+        filterPrompts(searchTerm);
+
+        // Show/hide clear button
+        if (searchTerm) {
+            clearBtn.classList.add('visible');
+        } else {
+            clearBtn.classList.remove('visible');
+        }
+    });
+
+    // Handle clear button click
+    clearBtn.addEventListener('click', () => {
+        searchInput.value = '';
+        clearBtn.classList.remove('visible');
+        filterPrompts('');
+        searchInput.focus();
+    });
+}
+
+/**
+ * Filter prompts based on search term
+ */
+function filterPrompts(searchTerm) {
+    const promptCards = document.querySelectorAll('.prompt-card');
+    const categoryGroups = document.querySelectorAll('.category-group');
+
+    if (!searchTerm) {
+        // Show all prompts and categories
+        promptCards.forEach(card => {
+            card.style.display = '';
+        });
+        categoryGroups.forEach(group => {
+            group.style.display = '';
+        });
+        return;
+    }
+
+    // Hide all category groups initially
+    categoryGroups.forEach(group => {
+        group.style.display = 'none';
+    });
+
+    // Filter prompt cards
+    promptCards.forEach(card => {
+        const promptName = card.querySelector('h3')?.textContent?.toLowerCase() || '';
+        const category = card.closest('.category-group')?.querySelector('h2')?.textContent?.toLowerCase() || '';
+        const description = card.querySelector('.prompt-description')?.textContent?.toLowerCase() || '';
+
+        // Check if search term matches name, category, or description
+        if (promptName.includes(searchTerm) ||
+            category.includes(searchTerm) ||
+            description.includes(searchTerm)) {
+            card.style.display = '';
+            // Show the parent category group
+            const parentGroup = card.closest('.category-group');
+            if (parentGroup) {
+                parentGroup.style.display = '';
+            }
+        } else {
+            card.style.display = 'none';
+        }
+    });
+
+    // Hide empty categories
+    categoryGroups.forEach(group => {
+        const visibleCards = group.querySelectorAll('.prompt-card:not([style*="display: none"])');
+        if (visibleCards.length === 0) {
+            group.style.display = 'none';
+        }
+    });
 }
 
 /**
@@ -216,7 +301,7 @@ function getCategoryForPrompt(prompt) {
             // If no memberType, default to mentors
             return 'mentors';
         case 'board_member_advisor':
-            return 'overall';
+            return 'board_members';
         default:
             return null; // Don't map unknown types
     }
@@ -272,13 +357,14 @@ function loadPromptCategories() {
     const validCategories = {
         'skills': 'Skills & Superpowers',
         'goals': 'Goals & Vision',
+        'board_members': 'Board Members (Fallback)',
         'mentors': 'Mentors',
         'coaches': 'Coaches',
-        'sponsors': 'Sponsors',
         'connectors': 'Connectors',
+        'sponsors': 'Sponsors',
         'peers': 'Peers',
-        'writing': 'Writing Assistant',
-        'overall': 'Overall Board Advisor'
+        'overall': 'Overall Board Advisor',
+        'writing': 'Writing Assistant'
     };
 
     // Group prompts by category - map old prompts to categories too
@@ -301,7 +387,7 @@ function loadPromptCategories() {
             } else if (prompt.type === 'mentor_advisor' && !prompt.memberType) {
                 category = 'mentors'; // Default mentor_advisor to mentors
             } else if (prompt.type === 'board_member_advisor') {
-                category = 'overall'; // Generic board member advisor
+                category = 'board_members'; // Generic board member advisor fallback
             }
         }
 
@@ -338,15 +424,28 @@ function loadPromptCategories() {
         const categoryDiv = document.createElement('div');
         categoryDiv.className = 'prompt-category';
 
-        // Show active prompt indicator
+        // Show active prompt indicator and deactivate button for member types
         const activePromptId = activeSelections[categoryKey];
         const activeIndicator = activePromptId ? `<span class="active-indicator">Active: ${activePromptId}</span>` : '<span class="inactive-indicator">No active prompt</span>';
 
+        // Only show deactivate button for member types that can fallback to board_member_advisor
+        const memberTypes = ['mentors', 'coaches', 'sponsors', 'connectors', 'peers'];
+        const showDeactivate = memberTypes.includes(categoryKey) && activePromptId;
+        const deactivateButton = showDeactivate ?
+            `<button class="category-deactivate-btn" onclick="deactivateCategory('${categoryKey}')" title="Deactivate to use fallback prompt">
+                <i class="icon-x"></i> Use Fallback
+            </button>` : '';
+
         categoryDiv.innerHTML = `
             <div class="category-header">
-                <h3 class="category-title">${categoryName}</h3>
-                <span class="category-count">${prompts.length} prompts</span>
-                ${activeIndicator}
+                <div class="category-header-left">
+                    <h3 class="category-title">${categoryName}</h3>
+                    <span class="category-count">${prompts.length} prompts</span>
+                </div>
+                <div class="category-header-right">
+                    ${activeIndicator}
+                    ${deactivateButton}
+                </div>
             </div>
             <div class="category-description">
                 Advanced AI prompts for ${categoryName.toLowerCase()} functionality
@@ -378,7 +477,6 @@ function createPromptCard(prompt, categoryKey) {
             </div>
 
             <div class="prompt-meta">
-                <div class="prompt-category">Category: ${prompt.category || 'Unknown'}</div>
                 <div class="token-count">${prompt.tokenCount || 0} tokens</div>
             </div>
 
@@ -459,6 +557,47 @@ async function activatePrompt(promptId) {
     } catch (error) {
         console.error('🎯 ACTIVATE DEBUG: Error activating prompt:', error);
         showNotification(`Failed to activate prompt: ${error.message}`, 'error');
+    }
+}
+
+/**
+ * Deactivate a category (set to use fallback prompt)
+ */
+async function deactivateCategory(categoryKey) {
+    console.log('🎯 CATEGORY DEACTIVATE: Starting deactivation for category:', categoryKey);
+
+    try {
+        const url = `${AI_API_BASE_URL}/admin/categories/${categoryKey}/deactivate`;
+        console.log('🎯 CATEGORY DEACTIVATE: Request URL:', url);
+
+        const response = await fetch(url, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                action: 'deactivate',
+                category: categoryKey
+            })
+        });
+
+        console.log('🎯 CATEGORY DEACTIVATE: Response status:', response.status);
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.log('🎯 CATEGORY DEACTIVATE: Error response body:', errorText);
+            throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
+        }
+
+        const result = await response.json();
+        console.log('🎯 CATEGORY DEACTIVATE: Success response:', result);
+
+        showNotification(`${categoryKey} category deactivated - now using fallback prompt`, 'success');
+        await refreshData(); // Refresh to get updated state
+
+    } catch (error) {
+        console.error('🎯 CATEGORY DEACTIVATE: Error deactivating category:', error);
+        showNotification(`Failed to deactivate ${categoryKey} category: ${error.message}`, 'error');
     }
 }
 

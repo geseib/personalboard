@@ -517,7 +517,7 @@ export function setAPIBaseUrl(url) {
   AI_API_BASE_URL = url;
 }
 
-export { isAuthenticated, validateAccessCode };
+export { isAuthenticated, validateAccessCode, getAIGuidance };
 
 /**
  * Example usage for form completion:

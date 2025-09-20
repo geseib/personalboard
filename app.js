@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { jsPDF } from 'jspdf';
 import { connectionLevels } from './utils.js';
-import { getMentorAdvisorGuidance, getBoardMemberAdvisorGuidance, getGoalsAdvisorGuidance, getBoardAnalysisAdvisorGuidance, isAuthenticated, validateAccessCode } from './ai-client.js';
+import { getMentorAdvisorGuidance, getBoardMemberAdvisorGuidance, getGoalsAdvisorGuidance, getBoardAnalysisAdvisorGuidance, isAuthenticated, validateAccessCode, getAIGuidance } from './ai-client.js';
 import { FeedbackButton } from './feedback.js';
 import './feedback.css';
 // use direct paths so images resolve without a bundler
@@ -121,11 +121,28 @@ function App() {
       const threeMonth = data.goals.find(g => g.timeframe === '3 Month Goals');
       const oneYear = data.goals.find(g => g.timeframe === '1 Year Goals');
       const fiveYear = data.goals.find(g => g.timeframe === '5 Year Goals');
-      
-      const threeMonthComplete = threeMonth && threeMonth.description && threeMonth.description.trim().split('\n').length >= 2;
-      const oneYearComplete = oneYear && oneYear.description && oneYear.description.trim().split('\n').length >= 2;
-      const fiveYearComplete = fiveYear && fiveYear.description && fiveYear.description.trim().length > 0;
-      
+
+      // More flexible goal counting - check for meaningful content rather than strict newline counting
+      const countGoals = (description) => {
+        if (!description || !description.trim()) return 0;
+        const text = description.trim();
+        // Count by newlines first, but also check for bullet points, numbers, or substantial content
+        const lines = text.split('\n').filter(line => line.trim().length > 0);
+        const bullets = (text.match(/^\s*[-•*\d+\.]/gm) || []).length;
+        const hasSubstantialContent = text.length > 50; // Consider substantial single goal
+
+        // If multiple lines or bullet points, count those
+        if (lines.length > 1 || bullets > 1) {
+          return Math.max(lines.length, bullets);
+        }
+        // Otherwise, count as 1 if there's substantial content
+        return hasSubstantialContent ? 1 : 0;
+      };
+
+      const threeMonthComplete = threeMonth && countGoals(threeMonth.description) >= 2;
+      const oneYearComplete = oneYear && countGoals(oneYear.description) >= 2;
+      const fiveYearComplete = fiveYear && countGoals(fiveYear.description) >= 1;
+
       status.goals = threeMonthComplete && oneYearComplete && fiveYearComplete;
     } else {
       status.goals = false;
@@ -400,14 +417,12 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
           completeUserData // Pass complete user data
         );
       } else if (typeToUse === 'superpowers') {
-        // Superpowers advisor - map to skills category
-        result = await getBoardMemberAdvisorGuidance(
-          'skills', // Map superpowers to skills category for lambda
+        // Skills advisor - use skills_advisor type for active prompt selection
+        result = await getAIGuidance('skills_advisor', {
           currentFormData,
-          completeUserData.goals || [],
-          "Your unique strengths and capabilities that set you apart. These are the superpowers that make you valuable in your career and help you achieve your goals. Focus on identifying, developing, and leveraging these core strengths.",
-          completeUserData // Pass complete user data instead of just superpowers
-        );
+          allSkills: completeUserData.superpowers || [],
+          boardData: completeUserData
+        });
       } else if (typeToUse === 'board') {
         // Board analysis advisor - show inline instead of modal
         setShowAdvisorModal(false);
@@ -415,7 +430,7 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
         await getBoardAdvice();
         return;
       } else {
-        // Board member advisor
+        // Board member advisor - first check for member-specific prompt, then fallback to board_member_advisor
         const learnContentMap = {
           'mentors': "Senior leaders who provide wisdom, guidance, and strategic advice. They help you see the bigger picture, understand industry dynamics, and make important career decisions. Mentors typically meet quarterly and focus on long-term career development rather than day-to-day issues.",
           'coaches': "Skilled practitioners who help you develop specific competencies and improve performance. They provide hands-on guidance, practical feedback, and help you build concrete skills. Coaches often meet weekly or bi-weekly and focus on immediate skill development and performance improvement.",
@@ -426,13 +441,14 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
 
         const learnContent = learnContentMap[typeToUse] || learnContentMap['mentors'];
 
-        result = await getBoardMemberAdvisorGuidance(
-          typeToUse,
+        // Use the specific member type first (e.g., 'mentors_advisor'), lambda will fallback to 'board_member_advisor' if no specific active prompt
+        result = await getAIGuidance(`${typeToUse}_advisor`, {
+          memberType: typeToUse,
           currentFormData,
-          completeUserData.goals || [],
+          goals: completeUserData.goals || [],
           learnContent,
-          completeUserData // Pass complete user data instead of just existingMembers
-        );
+          existingMembers: completeUserData
+        });
       }
 
       console.log('AI Guidance Result:', result);
@@ -2463,6 +2479,9 @@ function FormModal({ type, item, onSave, onClose, onAdvise, advisorShowing, onFo
   const [originalForm, setOriginalForm] = useState(null); // For rollback functionality
   const [isWritingLoading, setIsWritingLoading] = useState(false);
   const [hasWritingBackup, setHasWritingBackup] = useState(false);
+  const [enhancementLevel, setEnhancementLevel] = useState(1); // 1-3 enhancement levels
+  const [enhancementVersions, setEnhancementVersions] = useState([]); // Store all versions
+  const [currentVersionIndex, setCurrentVersionIndex] = useState(0);
 
   const [cadenceIndex, setCadenceIndex] = useState(cadenceOptions.indexOf(form.cadence) >= 0 ? cadenceOptions.indexOf(form.cadence) : 3);
   
@@ -2519,16 +2538,51 @@ function FormModal({ type, item, onSave, onClose, onAdvise, advisorShowing, onFo
         .map(([key, value]) => `**${key}:** ${value}`)
         .join('\n\n');
 
-      // Add instruction note for AI
-      const instructionNote = `
-
-IMPORTANT INSTRUCTIONS:
+      // Get level-specific instructions
+      const getLevelInstructions = (level) => {
+        const baseInstructions = `
 - Only improve the text content provided above
 - Do NOT change timeframe fields (these are fixed categories)
 - Do NOT change skill category names like "Business Skills", "Technical Skills", "Organizational Skills"
 - Do NOT change connection levels or cadence values (these are dropdown/slider selections)
-- Focus only on improving grammar, spelling, clarity and professional tone of the actual descriptions and notes
 - Preserve all factual content and meaning exactly`;
+
+        switch (level) {
+          case 1:
+            return `ENHANCEMENT LEVEL 1 - BASIC CORRECTIONS:
+${baseInstructions}
+- Focus ONLY on basic spelling and grammar corrections
+- Fix typos, punctuation, and basic grammatical errors
+- Do NOT change sentence structure, tone, or style
+- Make minimal changes while preserving the original voice`;
+
+          case 2:
+            return `ENHANCEMENT LEVEL 2 - CLARITY IMPROVEMENTS:
+${baseInstructions}
+- Fix spelling, grammar, and punctuation errors
+- Improve clarity and readability while maintaining the original tone
+- Make minor adjustments to sentence structure for better flow
+- Ensure professional yet approachable language`;
+
+          case 3:
+            return `ENHANCEMENT LEVEL 3 - COMPREHENSIVE ENHANCEMENT:
+${baseInstructions}
+- Fix all spelling, grammar, and punctuation errors
+- Significantly improve clarity, flow, and professional impact
+- Enhance sentence structure and word choice for maximum effectiveness
+- Transform into polished, professional communication while preserving meaning
+- Add strategic emphasis and improve overall persuasiveness`;
+
+          default:
+            return baseInstructions;
+        }
+      };
+
+      // Add instruction note for AI
+      const instructionNote = `
+
+IMPORTANT INSTRUCTIONS:
+${getLevelInstructions(enhancementLevel)}`;
 
       if (!fieldEntries) {
         alert('No text content found to polish. Please fill in some fields first.');
@@ -2553,7 +2607,7 @@ IMPORTANT INSTRUCTIONS:
       console.log('Parsed improvements:', improvements);
 
       if (improvements && Object.keys(improvements).length > 0) {
-        // Apply improvements to form
+        // Create the new enhanced version
         const updatedForm = { ...form };
         let fieldsUpdated = 0;
 
@@ -2566,18 +2620,39 @@ IMPORTANT INSTRUCTIONS:
         });
 
         if (fieldsUpdated > 0) {
+          // Store backup for rollback if this is the first enhancement
+          if (!hasWritingBackup) {
+            setOriginalForm({ ...form });
+            setHasWritingBackup(true);
+          }
+
+          // Create new version with metadata
+          const newVersion = {
+            level: enhancementLevel,
+            form: updatedForm,
+            timestamp: new Date().toISOString(),
+            fieldsUpdated
+          };
+
+          // Add to versions array
+          const updatedVersions = [...enhancementVersions, newVersion];
+          setEnhancementVersions(updatedVersions);
+          setCurrentVersionIndex(updatedVersions.length - 1);
+
+          // Apply the new form
           setForm(updatedForm);
           if (onFormUpdate) {
             onFormUpdate(updatedForm);
           }
-          setHasWritingBackup(true);
 
-          // Show success message
+          // Show success message with version controls
           setWritingResultsModal({
             show: true,
             type: 'success',
             fieldsUpdated,
-            improvements
+            improvements,
+            currentVersion: newVersion,
+            totalVersions: updatedVersions.length
           });
         } else {
           setWritingResultsModal({
@@ -2615,6 +2690,30 @@ IMPORTANT INSTRUCTIONS:
       }
       setHasWritingBackup(false);
       setOriginalForm(null);
+      setEnhancementVersions([]);
+      setCurrentVersionIndex(0);
+    }
+  };
+
+  // Navigate between enhancement versions
+  const switchToVersion = (index) => {
+    if (index >= 0 && index < enhancementVersions.length) {
+      const version = enhancementVersions[index];
+      setForm(version.form);
+      if (onFormUpdate) {
+        onFormUpdate(version.form);
+      }
+      setCurrentVersionIndex(index);
+    }
+  };
+
+  // Helper to get level label
+  const getLevelLabel = (level) => {
+    switch (level) {
+      case 1: return 'Basic';
+      case 2: return 'Clarity';
+      case 3: return 'Full';
+      default: return 'Level ' + level;
     }
   };
 
@@ -2922,7 +3021,124 @@ IMPORTANT INSTRUCTIONS:
           </Tooltip>
           {onAdvise && (
             <>
-              <Tooltip text="Polish grammar, spelling, and writing style without changing meaning">
+              {/* Enhancement Level Selector */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: '500' }}>
+                  Enhancement Level:
+                </span>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '4px 8px',
+                  backgroundColor: '#f3f4f6',
+                  borderRadius: '6px',
+                  border: '1px solid #e5e7eb'
+                }}>
+                  <button
+                    onClick={() => setEnhancementLevel(Math.max(1, enhancementLevel - 1))}
+                    disabled={enhancementLevel <= 1 || isWritingLoading}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: enhancementLevel <= 1 ? '#d1d5db' : '#374151',
+                      cursor: enhancementLevel <= 1 ? 'not-allowed' : 'pointer',
+                      fontSize: '14px',
+                      padding: '2px 4px'
+                    }}
+                    title="Decrease enhancement level"
+                  >
+                    ←
+                  </button>
+                  <span style={{
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    color: '#374151',
+                    minWidth: '45px',
+                    textAlign: 'center'
+                  }}>
+                    {enhancementLevel} - {getLevelLabel(enhancementLevel)}
+                  </span>
+                  <button
+                    onClick={() => setEnhancementLevel(Math.min(3, enhancementLevel + 1))}
+                    disabled={enhancementLevel >= 3 || isWritingLoading}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: enhancementLevel >= 3 ? '#d1d5db' : '#374151',
+                      cursor: enhancementLevel >= 3 ? 'not-allowed' : 'pointer',
+                      fontSize: '14px',
+                      padding: '2px 4px'
+                    }}
+                    title="Increase enhancement level"
+                  >
+                    →
+                  </button>
+                </div>
+              </div>
+
+              {/* Version selector if we have multiple versions */}
+              {enhancementVersions.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: '500' }}>
+                    Versions:
+                  </span>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '4px 8px',
+                    backgroundColor: '#f3f4f6',
+                    borderRadius: '6px',
+                    border: '1px solid #e5e7eb'
+                  }}>
+                    <button
+                      onClick={() => switchToVersion(currentVersionIndex - 1)}
+                      disabled={currentVersionIndex <= 0}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: currentVersionIndex <= 0 ? '#d1d5db' : '#374151',
+                        cursor: currentVersionIndex <= 0 ? 'not-allowed' : 'pointer',
+                        fontSize: '14px',
+                        padding: '2px 4px'
+                      }}
+                      title="Previous version"
+                    >
+                      ←
+                    </button>
+                    <span style={{
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#374151',
+                      minWidth: '60px',
+                      textAlign: 'center'
+                    }}>
+                      {currentVersionIndex + 1} of {enhancementVersions.length}
+                      {enhancementVersions[currentVersionIndex] &&
+                        ` (${getLevelLabel(enhancementVersions[currentVersionIndex].level)})`
+                      }
+                    </span>
+                    <button
+                      onClick={() => switchToVersion(currentVersionIndex + 1)}
+                      disabled={currentVersionIndex >= enhancementVersions.length - 1}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: currentVersionIndex >= enhancementVersions.length - 1 ? '#d1d5db' : '#374151',
+                        cursor: currentVersionIndex >= enhancementVersions.length - 1 ? 'not-allowed' : 'pointer',
+                        fontSize: '14px',
+                        padding: '2px 4px'
+                      }}
+                      title="Next version"
+                    >
+                      →
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <Tooltip text={`Level ${enhancementLevel} (${getLevelLabel(enhancementLevel)}): Polish grammar, spelling, and writing style`}>
                 <button
                   onClick={() => handleWritingCleanup(form, type)}
                   style={{
@@ -2938,7 +3154,7 @@ IMPORTANT INSTRUCTIONS:
                     </>
                   ) : (
                     <>
-                      ✨ Polish Writing
+                      ✨ Polish Writing (Level {enhancementLevel})
                       {hasWritingBackup && (
                         <button
                           onClick={(e) => {
@@ -3288,6 +3504,13 @@ function AdvisorModal({ guidance, loading, onClose, formType, currentForm, onCop
     if (formType === 'goals') {
       return [
         { key: 'description', label: 'Description' },
+        { key: 'notes', label: 'Notes' }
+      ];
+    } else if (formType === 'superpowers') {
+      return [
+        { key: 'name', label: 'Skill/Superpower Name' },
+        { key: 'proficiency', label: 'Proficiency Level' },
+        { key: 'examples', label: 'Examples' },
         { key: 'notes', label: 'Notes' }
       ];
     } else {

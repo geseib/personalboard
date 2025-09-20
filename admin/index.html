@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Advisor Configuration - Personal Board of Directors</title>
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <link rel="alternate icon" href="../favicon.ico">
     <link rel="stylesheet" href="admin.css">
 </head>
 <body>
@@ -49,7 +51,10 @@
             <!-- Search and Controls -->
             <div class="admin-controls">
                 <div class="search-section">
-                    <input type="text" id="prompt-search" class="search-input" placeholder="Search prompts...">
+                    <div class="search-input-container">
+                        <input type="text" id="prompt-search" class="search-input" placeholder="Search prompts...">
+                        <button id="clear-search" class="clear-search-btn" title="Clear search">×</button>
+                    </div>
                 </div>
                 <div class="control-buttons">
                     <button class="admin-btn admin-btn-secondary refresh-btn" onclick="refreshData()">
@@ -90,13 +95,14 @@
                             <option value="">Select category...</option>
                             <option value="skills">Skills & Superpowers</option>
                             <option value="goals">Goals & Vision</option>
+                            <option value="board_members">Board Members (Fallback)</option>
                             <option value="mentors">Mentors</option>
                             <option value="coaches">Coaches</option>
-                            <option value="sponsors">Sponsors</option>
                             <option value="connectors">Connectors</option>
+                            <option value="sponsors">Sponsors</option>
                             <option value="peers">Peers</option>
-                            <option value="writing">Writing Assistant</option>
                             <option value="overall">Overall Board Advisor</option>
+                            <option value="writing">Writing Assistant</option>
                         </select>
                         <small>Choose the advisor category this prompt will be used for</small>
                     </div>
