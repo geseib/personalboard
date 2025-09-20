@@ -1337,3 +1337,25 @@ html, body {
     transform: none;
     box-shadow: none;
 }
+
+/* Active Prompt Indicators */
+.active-indicator {
+    color: #10b981;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.inactive-indicator {
+    color: #6b7280;
+    font-style: italic;
+    font-size: 0.875rem;
+}
+
+.fallback-indicator {
+    color: #f59e0b;
+    font-weight: 600;
+    font-size: 0.875rem;
+    background-color: rgba(245, 158, 11, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+}

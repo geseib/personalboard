@@ -16,47 +16,52 @@ const ADVISOR_CATEGORIES = {
     'skills': {
         name: 'Skills & Superpowers',
         description: 'Advisors for identifying and developing your core skills and strengths',
-        defaultPrompt: 'skills_default'
+        defaultPrompt: 'superpowers_advisor'
     },
     'goals': {
         name: 'Goals & Vision',
         description: 'Advisors for setting and achieving career goals',
-        defaultPrompt: 'goals_default'
+        defaultPrompt: 'goals_advisor'
     },
     'mentors': {
         name: 'Mentors',
         description: 'Relationship advisors for mentor connections',
-        defaultPrompt: 'mentors_default'
+        defaultPrompt: 'mentor_advisor'
     },
     'coaches': {
         name: 'Coaches',
         description: 'Relationship advisors for coaching connections',
-        defaultPrompt: 'coaches_default'
+        defaultPrompt: 'board_member_advisor'
     },
     'sponsors': {
         name: 'Sponsors',
         description: 'Relationship advisors for sponsor connections',
-        defaultPrompt: 'sponsors_default'
+        defaultPrompt: 'board_member_advisor'
     },
     'connectors': {
         name: 'Connectors',
         description: 'Relationship advisors for connector relationships',
-        defaultPrompt: 'connectors_default'
+        defaultPrompt: 'board_member_advisor'
     },
     'peers': {
         name: 'Peers',
         description: 'Relationship advisors for peer connections',
-        defaultPrompt: 'peers_default'
+        defaultPrompt: 'board_member_advisor'
+    },
+    'board_members': {
+        name: 'Board Members (Fallback)',
+        description: 'General board member relationship advisor (fallback for member types)',
+        defaultPrompt: 'board_member_advisor'
     },
     'overall': {
         name: 'Overall Board Advisor',
         description: 'Holistic advisors for comprehensive board guidance',
-        defaultPrompt: 'overall_default'
+        defaultPrompt: 'board_analysis_advisor'
     },
     'writing': {
         name: 'Writing Assistant',
         description: 'Grammar, spelling, and writing improvement assistant',
-        defaultPrompt: 'writing_default'
+        defaultPrompt: 'writing_advisor'
     }
 };
 
@@ -64,7 +69,7 @@ const ADVISOR_CATEGORIES = {
 const INITIAL_PROMPTS = [
     // Skills & Superpowers
     {
-        promptId: 'skills_default',
+        promptId: 'superpowers_advisor',
         name: 'Skills & Superpowers Development Advisor',
         category: 'skills',
         status: 'active',
@@ -114,7 +119,7 @@ Focus on making each suggestion specific, actionable, and directly applicable to
     },
     // Goals & Vision
     {
-        promptId: 'goals_default',
+        promptId: 'goals_advisor',
         name: 'Strategic Goals & Career Vision Advisor',
         category: 'goals',
         status: 'active',
@@ -154,7 +159,7 @@ Please structure your response with clear headings and actionable recommendation
     },
     // Board Member Categories
     {
-        promptId: 'mentors_default',
+        promptId: 'mentor_advisor',
         name: 'Mentor Relationship Advisor',
         category: 'mentors',
         status: 'active',
@@ -165,7 +170,7 @@ Please structure your response with clear headings and actionable recommendation
         variables: ['memberName', 'memberRole', 'currentRelationship', 'currentFields', 'goals']
     },
     {
-        promptId: 'coaches_default',
+        promptId: 'board_member_advisor',
         name: 'Coach Relationship Advisor',
         category: 'coaches',
         status: 'active',
@@ -176,7 +181,7 @@ Please structure your response with clear headings and actionable recommendation
         variables: ['memberName', 'memberRole', 'currentRelationship', 'currentFields', 'goals']
     },
     {
-        promptId: 'sponsors_default',
+        promptId: 'board_member_advisor',
         name: 'Sponsor Relationship Advisor',
         category: 'sponsors',
         status: 'active',
@@ -187,7 +192,7 @@ Please structure your response with clear headings and actionable recommendation
         variables: ['memberName', 'memberRole', 'currentRelationship', 'currentFields', 'goals']
     },
     {
-        promptId: 'connectors_default',
+        promptId: 'board_member_advisor',
         name: 'Connector Relationship Advisor',
         category: 'connectors',
         status: 'active',
@@ -198,7 +203,7 @@ Please structure your response with clear headings and actionable recommendation
         variables: ['memberName', 'memberRole', 'currentRelationship', 'currentFields', 'goals']
     },
     {
-        promptId: 'peers_default',
+        promptId: 'board_member_advisor',
         name: 'Peer Relationship Advisor',
         category: 'peers',
         status: 'active',
@@ -208,9 +213,72 @@ Please structure your response with clear headings and actionable recommendation
         userPromptTemplate: 'Help me develop this peer relationship:\n\nPeer: {memberName}\nRole/Background: {memberRole}\nCurrent Dynamic: {currentRelationship}\n\nMy Profile:\n{currentFields}\n\nMy Objectives:\n{goals}\n\nPlease provide guidance...',
         variables: ['memberName', 'memberRole', 'currentRelationship', 'currentFields', 'goals']
     },
+    // Board Members (Fallback)
+    {
+        promptId: 'board_member_advisor',
+        name: 'Board Member Relationship Advisor',
+        category: 'board_members',
+        status: 'active',
+        isCustom: false,
+        tokenCount: 1280,
+        systemPrompt: `<role>
+You are an expert career advisor specializing in board member relationships within professional boards of directors. Your expertise lies in helping professionals build meaningful, strategic relationships with senior leaders, mentors, coaches, sponsors, connectors, and peers that accelerate career growth through mutual value creation.
+</role>
+
+<objectives>
+- Clarify and focus board member relationship goals and expectations
+- Dive deep into specific, actionable strategies for relationship building
+- Provide pointed questions that reveal blind spots and opportunities
+- Offer concrete recommendations for optimal engagement
+- Help maximize the unique value that board members provide
+- Help identify how user's skills can strengthen relationships and create mutual benefit
+- Uncover opportunities where common interests and complementary skills create doors
+</objectives>
+
+<approach>
+- Ask probing questions that help clarify the relationship's strategic value and mutual benefit potential
+- Challenge assumptions and push for specificity in goals and expectations
+- Provide actionable next steps that can be implemented immediately
+- Focus on building authentic, mutually beneficial professional relationships
+- Consider the broader context of their career goals and existing professional network
+- Analyze how the user's skills and experiences can benefit the board member
+- Look for common interests, shared connections, and complementary expertise that open opportunities
+- Suggest ways to discover mutual interests and create meaningful value exchanges
+</approach>
+
+<output_format>
+Provide your response in exactly two sections:
+
+# Questions
+[4-6 pointed questions that dig deeper into their board member relationship strategy, reveal blind spots, clarify goals, and uncover opportunities for mutual value creation through their skills and interests. Format each question as a numbered list item or bullet point.]
+
+# Recommendations
+[4-6 specific, actionable recommendations for building and optimizing this board member relationship, including concrete next steps they can take within the next 30 days. Always include guidance on reviewing their LinkedIn profile to identify shared connections, common experiences, interests, conversation starters, and ways their skills might be valuable to this board member. Format each recommendation as a numbered list item or bullet point.]
+</output_format>
+
+Remember: Be direct, specific, and focused on actionable insights that create mutual value through skills leveraging and relationship building.`,
+        userPromptTemplate: `I'm working on building a stronger board member relationship and need your expert guidance.
+
+<current_member_info>
+Name: {memberName}
+Role: {memberRole}
+Current Relationship: {currentRelationship}
+</current_member_info>
+
+<my_profile>
+{currentFields}
+</my_profile>
+
+<my_career_goals>
+{goals}
+</my_career_goals>
+
+Please provide strategic guidance for optimizing this board member relationship.`,
+        variables: ['memberName', 'memberRole', 'currentRelationship', 'currentFields', 'goals']
+    },
     // Overall Board Advisor
     {
-        promptId: 'overall_default',
+        promptId: 'board_analysis_advisor',
         name: 'Comprehensive Board Strategy Advisor',
         category: 'overall',
         status: 'active',
@@ -222,7 +290,7 @@ Please structure your response with clear headings and actionable recommendation
     },
     // Writing Assistant
     {
-        promptId: 'writing_default',
+        promptId: 'writing_advisor',
         name: 'Professional Writing Assistant',
         category: 'writing',
         status: 'active',
@@ -307,7 +375,18 @@ exports.handler = async (event) => {
             return await createPrompt(promptData);
         } else if (httpMethod === 'PUT' && path.startsWith('/admin/prompts/') && path.endsWith('/activate')) {
             const promptId = path.split('/')[3];
-            return await activatePrompt(promptId);
+            const body = event.isBase64Encoded ?
+                Buffer.from(event.body, 'base64').toString('utf-8') :
+                event.body;
+            const requestData = body ? JSON.parse(body) : {};
+            return await activatePrompt(promptId, requestData);
+        } else if (httpMethod === 'PUT' && path.startsWith('/admin/categories/') && path.endsWith('/deactivate')) {
+            const category = path.split('/')[3];
+            const body = event.isBase64Encoded ?
+                Buffer.from(event.body, 'base64').toString('utf-8') :
+                event.body;
+            const requestData = body ? JSON.parse(body) : {};
+            return await deactivateCategory(category, requestData);
         } else if (httpMethod === 'PUT' && path.startsWith('/admin/prompts/') && !path.endsWith('/activate')) {
             const promptId = path.split('/')[3];
             const body = event.isBase64Encoded ?
@@ -506,28 +585,42 @@ async function updatePrompt(promptId, promptData) {
     };
 }
 
-async function activatePrompt(promptId) {
-    // Get prompt details
-    const promptResult = await dynamodb.send(new GetCommand({
-        TableName: TABLE_NAME,
-        Key: {
-            PK: `PROMPT#${promptId}`,
-            SK: 'CONFIG'
+async function activatePrompt(promptId, requestData = {}) {
+    let category;
+
+    // Handle special case for "None" (fallback mode)
+    if (promptId === 'None') {
+        // For "None", the category must be provided in requestData
+        category = requestData.category;
+        if (!category || !ADVISOR_CATEGORIES[category]) {
+            return {
+                statusCode: 400,
+                headers: corsHeaders,
+                body: JSON.stringify({ error: 'Category is required when setting fallback mode (None)' })
+            };
         }
-    }));
+    } else {
+        // Get prompt details for normal prompts
+        const promptResult = await dynamodb.send(new GetCommand({
+            TableName: TABLE_NAME,
+            Key: {
+                PK: `PROMPT#${promptId}`,
+                SK: 'CONFIG'
+            }
+        }));
 
-    if (!promptResult.Item) {
-        return {
-            statusCode: 404,
-            headers: corsHeaders,
-            body: JSON.stringify({ error: 'Prompt not found' })
-        };
-    }
+        if (!promptResult.Item) {
+            return {
+                statusCode: 404,
+                headers: corsHeaders,
+                body: JSON.stringify({ error: 'Prompt not found' })
+            };
+        }
 
-    const prompt = promptResult.Item;
+        const prompt = promptResult.Item;
 
-    // Determine category from either the new category field or the old type/memberType fields
-    let category = prompt.category;
+        // Determine category from either the new category field or the old type/memberType fields
+        category = prompt.category;
 
     // If no category field, map from old structure
     if (!category) {
@@ -545,13 +638,16 @@ async function activatePrompt(promptId) {
         }
     }
 
-    if (!category || !ADVISOR_CATEGORIES[category]) {
-        return {
-            statusCode: 400,
-            headers: corsHeaders,
-            body: JSON.stringify({ error: `Invalid or unmapped category for prompt: ${prompt.type || prompt.memberType || 'unknown'}` })
-        };
+        if (!category || !ADVISOR_CATEGORIES[category]) {
+            return {
+                statusCode: 400,
+                headers: corsHeaders,
+                body: JSON.stringify({ error: `Invalid or unmapped category for prompt: ${prompt.type || prompt.memberType || 'unknown'}` })
+            };
+        }
     }
+
+    // At this point, category should be set for both normal prompts and "None"
 
     // Update active selection using ADVISOR#{category} structure
     await dynamodb.send(new PutCommand({
@@ -569,6 +665,77 @@ async function activatePrompt(promptId) {
         headers: corsHeaders,
         body: JSON.stringify({ message: 'Prompt activated successfully' })
     };
+}
+
+async function deactivateCategory(category, requestData = {}) {
+    console.log('🎯 DEACTIVATE DEBUG: Starting deactivation for category:', category);
+    console.log('🎯 DEACTIVATE DEBUG: Request data:', JSON.stringify(requestData, null, 2));
+
+    // Validate category exists
+    if (!ADVISOR_CATEGORIES[category]) {
+        console.log('🎯 DEACTIVATE DEBUG: Invalid category:', category);
+        return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({ error: `Invalid category: ${category}. Must be one of: ${Object.keys(ADVISOR_CATEGORIES).join(', ')}` })
+        };
+    }
+
+    // For member types (mentors, coaches, sponsors, connectors, peers),
+    // deactivation means falling back to board_member_advisor
+    const memberTypes = ['mentors', 'coaches', 'sponsors', 'connectors', 'peers'];
+
+    if (memberTypes.includes(category)) {
+        // Set activePromptId to 'None' to trigger fallback mode
+        console.log('🎯 DEACTIVATE DEBUG: Setting category to fallback mode (None)');
+
+        // Update active selection to 'None' (fallback mode)
+        await dynamodb.send(new PutCommand({
+            TableName: TABLE_NAME,
+            Item: {
+                PK: `ADVISOR#${category}`,
+                SK: 'PROMPT',
+                activePromptId: 'None',
+                updatedAt: new Date().toISOString()
+            }
+        }));
+
+        console.log('🎯 DEACTIVATE DEBUG: Successfully set fallback mode for category:', category);
+
+        return {
+            statusCode: 200,
+            headers: corsHeaders,
+            body: JSON.stringify({
+                message: `${category} category deactivated, now using fallback prompt`,
+                fallbackPromptId: 'None'
+            })
+        };
+    } else {
+        // For non-member categories, also set to 'None' for fallback mode
+        console.log('🎯 DEACTIVATE DEBUG: Setting non-member category to fallback mode (None)');
+
+        // Update active selection to 'None' (fallback mode)
+        await dynamodb.send(new PutCommand({
+            TableName: TABLE_NAME,
+            Item: {
+                PK: `ADVISOR#${category}`,
+                SK: 'PROMPT',
+                activePromptId: 'None',
+                updatedAt: new Date().toISOString()
+            }
+        }));
+
+        console.log('🎯 DEACTIVATE DEBUG: Successfully set fallback mode for category:', category);
+
+        return {
+            statusCode: 200,
+            headers: corsHeaders,
+            body: JSON.stringify({
+                message: `${category} category deactivated, now using fallback prompt`,
+                fallbackPromptId: 'None'
+            })
+        };
+    }
 }
 
 async function deletePrompt(promptId) {
@@ -633,15 +800,16 @@ async function seedDatabase() {
 
     // Seed active selections using ADVISOR#{category} structure
     const activeSelections = [
-        { category: 'skills', promptId: 'skills_default' },
-        { category: 'goals', promptId: 'goals_default' },
-        { category: 'mentors', promptId: 'mentors_default' },
-        { category: 'coaches', promptId: 'coaches_default' },
-        { category: 'sponsors', promptId: 'sponsors_default' },
-        { category: 'connectors', promptId: 'connectors_default' },
-        { category: 'peers', promptId: 'peers_default' },
-        { category: 'overall', promptId: 'overall_default' },
-        { category: 'writing', promptId: 'writing_default' }
+        { category: 'skills', promptId: 'superpowers_advisor' },
+        { category: 'goals', promptId: 'goals_advisor' },
+        { category: 'mentors', promptId: 'mentor_advisor' },
+        { category: 'coaches', promptId: 'board_member_advisor' },
+        { category: 'sponsors', promptId: 'board_member_advisor' },
+        { category: 'connectors', promptId: 'board_member_advisor' },
+        { category: 'peers', promptId: 'board_member_advisor' },
+        { category: 'board_members', promptId: 'board_member_advisor' },
+        { category: 'overall', promptId: 'board_analysis_advisor' },
+        { category: 'writing', promptId: 'writing_advisor' }
     ];
 
     for (const selection of activeSelections) {

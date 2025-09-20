@@ -426,11 +426,23 @@ function loadPromptCategories() {
 
         // Show active prompt indicator and deactivate button for member types
         const activePromptId = activeSelections[categoryKey];
-        const activeIndicator = activePromptId ? `<span class="active-indicator">Active: ${activePromptId}</span>` : '<span class="inactive-indicator">No active prompt</span>';
+
+        // Handle 'None' as explicit fallback state
+        let activeIndicator;
+        if (activePromptId === 'None') {
+            activeIndicator = '<span class="fallback-indicator">Using Fallback (board_member_advisor)</span>';
+        } else if (activePromptId) {
+            // Look up the prompt name from currentPrompts
+            const activePrompt = currentPrompts[activePromptId];
+            const displayName = activePrompt ? activePrompt.name : activePromptId;
+            activeIndicator = `<span class="active-indicator">Active: ${displayName}</span>`;
+        } else {
+            activeIndicator = '<span class="inactive-indicator">No active prompt</span>';
+        }
 
         // Only show deactivate button for member types that can fallback to board_member_advisor
         const memberTypes = ['mentors', 'coaches', 'sponsors', 'connectors', 'peers'];
-        const showDeactivate = memberTypes.includes(categoryKey) && activePromptId;
+        const showDeactivate = memberTypes.includes(categoryKey) && activePromptId && activePromptId !== 'None';
         const deactivateButton = showDeactivate ?
             `<button class="category-deactivate-btn" onclick="deactivateCategory('${categoryKey}')" title="Deactivate to use fallback prompt">
                 <i class="icon-x"></i> Use Fallback
@@ -562,12 +574,14 @@ async function activatePrompt(promptId) {
 
 /**
  * Deactivate a category (set to use fallback prompt)
+ * Uses the same activate API but with promptId = "None"
  */
 async function deactivateCategory(categoryKey) {
     console.log('🎯 CATEGORY DEACTIVATE: Starting deactivation for category:', categoryKey);
 
     try {
-        const url = `${AI_API_BASE_URL}/admin/categories/${categoryKey}/deactivate`;
+        // Use the same activate API endpoint but with "None" as the promptId
+        const url = `${AI_API_BASE_URL}/admin/prompts/None/activate`;
         console.log('🎯 CATEGORY DEACTIVATE: Request URL:', url);
 
         const response = await fetch(url, {
@@ -576,8 +590,8 @@ async function deactivateCategory(categoryKey) {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                action: 'deactivate',
-                category: categoryKey
+                action: 'activate',
+                category: categoryKey  // Pass the category so lambda knows which ADVISOR# entry to update
             })
         });
 

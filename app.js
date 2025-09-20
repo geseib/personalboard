@@ -118,9 +118,9 @@ function App() {
 
     // Goals: 2 items in 3-month, 2 items in 1-year, 1 item in 5-year (beyond optional)
     if (data.goals) {
-      const threeMonth = data.goals.find(g => g.timeframe === '3 Month Goals');
-      const oneYear = data.goals.find(g => g.timeframe === '1 Year Goals');
-      const fiveYear = data.goals.find(g => g.timeframe === '5 Year Goals');
+      const threeMonth = data.goals.find(g => g.timeframe.includes('3 Month'));
+      const oneYear = data.goals.find(g => g.timeframe.includes('1 Year'));
+      const fiveYear = data.goals.find(g => g.timeframe.includes('5'));
 
       // More flexible goal counting - check for meaningful content rather than strict newline counting
       const countGoals = (description) => {
@@ -441,7 +441,8 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
 
         const learnContent = learnContentMap[typeToUse] || learnContentMap['mentors'];
 
-        // Use the specific member type first (e.g., 'mentors_advisor'), lambda will fallback to 'board_member_advisor' if no specific active prompt
+        // Lambda will check for specific advisor type (e.g., 'mentors_advisor') first,
+        // then fallback to 'board_member_advisor' if no active prompt is set
         result = await getAIGuidance(`${typeToUse}_advisor`, {
           memberType: typeToUse,
           currentFormData,
@@ -1033,9 +1034,9 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
         
         // Goal card background with timeline color coding
         const goalColors = {
-          '3 Month Goals': [34, 197, 94], // Green
-          '1 Year Goals': [59, 130, 246], // Blue  
-          '5 Year Goals': [168, 85, 247], // Purple
+          '3 Months (Immediate Goals)': [34, 197, 94], // Green
+          '1 Year Goals': [59, 130, 246], // Blue
+          '5+ Year Goals (Long-term Vision)': [168, 85, 247], // Purple
           'Beyond': [249, 115, 22] // Orange
         };
         
@@ -1572,7 +1573,7 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
       </nav>
       {showLearn && <LearnModal type={current} onClose={() => setShowLearn(false)} onAddClick={() => { setShowLearn(false); handleAdd(current); }} />}
       {showIntroLearn && <IntroLearnModal onClose={() => setShowIntroLearn(false)} />}
-      {showForm && <FormModal type={formType} item={editingItem} onSave={saveEntry} onClose={() => { setShowForm(false); setShowAdvisorModal(false); }} onAdvise={handleAdvise} advisorShowing={showAdvisorModal} onFormUpdate={setEditingItem} />}
+      {showForm && <FormModal type={formType} item={editingItem} onSave={saveEntry} onClose={() => { setShowForm(false); setShowAdvisorModal(false); }} onAdvise={handleAdvise} advisorShowing={showAdvisorModal} onFormUpdate={setEditingItem} onWritingModalUpdate={setWritingResultsModal} writingResultsShowing={writingResultsModal.show} />}
       {showUploadSuccess && <UploadSuccessPopup />}
       {showVideoModal && <VideoModal onClose={() => setShowVideoModal(false)} />}
       {showMentorVideoModal && <MentorVideoModal onClose={() => setShowMentorVideoModal(false)} />}
@@ -1694,11 +1695,11 @@ function Intro({ onLearnClick, onVideoClick }) {
 function Goals({ items, onEdit }) {
   const getGoalTooltip = (timeframe) => {
     switch (timeframe) {
-      case '3 Month Goals':
+      case '3 Months (Immediate Goals)':
         return 'Add at least 2 specific, actionable goals you can achieve in the next 3 months. Focus on immediate priorities and quick wins.';
       case '1 Year Goals':
         return 'Add at least 2 medium-term goals for the next 12 months. These should build toward your longer-term vision.';
-      case '5 Year Goals':
+      case '5+ Year Goals (Long-term Vision)':
         return 'Add at least 1 long-term aspirational goal for the next 5 years. Think big picture and transformational outcomes.';
       case 'Beyond':
         return 'Optional: Add visionary goals beyond 5 years. What legacy do you want to create?';
@@ -2454,7 +2455,7 @@ function UploadSuccessPopup() {
   );
 }
 
-function FormModal({ type, item, onSave, onClose, onAdvise, advisorShowing, onFormUpdate }) {
+function FormModal({ type, item, onSave, onClose, onAdvise, advisorShowing, onFormUpdate, onWritingModalUpdate, writingResultsShowing }) {
   const handleOverlayClick = (e) => {
     // Close FormModal when clicking on its overlay
     if (e.target === e.currentTarget) {
@@ -2523,18 +2524,42 @@ function FormModal({ type, item, onSave, onClose, onAdvise, advisorShowing, onFo
     setIsWritingLoading(true);
 
     try {
-      // Store backup for rollback
-      setOriginalForm({ ...form });
+      // Always capture the current form state at the time of clicking Polish
+      // This ensures the "before" text in the modal is what the user sees when they click
+      setOriginalForm({ ...currentForm });
+      setHasWritingBackup(true);
 
-      // Prepare the form fields as a formatted string
-      const fieldEntries = Object.entries(currentForm)
-        .filter(([key, value]) => {
-          // Only include editable text fields (exclude fixed/dropdown fields)
-          const editableTextFields = ['name', 'role', 'description', 'notes', 'whatToLearn', 'whatTheyGet', 'whatYouTeach', 'whatYouLearn'];
-          // Exclude timeframe (fixed), connection (dropdown), cadence (slider)
-          const excludedFields = ['timeframe', 'connection', 'cadence'];
-          return editableTextFields.includes(key) && !excludedFields.includes(key) && value && value.trim();
-        })
+      // Prepare the form fields as a formatted string - ONLY user-specified fields
+      const getPolishableFields = (form, formType) => {
+        const polishableFields = [];
+
+        // Skills (superpowers): description, notes
+        if (formType === 'superpowers') {
+          if (form.description?.trim()) polishableFields.push(['description', form.description]);
+          if (form.notes?.trim()) polishableFields.push(['notes', form.notes]);
+        }
+        // Goals: description, notes
+        else if (formType === 'goals') {
+          if (form.description?.trim()) polishableFields.push(['description', form.description]);
+          if (form.notes?.trim()) polishableFields.push(['notes', form.notes]);
+        }
+        // Board members (mentors, coaches, connectors, sponsors, peers): notes, whatToLearn, whatTheyGet
+        else if (['mentors', 'coaches', 'connectors', 'sponsors', 'peers'].includes(formType)) {
+          if (form.notes?.trim()) polishableFields.push(['notes', form.notes]);
+          if (form.whatToLearn?.trim()) polishableFields.push(['whatToLearn', form.whatToLearn]);
+          if (form.whatTheyGet?.trim()) polishableFields.push(['whatTheyGet', form.whatTheyGet]);
+        }
+        // Mentees: notes, whatYouTeach, whatYouLearn
+        else if (formType === 'mentees') {
+          if (form.notes?.trim()) polishableFields.push(['notes', form.notes]);
+          if (form.whatYouTeach?.trim()) polishableFields.push(['whatYouTeach', form.whatYouTeach]);
+          if (form.whatYouLearn?.trim()) polishableFields.push(['whatYouLearn', form.whatYouLearn]);
+        }
+
+        return polishableFields;
+      };
+
+      const fieldEntries = getPolishableFields(currentForm, formType)
         .map(([key, value]) => `**${key}:** ${value}`)
         .join('\n\n');
 
@@ -2603,8 +2628,11 @@ ${getLevelInstructions(enhancementLevel)}`;
 
       // Parse the response to extract improved field values
       console.log('AI Writing Response:', response.guidance);
-      const improvements = parseWritingResponse(response.guidance);
+      const parseResult = parseWritingResponse(response.guidance);
+      const improvements = parseResult.improvements || parseResult; // Handle both old and new format
+      const annotations = parseResult.annotations || {};
       console.log('Parsed improvements:', improvements);
+      console.log('Parsed annotations:', annotations);
 
       if (improvements && Object.keys(improvements).length > 0) {
         // Create the new enhanced version
@@ -2620,9 +2648,8 @@ ${getLevelInstructions(enhancementLevel)}`;
         });
 
         if (fieldsUpdated > 0) {
-          // Store backup for rollback if this is the first enhancement
+          // Set backup flag if this is the first enhancement
           if (!hasWritingBackup) {
-            setOriginalForm({ ...form });
             setHasWritingBackup(true);
           }
 
@@ -2631,7 +2658,8 @@ ${getLevelInstructions(enhancementLevel)}`;
             level: enhancementLevel,
             form: updatedForm,
             timestamp: new Date().toISOString(),
-            fieldsUpdated
+            fieldsUpdated,
+            annotations: annotations
           };
 
           // Add to versions array
@@ -2646,16 +2674,25 @@ ${getLevelInstructions(enhancementLevel)}`;
           }
 
           // Show success message with version controls
-          setWritingResultsModal({
+          onWritingModalUpdate({
             show: true,
             type: 'success',
             fieldsUpdated,
             improvements,
+            annotations,
+            originalForm: currentForm, // Always use currentForm - the form state at time of Polish click
+            updatedForm: updatedForm,
             currentVersion: newVersion,
-            totalVersions: updatedVersions.length
+            totalVersions: updatedVersions.length,
+            onApplyChanges: (finalForm) => {
+              setForm(finalForm);
+              if (onFormUpdate) {
+                onFormUpdate(finalForm);
+              }
+            }
           });
         } else {
-          setWritingResultsModal({
+          onWritingModalUpdate({
             show: true,
             type: 'info',
             message: 'No fields were updated. The AI may not have found improvements to suggest.'
@@ -2663,7 +2700,7 @@ ${getLevelInstructions(enhancementLevel)}`;
         }
       } else {
         console.log('No improvements found in response');
-        setWritingResultsModal({
+        onWritingModalUpdate({
           show: true,
           type: 'info',
           message: 'No improvements suggested by the AI assistant.'
@@ -2672,14 +2709,14 @@ ${getLevelInstructions(enhancementLevel)}`;
 
     } catch (error) {
       console.error('Writing cleanup error:', error);
-      setWritingResultsModal({
+      onWritingModalUpdate({
         show: true,
         type: 'error',
         message: 'Failed to polish writing. Please try again.'
       });
+    } finally {
+      setIsWritingLoading(false);
     }
-
-    setIsWritingLoading(false);
   };
 
   const handleWritingRollback = () => {
@@ -2717,6 +2754,25 @@ ${getLevelInstructions(enhancementLevel)}`;
     }
   };
 
+  // Helper function to extract and remove annotations from improved text
+  const extractAnnotations = (text) => {
+    const annotations = [];
+    let cleanText = text;
+
+    // Extract annotations in brackets like [Added structure and clarity...]
+    const annotationRegex = /\[([^\]]+)\]/g;
+    let match;
+
+    while ((match = annotationRegex.exec(text)) !== null) {
+      annotations.push(match[1]);
+    }
+
+    // Remove all annotations from the text
+    cleanText = cleanText.replace(annotationRegex, '').trim();
+
+    return { cleanText, annotations };
+  };
+
   // Parse AI response to extract field improvements
   const parseWritingResponse = (responseText) => {
     if (!responseText) return {};
@@ -2727,6 +2783,7 @@ ${getLevelInstructions(enhancementLevel)}`;
     console.log('========================');
     console.log('Parsing writing response:', responseText);
     const improvements = {};
+    const fieldAnnotations = {};
 
     // Try multiple patterns to extract improvements
     // Pattern 1: **Field Name:** fieldname **Original:** original **Improved:** improved
@@ -2739,7 +2796,13 @@ ${getLevelInstructions(enhancementLevel)}`;
       let improvedText = match[2].trim();
       // Split on double newlines and take first part (the actual improved text)
       improvedText = improvedText.split('\n\n')[0].trim();
-      console.log(`Found field: ${fieldName} -> ${improvedText}`);
+
+      // Extract annotations and clean the text
+      const { cleanText, annotations } = extractAnnotations(improvedText);
+      console.log(`Found field: ${fieldName} -> ${cleanText}`);
+      if (annotations.length > 0) {
+        console.log(`Annotations for ${fieldName}:`, annotations);
+      }
 
       // Map field display names to actual form field names
       const fieldMapping = {
@@ -2764,8 +2827,11 @@ ${getLevelInstructions(enhancementLevel)}`;
       const fieldNameLower = fieldName.toLowerCase().replace(/[^a-z]/g, '');
       const actualFieldName = fieldMapping[fieldNameLower] || fieldMapping[fieldName.toLowerCase()] || fieldName;
 
-      if (actualFieldName && improvedText && improvedText !== '[Original text]' && improvedText !== '[Enhanced version]') {
-        improvements[actualFieldName] = improvedText;
+      if (actualFieldName && cleanText && cleanText !== '[Original text]' && cleanText !== '[Enhanced version]') {
+        improvements[actualFieldName] = cleanText;
+        if (annotations.length > 0) {
+          fieldAnnotations[actualFieldName] = annotations;
+        }
       }
     }
 
@@ -2875,7 +2941,8 @@ ${getLevelInstructions(enhancementLevel)}`;
     }
 
     console.log('Final parsed improvements:', improvements);
-    return improvements;
+    console.log('Final parsed annotations:', fieldAnnotations);
+    return { improvements, annotations: fieldAnnotations };
   };
   
   return (
@@ -3015,146 +3082,34 @@ ${getLevelInstructions(enhancementLevel)}`;
             </div>
           </div>
         )}
+
         <div className="modal-buttons">
           <Tooltip text="Save this board member or goal">
             <button onClick={save}>Save</button>
           </Tooltip>
           {onAdvise && (
             <>
-              {/* Enhancement Level Selector */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: '500' }}>
-                  Enhancement Level:
-                </span>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '4px 8px',
-                  backgroundColor: '#f3f4f6',
-                  borderRadius: '6px',
-                  border: '1px solid #e5e7eb'
-                }}>
-                  <button
-                    onClick={() => setEnhancementLevel(Math.max(1, enhancementLevel - 1))}
-                    disabled={enhancementLevel <= 1 || isWritingLoading}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: enhancementLevel <= 1 ? '#d1d5db' : '#374151',
-                      cursor: enhancementLevel <= 1 ? 'not-allowed' : 'pointer',
-                      fontSize: '14px',
-                      padding: '2px 4px'
-                    }}
-                    title="Decrease enhancement level"
-                  >
-                    ←
-                  </button>
-                  <span style={{
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    color: '#374151',
-                    minWidth: '45px',
-                    textAlign: 'center'
-                  }}>
-                    {enhancementLevel} - {getLevelLabel(enhancementLevel)}
-                  </span>
-                  <button
-                    onClick={() => setEnhancementLevel(Math.min(3, enhancementLevel + 1))}
-                    disabled={enhancementLevel >= 3 || isWritingLoading}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: enhancementLevel >= 3 ? '#d1d5db' : '#374151',
-                      cursor: enhancementLevel >= 3 ? 'not-allowed' : 'pointer',
-                      fontSize: '14px',
-                      padding: '2px 4px'
-                    }}
-                    title="Increase enhancement level"
-                  >
-                    →
-                  </button>
-                </div>
-              </div>
 
-              {/* Version selector if we have multiple versions */}
-              {enhancementVersions.length > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: '500' }}>
-                    Versions:
-                  </span>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    padding: '4px 8px',
-                    backgroundColor: '#f3f4f6',
-                    borderRadius: '6px',
-                    border: '1px solid #e5e7eb'
-                  }}>
-                    <button
-                      onClick={() => switchToVersion(currentVersionIndex - 1)}
-                      disabled={currentVersionIndex <= 0}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: currentVersionIndex <= 0 ? '#d1d5db' : '#374151',
-                        cursor: currentVersionIndex <= 0 ? 'not-allowed' : 'pointer',
-                        fontSize: '14px',
-                        padding: '2px 4px'
-                      }}
-                      title="Previous version"
-                    >
-                      ←
-                    </button>
-                    <span style={{
-                      fontSize: '12px',
-                      fontWeight: '600',
-                      color: '#374151',
-                      minWidth: '60px',
-                      textAlign: 'center'
-                    }}>
-                      {currentVersionIndex + 1} of {enhancementVersions.length}
-                      {enhancementVersions[currentVersionIndex] &&
-                        ` (${getLevelLabel(enhancementVersions[currentVersionIndex].level)})`
-                      }
-                    </span>
-                    <button
-                      onClick={() => switchToVersion(currentVersionIndex + 1)}
-                      disabled={currentVersionIndex >= enhancementVersions.length - 1}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: currentVersionIndex >= enhancementVersions.length - 1 ? '#d1d5db' : '#374151',
-                        cursor: currentVersionIndex >= enhancementVersions.length - 1 ? 'not-allowed' : 'pointer',
-                        fontSize: '14px',
-                        padding: '2px 4px'
-                      }}
-                      title="Next version"
-                    >
-                      →
-                    </button>
-                  </div>
-                </div>
-              )}
+              {/* Removed duplicate Enhanced Versions selector - this was causing the duplicate selector issue */}
 
-              <Tooltip text={`Level ${enhancementLevel} (${getLevelLabel(enhancementLevel)}): Polish grammar, spelling, and writing style`}>
-                <button
-                  onClick={() => handleWritingCleanup(form, type)}
-                  style={{
-                    backgroundColor: '#8b5cf6',
-                    color: 'white',
-                    position: 'relative'
-                  }}
-                  disabled={isWritingLoading}
-                >
-                  {isWritingLoading ? (
-                    <>
-                      <span style={{ opacity: 0.7 }}>✨ Polishing...</span>
-                    </>
-                  ) : (
-                    <>
-                      ✨ Polish Writing (Level {enhancementLevel})
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                <Tooltip text="Polish grammar, spelling, and writing style">
+                  <button
+                    onClick={() => handleWritingCleanup(form, type)}
+                    style={{
+                      backgroundColor: '#8b5cf6',
+                      color: 'white',
+                      position: 'relative'
+                    }}
+                    disabled={isWritingLoading}
+                  >
+                    {isWritingLoading ? (
+                      <>
+                        <span style={{ opacity: 0.7 }}>✨ Polishing...</span>
+                      </>
+                    ) : (
+                      <>
+                        ✨ Polish Writing
                       {hasWritingBackup && (
                         <button
                           onClick={(e) => {
@@ -3185,7 +3140,63 @@ ${getLevelInstructions(enhancementLevel)}`;
                     </>
                   )}
                 </button>
-              </Tooltip>
+                </Tooltip>
+
+                {/* Level selector anchored below Polish button */}
+                {!writingResultsShowing && (
+                  <Tooltip text={`Level ${enhancementLevel} (${getLevelLabel(enhancementLevel)}): Polish grammar, spelling, and writing style`}>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '4px 8px',
+                      backgroundColor: '#f3f4f6',
+                      borderRadius: '6px',
+                      border: '1px solid #e5e7eb'
+                    }}>
+                    <button
+                      onClick={() => setEnhancementLevel(Math.max(1, enhancementLevel - 1))}
+                      disabled={enhancementLevel <= 1 || isWritingLoading}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: enhancementLevel <= 1 ? '#d1d5db' : '#374151',
+                        cursor: enhancementLevel <= 1 ? 'not-allowed' : 'pointer',
+                        fontSize: '14px',
+                        padding: '2px 4px'
+                      }}
+                      title="Decrease enhancement level"
+                    >
+                      ←
+                    </button>
+                    <span style={{
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#374151',
+                      minWidth: '45px',
+                      textAlign: 'center'
+                    }}>
+                      {enhancementLevel} - {getLevelLabel(enhancementLevel)}
+                    </span>
+                    <button
+                      onClick={() => setEnhancementLevel(Math.min(3, enhancementLevel + 1))}
+                      disabled={enhancementLevel >= 3 || isWritingLoading}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: enhancementLevel >= 3 ? '#d1d5db' : '#374151',
+                        cursor: enhancementLevel >= 3 ? 'not-allowed' : 'pointer',
+                        fontSize: '14px',
+                        padding: '2px 4px'
+                      }}
+                      title="Increase enhancement level"
+                    >
+                      →
+                    </button>
+                    </div>
+                  </Tooltip>
+                )}
+              </div>
               <Tooltip text="Get AI-powered guidance and recommendations for this entry">
                 <button
                   onClick={() => onAdvise(form, type)}
@@ -4187,10 +4198,66 @@ function PeersVideoModal({ onClose }) {
 function WritingResultsModal({ modal, onClose }) {
   if (!modal.show) return null;
 
+  const [fieldApprovals, setFieldApprovals] = useState({});
+
+  // Custom field name mapping based on user specifications
+  const getFieldDisplayName = (fieldName) => {
+    const fieldMappings = {
+      // Skills section (superpowers)
+      'description': 'Skills description/details',
+      'notes': 'Specific examples, certifications, achievements',
+
+      // Board members section (mentors, coaches, connectors, sponsors, peers)
+      'whatToLearn': 'What you want to learn from them',
+      'whatTheyGet': 'What they get from you',
+
+      // Mentees section
+      'whatYouTeach': 'What you teach them',
+      'whatYouLearn': 'What you learn from them'
+    };
+
+    // Context-aware mapping for fields that appear in multiple sections
+    if (fieldName === 'description') {
+      return fieldMappings[fieldName] || 'Goal description/details'; // Default for goals
+    }
+    if (fieldName === 'notes') {
+      return fieldMappings[fieldName] || 'Notes'; // Generic since it appears in all sections
+    }
+
+    return fieldMappings[fieldName] || fieldName.replace(/([A-Z])/g, ' $1').trim();
+  };
+
   const handleOverlayClick = (e) => {
     if (e.target === e.currentTarget) {
       onClose();
     }
+  };
+
+  const handleApprove = (fieldName) => {
+    setFieldApprovals(prev => ({ ...prev, [fieldName]: 'approved' }));
+  };
+
+  const handleReject = (fieldName) => {
+    setFieldApprovals(prev => ({ ...prev, [fieldName]: 'rejected' }));
+  };
+
+  const handleApplyChanges = () => {
+    // Apply only approved changes
+    const finalForm = { ...modal.originalForm };
+
+    // Apply only approved fields
+    Object.keys(fieldApprovals).forEach(fieldName => {
+      if (fieldApprovals[fieldName] === 'approved') {
+        finalForm[fieldName] = modal.updatedForm[fieldName];
+      }
+    });
+
+    // Pass the final form back to the parent (need to add a callback prop)
+    if (modal.onApplyChanges) {
+      modal.onApplyChanges(finalForm);
+    }
+
+    onClose();
   };
 
   const getIcon = () => {
@@ -4220,10 +4287,12 @@ function WritingResultsModal({ modal, onClose }) {
   return (
     <div className="modal" onClick={handleOverlayClick} style={{
       background: 'rgba(0, 0, 0, 0.5)',
-      backdropFilter: 'blur(8px)'
+      backdropFilter: 'blur(8px)',
+      zIndex: 2000  // Higher than regular modal (1000) to appear on top
     }}>
       <div className="modal-content" style={{
-        maxWidth: '500px',
+        maxWidth: '800px',
+        maxHeight: '90vh',
         background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
         borderRadius: '20px',
         border: `2px solid ${getColor()}`,
@@ -4247,15 +4316,12 @@ function WritingResultsModal({ modal, onClose }) {
           </h2>
         </div>
 
-        <div style={{ padding: '30px' }}>
+        <div style={{ padding: '30px', maxHeight: '60vh', overflowY: 'auto' }}>
           {modal.type === 'success' ? (
             <div>
               <div style={{
-                background: getBgColor(),
-                border: `1px solid ${getColor()}33`,
-                borderRadius: '12px',
-                padding: '20px',
-                marginBottom: '20px'
+                marginBottom: '20px',
+                textAlign: 'center'
               }}>
                 <p style={{
                   margin: '0 0 16px 0',
@@ -4263,39 +4329,182 @@ function WritingResultsModal({ modal, onClose }) {
                   fontWeight: '600',
                   color: getColor()
                 }}>
-                  Successfully improved {modal.fieldsUpdated} field{modal.fieldsUpdated > 1 ? 's' : ''}!
+                  Review Changes for {modal.fieldsUpdated} field{modal.fieldsUpdated > 1 ? 's' : ''}
                 </p>
-
-                {modal.improvements && Object.keys(modal.improvements).length > 0 && (
-                  <div>
-                    <p style={{ margin: '0 0 12px 0', fontWeight: '500', color: '#374151' }}>
-                      Enhanced fields:
-                    </p>
-                    <ul style={{
-                      margin: 0,
-                      paddingLeft: '20px',
-                      color: '#475569',
-                      lineHeight: '1.6'
-                    }}>
-                      {Object.keys(modal.improvements).map(field => (
-                        <li key={field} style={{ marginBottom: '4px' }}>
-                          <strong>{field.charAt(0).toUpperCase() + field.slice(1)}</strong>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                <p style={{ margin: 0, color: '#6b7280', fontSize: '14px' }}>
+                  Approve or reject changes for each field individually
+                </p>
               </div>
 
+              {modal.improvements && Object.keys(modal.improvements).length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  {Object.keys(modal.improvements).map(fieldName => {
+                    const originalText = modal.originalForm?.[fieldName] || '';
+                    const updatedText = modal.updatedForm?.[fieldName] || '';
+                    const approval = fieldApprovals[fieldName];
+
+                    return (
+                      <div key={fieldName} style={{
+                        border: `2px solid ${approval === 'approved' ? '#10b981' : approval === 'rejected' ? '#ef4444' : '#e5e7eb'}`,
+                        borderRadius: '12px',
+                        padding: '20px',
+                        background: approval === 'approved' ? '#f0fdf4' : approval === 'rejected' ? '#fef2f2' : '#ffffff'
+                      }}>
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginBottom: '16px'
+                        }}>
+                          <h3 style={{
+                            margin: 0,
+                            fontSize: '16px',
+                            fontWeight: '600',
+                            color: '#374151',
+                            textTransform: 'capitalize'
+                          }}>
+                            {getFieldDisplayName(fieldName)}
+                          </h3>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                              onClick={() => handleApprove(fieldName)}
+                              style={{
+                                background: approval === 'approved' ? '#10b981' : '#ffffff',
+                                color: approval === 'approved' ? '#ffffff' : '#10b981',
+                                border: '2px solid #10b981',
+                                borderRadius: '6px',
+                                padding: '8px 16px',
+                                fontSize: '14px',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease'
+                              }}
+                            >
+                              ✓ Approve
+                            </button>
+                            <button
+                              onClick={() => handleReject(fieldName)}
+                              style={{
+                                background: approval === 'rejected' ? '#ef4444' : '#ffffff',
+                                color: approval === 'rejected' ? '#ffffff' : '#ef4444',
+                                border: '2px solid #ef4444',
+                                borderRadius: '6px',
+                                padding: '8px 16px',
+                                fontSize: '14px',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease'
+                              }}
+                            >
+                              ✗ Reject
+                            </button>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                          <div>
+                            <h4 style={{
+                              margin: '0 0 8px 0',
+                              fontSize: '14px',
+                              fontWeight: '600',
+                              color: '#ef4444',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px'
+                            }}>
+                              Before
+                            </h4>
+                            <div style={{
+                              background: '#fef2f2',
+                              border: '1px solid #fecaca',
+                              borderRadius: '8px',
+                              padding: '12px',
+                              fontSize: '14px',
+                              color: '#374151',
+                              lineHeight: '1.5',
+                              minHeight: '60px',
+                              whiteSpace: 'pre-wrap'
+                            }}>
+                              {originalText || '(empty)'}
+                            </div>
+                          </div>
+
+                          <div>
+                            <h4 style={{
+                              margin: '0 0 8px 0',
+                              fontSize: '14px',
+                              fontWeight: '600',
+                              color: '#10b981',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px'
+                            }}>
+                              After
+                            </h4>
+                            <div style={{
+                              background: '#f0fdf4',
+                              border: '1px solid #bbf7d0',
+                              borderRadius: '8px',
+                              padding: '12px',
+                              fontSize: '14px',
+                              color: '#374151',
+                              lineHeight: '1.5',
+                              minHeight: '60px',
+                              whiteSpace: 'pre-wrap'
+                            }}>
+                              {updatedText}
+                            </div>
+                          </div>
+                        </div>
+
+                        {modal.annotations && modal.annotations[fieldName] && modal.annotations[fieldName].length > 0 && (
+                          <div style={{
+                            marginTop: '12px',
+                            padding: '12px',
+                            background: '#fffbeb',
+                            border: '1px solid #fed7aa',
+                            borderRadius: '8px'
+                          }}>
+                            <p style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: '600', color: '#92400e' }}>
+                              AI Improvements:
+                            </p>
+                            <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '12px', color: '#92400e' }}>
+                              {modal.annotations[fieldName].map((annotation, idx) => (
+                                <li key={idx}>{annotation}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
               <div style={{
-                background: '#fef3c7',
-                border: '1px solid #f59e0b33',
+                marginTop: '24px',
+                padding: '16px',
+                background: '#eff6ff',
+                border: '1px solid #bfdbfe',
                 borderRadius: '8px',
-                padding: '12px',
-                fontSize: '14px',
-                color: '#92400e'
+                textAlign: 'center'
               }}>
-                💡 <strong>Tip:</strong> Use the circular arrow button to undo changes if needed.
+                <button
+                  onClick={handleApplyChanges}
+                  style={{
+                    background: '#2563eb',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '12px 24px',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'background-color 0.2s ease'
+                  }}
+                  onMouseOver={(e) => e.target.style.backgroundColor = '#1d4ed8'}
+                  onMouseOut={(e) => e.target.style.backgroundColor = '#2563eb'}
+                >
+                  Apply Approved Changes
+                </button>
               </div>
             </div>
           ) : (

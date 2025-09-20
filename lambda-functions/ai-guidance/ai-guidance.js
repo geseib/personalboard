@@ -28,6 +28,12 @@ async function getActivePromptConfig(category) {
 
         const activePromptId = activeResult.Item.activePromptId;
 
+        // Check if activePromptId is 'None' (fallback mode)
+        if (activePromptId === 'None') {
+            console.log(`Category ${category} is set to fallback mode (None)`);
+            return null; // This will trigger the hardcoded fallback prompts
+        }
+
         // Now get the prompt configuration
         const promptResult = await dynamodb.send(new GetCommand({
             TableName: PROMPT_TABLE,
@@ -282,8 +288,8 @@ exports.handler = async (event) => {
     console.log(`Prompt config found:`, promptConfig ? 'YES' : 'NO');
 
     if (!promptConfig) {
-      // Fallback to hardcoded prompts if no DynamoDB configuration found
-      console.log(`No DynamoDB config found for category ${category}, falling back to hardcoded prompts`);
+      // Fallback to hardcoded prompts if no DynamoDB configuration found or if activePromptId is 'None'
+      console.log(`No DynamoDB config found for category ${category} or fallback mode active, using hardcoded prompts`);
 
       let systemPrompt = '';
       let userPrompt = '';
@@ -330,7 +336,7 @@ exports.handler = async (event) => {
         headers,
         body: JSON.stringify({
           success: true,
-          guidance: 'local_prompt\n\n' + response.text,
+          guidance: response.text,
           model: response.model,
           type: type,
           source: 'fallback'
