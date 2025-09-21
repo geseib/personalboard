@@ -1932,8 +1932,8 @@ function Board({ data, boardAdvice, boardAdviceLoading }) {
         <div className="board-advice-section" style={{
           marginBottom: '30px',
           padding: '20px',
-          backgroundColor: '#f0fdf4',
-          border: '1px solid #bbf7d0',
+          backgroundColor: '#f0f9ff',
+          border: '1px solid #bae6fd',
           borderRadius: '8px'
         }}>
           <h3 style={{ color: '#10b981', margin: '0 0 15px 0' }}>AI Board Analysis</h3>
@@ -2063,6 +2063,272 @@ function Board({ data, boardAdvice, boardAdviceLoading }) {
           );
         })}
       </div>
+
+      {/* Goals Section - matching PDF style */}
+      {data.goals && data.goals.length > 0 && (
+        <div style={{
+          marginTop: '40px',
+          padding: '25px',
+          backgroundColor: '#ffffff',
+          borderRadius: '12px',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+          border: '1px solid #e5e7eb'
+        }}>
+          <h2 style={{
+            fontSize: '1.5rem',
+            fontWeight: '700',
+            color: '#f97316',
+            marginBottom: '20px',
+            borderBottom: '2px solid #f97316',
+            paddingBottom: '10px'
+          }}>
+            Your Goals
+          </h2>
+          {data.goals.map((goal, index) => (
+            <div key={index} style={{
+              marginBottom: '25px',
+              paddingLeft: '20px',
+              borderLeft: '4px solid #f97316',
+              backgroundColor: '#fffbf5',
+              padding: '15px 15px 15px 20px',
+              borderRadius: '0 8px 8px 0'
+            }}>
+              <h3 style={{
+                fontSize: '1.2rem',
+                fontWeight: '600',
+                color: '#1f2937',
+                marginBottom: '10px'
+              }}>
+                {goal.immediate ? 'Immediate' : goal.oneYear ? '1 Year' : '5 Years'}
+              </h3>
+              {goal.description && (
+                <div style={{ marginBottom: '10px' }}>
+                  <h4 style={{
+                    fontSize: '0.9rem',
+                    fontWeight: '600',
+                    color: '#f97316',
+                    marginBottom: '4px'
+                  }}>
+                    Description:
+                  </h4>
+                  <p style={{
+                    fontSize: '0.95rem',
+                    color: '#4b5563',
+                    lineHeight: '1.6'
+                  }}>
+                    {goal.description}
+                  </p>
+                </div>
+              )}
+              {goal.notes && (
+                <div>
+                  <h4 style={{
+                    fontSize: '0.9rem',
+                    fontWeight: '600',
+                    color: '#6b7280',
+                    marginBottom: '4px'
+                  }}>
+                    Strategy:
+                  </h4>
+                  <p style={{
+                    fontSize: '0.95rem',
+                    color: '#4b5563',
+                    lineHeight: '1.6'
+                  }}>
+                    {goal.notes}
+                  </p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Superpowers Section - matching PDF style */}
+      {data.you && data.you.superpowers && data.you.superpowers.length > 0 && (
+        <div style={{
+          marginTop: '40px',
+          padding: '25px',
+          backgroundColor: '#ffffff',
+          borderRadius: '12px',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+          border: '1px solid #e5e7eb'
+        }}>
+          <h2 style={{
+            fontSize: '1.5rem',
+            fontWeight: '700',
+            color: '#10b981',
+            marginBottom: '20px',
+            borderBottom: '2px solid #10b981',
+            paddingBottom: '10px'
+          }}>
+            Your Superpowers
+          </h2>
+          {data.you.superpowers.map((superpower, index) => (
+            <div key={index} style={{
+              marginBottom: '25px',
+              paddingLeft: '20px',
+              borderLeft: '4px solid #10b981',
+              backgroundColor: '#f0fdf4',
+              padding: '15px 15px 15px 20px',
+              borderRadius: '0 8px 8px 0'
+            }}>
+              <h3 style={{
+                fontSize: '1.2rem',
+                fontWeight: '600',
+                color: '#1f2937',
+                marginBottom: '10px'
+              }}>
+                {superpower.name}
+              </h3>
+              {superpower.description && (
+                <div style={{ marginBottom: '10px' }}>
+                  <h4 style={{
+                    fontSize: '0.9rem',
+                    fontWeight: '600',
+                    color: '#10b981',
+                    marginBottom: '4px'
+                  }}>
+                    Description:
+                  </h4>
+                  <p style={{
+                    fontSize: '0.95rem',
+                    color: '#4b5563',
+                    lineHeight: '1.6'
+                  }}>
+                    {superpower.description}
+                  </p>
+                </div>
+              )}
+              {superpower.notes && (
+                <div>
+                  <h4 style={{
+                    fontSize: '0.9rem',
+                    fontWeight: '600',
+                    color: '#6b7280',
+                    marginBottom: '4px'
+                  }}>
+                    Examples:
+                  </h4>
+                  <p style={{
+                    fontSize: '0.95rem',
+                    color: '#4b5563',
+                    lineHeight: '1.6'
+                  }}>
+                    {superpower.notes}
+                  </p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Mentees Section - matching PDF style */}
+      {data.you && data.you.mentees && data.you.mentees.length > 0 && (
+        <div style={{
+          marginTop: '40px',
+          padding: '25px',
+          backgroundColor: '#ffffff',
+          borderRadius: '12px',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+          border: '1px solid #e5e7eb'
+        }}>
+          <h2 style={{
+            fontSize: '1.5rem',
+            fontWeight: '700',
+            color: '#8b5cf6',
+            marginBottom: '20px',
+            borderBottom: '2px solid #8b5cf6',
+            paddingBottom: '10px'
+          }}>
+            Your Mentees
+          </h2>
+          {data.you.mentees.map((mentee, index) => (
+            <div key={index} style={{
+              marginBottom: '25px',
+              paddingLeft: '20px',
+              borderLeft: '4px solid #8b5cf6',
+              backgroundColor: '#faf5ff',
+              padding: '15px 15px 15px 20px',
+              borderRadius: '0 8px 8px 0'
+            }}>
+              <h3 style={{
+                fontSize: '1.2rem',
+                fontWeight: '600',
+                color: '#1f2937',
+                marginBottom: '5px'
+              }}>
+                {mentee.name}
+              </h3>
+              <p style={{
+                fontSize: '0.9rem',
+                color: '#6b7280',
+                marginBottom: '10px'
+              }}>
+                {mentee.role} • {mentee.connection} • {mentee.cadence}
+              </p>
+              {mentee.notes && (
+                <div style={{ marginBottom: '10px' }}>
+                  <h4 style={{
+                    fontSize: '0.9rem',
+                    fontWeight: '600',
+                    color: '#6b7280',
+                    marginBottom: '4px'
+                  }}>
+                    Notes:
+                  </h4>
+                  <p style={{
+                    fontSize: '0.95rem',
+                    color: '#4b5563',
+                    lineHeight: '1.6'
+                  }}>
+                    {mentee.notes}
+                  </p>
+                </div>
+              )}
+              {mentee.whatYouTeach && (
+                <div style={{ marginBottom: '10px' }}>
+                  <h4 style={{
+                    fontSize: '0.9rem',
+                    fontWeight: '600',
+                    color: '#10b981',
+                    marginBottom: '4px'
+                  }}>
+                    What You Teach Them:
+                  </h4>
+                  <p style={{
+                    fontSize: '0.95rem',
+                    color: '#4b5563',
+                    lineHeight: '1.6'
+                  }}>
+                    {mentee.whatYouTeach}
+                  </p>
+                </div>
+              )}
+              {mentee.whatYouLearn && (
+                <div>
+                  <h4 style={{
+                    fontSize: '0.9rem',
+                    fontWeight: '600',
+                    color: '#8b5cf6',
+                    marginBottom: '4px'
+                  }}>
+                    What You Learn From Them:
+                  </h4>
+                  <p style={{
+                    fontSize: '0.95rem',
+                    color: '#4b5563',
+                    lineHeight: '1.6'
+                  }}>
+                    {mentee.whatYouLearn}
+                  </p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -3528,6 +3794,13 @@ function AdvisorModal({ guidance, loading, onClose, formType, currentForm, onCop
         { key: 'description', label: 'Describe Your Expertise' },
         { key: 'notes', label: 'Specific Examples' }
       ];
+    } else if (formType === 'mentees') {
+      // For mentees, use whatYouTeach and whatYouLearn
+      return [
+        { key: 'notes', label: 'Notes' },
+        { key: 'whatYouTeach', label: 'What You Teach Them' },
+        { key: 'whatYouLearn', label: 'What You Learn From Them' }
+      ];
     } else {
       // For board members (mentors, coaches, etc.)
       return [
@@ -3986,8 +4259,8 @@ function AdvisorModal({ guidance, loading, onClose, formType, currentForm, onCop
                     onClick={() => handleFieldSelect(field.key)}
                     style={{
                       padding: '12px 16px',
-                      backgroundColor: field.key === 'whatToLearn' ? '#10b981' : 
-                                     field.key === 'whatTheyGet' ? '#8b5cf6' : 
+                      backgroundColor: field.key === 'whatToLearn' ? '#10b981' :
+                                     field.key === 'whatTheyGet' ? '#8b5cf6' :
                                      field.key === 'description' ? '#2563eb' :
                                      '#6b7280',
                       color: 'white',
