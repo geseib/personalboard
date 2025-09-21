@@ -139,12 +139,12 @@ function App() {
         return hasSubstantialContent ? 1 : 0;
       };
 
-      const threeMonthComplete = threeMonth && countGoals(threeMonth.description) >= 2;
-      const oneYearComplete = oneYear && countGoals(oneYear.description) >= 2;
-      const fiveYearComplete = fiveYear && countGoals(fiveYear.description) >= 1;
+      // More lenient goals completion - if user has saved ANY meaningful content in goals, they can proceed
+      const hasAnyGoalContent = data.goals.some(goal => {
+        return goal.description && goal.description.trim().length > 0;
+      });
 
-
-      status.goals = threeMonthComplete && oneYearComplete && fiveYearComplete;
+      status.goals = hasAnyGoalContent;
     } else {
       status.goals = false;
     }
@@ -3550,22 +3550,30 @@ function AdvisorModal({ guidance, loading, onClose, formType, currentForm, onCop
   // Parse the guidance into Questions, Recommendations, and Suggested Entries sections
   const parseGuidance = (text) => {
     if (!text) return { questions: [], recommendations: [], suggestedEntries: [] };
-    
-    const sections = text.split(/(?=# Questions|# Recommendations|# Suggested Entries)/i);
+
+    // More flexible parsing - try multiple header formats
+    const sections = text.split(/(?=#{1,3}\s*(?:Questions?|Recommendations?|Suggested\s+Entries?|Suggestions?|Key\s+(?:Questions?|Recommendations?|Suggestions?))|(?:\n|^)(?:Questions?|Recommendations?|Suggested\s+Entries?|Suggestions?):/i);
     let questionsText = '';
     let recommendationsText = '';
     let suggestedEntriesText = '';
-    
+
     sections.forEach(section => {
-      if (section.toLowerCase().includes('# questions')) {
-        questionsText = section.replace(/# Questions/i, '').trim();
-      } else if (section.toLowerCase().includes('# recommendations')) {
-        recommendationsText = section.replace(/# Recommendations/i, '').trim();
-      } else if (section.toLowerCase().includes('# suggested entries')) {
-        suggestedEntriesText = section.replace(/# Suggested Entries/i, '').trim();
+      const lowerSection = section.toLowerCase();
+      if (lowerSection.includes('question')) {
+        questionsText = section.replace(/#{1,3}\s*(?:Questions?|Key\s+Questions?)[:]*\s*/i, '').replace(/^Questions?[:]*\s*/i, '').trim();
+      } else if (lowerSection.includes('recommendation')) {
+        recommendationsText = section.replace(/#{1,3}\s*(?:Recommendations?|Key\s+Recommendations?)[:]*\s*/i, '').replace(/^Recommendations?[:]*\s*/i, '').trim();
+      } else if (lowerSection.includes('suggested') || lowerSection.includes('suggestion')) {
+        suggestedEntriesText = section.replace(/#{1,3}\s*(?:Suggested\s+Entries?|Suggestions?|Key\s+Suggestions?)[:]*\s*/i, '').replace(/^(?:Suggested\s+Entries?|Suggestions?)[:]*\s*/i, '').trim();
       }
     });
-    
+
+    // If no structured sections found, try to parse the entire text as recommendations
+    if (!questionsText && !recommendationsText && !suggestedEntriesText) {
+      // Parse entire text as recommendations to show add buttons
+      recommendationsText = text;
+    }
+
     return {
       questions: parseItems(questionsText, 'question'),
       recommendations: parseItems(recommendationsText, 'recommendation'),
@@ -3856,7 +3864,7 @@ function AdvisorModal({ guidance, loading, onClose, formType, currentForm, onCop
               right: 0,
               bottom: 0,
               backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              zIndex: 1002
+              zIndex: 9999
             }} onClick={() => setShowFieldSelection(false)} />
             {/* Modal content - positioned on top of backdrop */}
             <div style={{
@@ -3870,7 +3878,7 @@ function AdvisorModal({ guidance, loading, onClose, formType, currentForm, onCop
               boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
               maxWidth: '400px',
               width: '90%',
-              zIndex: 1003 // Higher than backdrop and AdvisorModal
+              zIndex: 10000 // Much higher z-index to ensure it appears on top
             }}
             onClick={(e) => e.stopPropagation()} // Prevent clicks from bubbling
             >

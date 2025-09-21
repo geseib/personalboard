@@ -321,11 +321,19 @@ exports.handler = async (event) => {
           userPrompt = getBoardAnalysisAdvisorUserPrompt(data, context);
           break;
         default:
-          return {
-            statusCode: 400,
-            headers,
-            body: JSON.stringify({ error: `No configuration found for guidance type: ${type}` })
-          };
+          // Check if it's a generic advisor type (e.g., coaches_advisor, sponsors_advisor, etc.)
+          if (type.endsWith('_advisor')) {
+            const advisorType = type.replace('_advisor', '');
+            // Use generic board member advisor for all specific advisor types
+            systemPrompt = getBoardMemberAdvisorSystemPrompt(advisorType);
+            userPrompt = getBoardMemberAdvisorUserPrompt(data, context);
+          } else {
+            return {
+              statusCode: 400,
+              headers,
+              body: JSON.stringify({ error: `No configuration found for guidance type: ${type}` })
+            };
+          }
       }
 
       const response = await bedrockChat({
