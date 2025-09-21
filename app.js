@@ -2640,11 +2640,18 @@ ${getLevelInstructions(enhancementLevel)}`;
         const updatedForm = { ...form };
         let fieldsUpdated = 0;
 
+        // Only update fields that were originally sent for polishing
+        const originalFields = getPolishableFields(currentForm, formType);
+        const originalFieldNames = originalFields.map(([fieldName]) => fieldName);
+
         Object.entries(improvements).forEach(([fieldName, improvedText]) => {
-          if (updatedForm.hasOwnProperty(fieldName)) {
+          // Only update if the field was in the original polishable fields AND exists in the form
+          if (originalFieldNames.includes(fieldName) && updatedForm.hasOwnProperty(fieldName)) {
             console.log(`Updating field ${fieldName}:`, improvedText);
             updatedForm[fieldName] = improvedText;
             fieldsUpdated++;
+          } else {
+            console.log(`Skipping field ${fieldName} - not in original polishable fields`);
           }
         });
 
@@ -2668,11 +2675,8 @@ ${getLevelInstructions(enhancementLevel)}`;
           setEnhancementVersions(updatedVersions);
           setCurrentVersionIndex(updatedVersions.length - 1);
 
-          // Apply the new form
-          setForm(updatedForm);
-          if (onFormUpdate) {
-            onFormUpdate(updatedForm);
-          }
+          // Don't apply the form immediately - let the user review and approve changes
+          // The form will only be updated when they click "Apply Approved Changes"
 
           // Show success message with version controls
           onWritingModalUpdate({
@@ -3515,21 +3519,21 @@ function AdvisorModal({ guidance, loading, onClose, formType, currentForm, onCop
   const getAvailableFields = () => {
     if (formType === 'goals') {
       return [
-        { key: 'description', label: 'Description' },
-        { key: 'notes', label: 'Notes' }
+        { key: 'description', label: 'Describe Your Goals' },
+        { key: 'notes', label: 'Notes on Strategy' }
       ];
     } else if (formType === 'superpowers') {
+      // For skills/superpowers, the actual field names are description and notes
       return [
-        { key: 'name', label: 'Skill/Superpower Name' },
-        { key: 'proficiency', label: 'Proficiency Level' },
-        { key: 'examples', label: 'Examples' },
-        { key: 'notes', label: 'Notes' }
+        { key: 'description', label: 'Describe Your Expertise' },
+        { key: 'notes', label: 'Specific Examples' }
       ];
     } else {
+      // For board members (mentors, coaches, etc.)
       return [
-        { key: 'whatToLearn', label: 'What to Learn From Them' },
-        { key: 'whatTheyGet', label: 'What They Get From You' },
-        { key: 'notes', label: 'Notes' }
+        { key: 'notes', label: 'Notes' },
+        { key: 'whatToLearn', label: 'What You Learn From Them' },
+        { key: 'whatTheyGet', label: 'What They Get From You' }
       ];
     }
   };
@@ -3552,7 +3556,7 @@ function AdvisorModal({ guidance, loading, onClose, formType, currentForm, onCop
     if (!text) return { questions: [], recommendations: [], suggestedEntries: [] };
 
     // More flexible parsing - try multiple header formats
-    const sections = text.split(/(?=#{1,3}\s*(?:Questions?|Recommendations?|Suggested\s+Entries?|Suggestions?|Key\s+(?:Questions?|Recommendations?|Suggestions?))|(?:\n|^)(?:Questions?|Recommendations?|Suggested\s+Entries?|Suggestions?):/i);
+    const sections = text.split(/(?=#{1,3}\s*(?:Questions?|Recommendations?|Suggested\s+Entries?|Suggestions?|Key\s+(?:Questions?|Recommendations?|Suggestions?)))|(?:\n|^)(?:Questions?|Recommendations?|Suggested\s+Entries?|Suggestions?):/i);
     let questionsText = '';
     let recommendationsText = '';
     let suggestedEntriesText = '';
@@ -3582,6 +3586,53 @@ function AdvisorModal({ guidance, loading, onClose, formType, currentForm, onCop
   };
 
   const { questions, recommendations, suggestedEntries } = parseGuidance(guidance);
+
+  // Simple markdown renderer for advisor content
+  const renderMarkdown = (text) => {
+    if (!text) return text;
+
+    // Check if this is a header
+    const headerMatch = text.match(/^(#{1,6})\s+(.+)$/);
+    if (headerMatch) {
+      const level = headerMatch[1].length;
+      const content = headerMatch[2];
+
+      const styles = {
+        1: { fontSize: '24px', fontWeight: '700', color: '#1f2937', marginBottom: '16px', marginTop: '24px' },
+        2: { fontSize: '20px', fontWeight: '600', color: '#374151', marginBottom: '12px', marginTop: '20px' },
+        3: { fontSize: '18px', fontWeight: '600', color: '#4b5563', marginBottom: '10px', marginTop: '16px' },
+        4: { fontSize: '16px', fontWeight: '600', color: '#6b7280', marginBottom: '8px', marginTop: '12px' },
+        5: { fontSize: '14px', fontWeight: '600', color: '#6b7280', marginBottom: '6px', marginTop: '10px' },
+        6: { fontSize: '13px', fontWeight: '600', color: '#9ca3af', marginBottom: '4px', marginTop: '8px' }
+      };
+
+      return (
+        <div style={{
+          ...styles[level],
+          borderBottom: level <= 2 ? '1px solid #e5e7eb' : 'none',
+          paddingBottom: level <= 2 ? '8px' : '0'
+        }}>
+          {content}
+        </div>
+      );
+    }
+
+    // Handle bold text
+    let processedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+    // Handle italic text
+    processedText = processedText.replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+    // Handle code spans
+    processedText = processedText.replace(/`(.*?)`/g, '<code style="background: #f3f4f6; padding: 2px 4px; border-radius: 3px; font-size: 0.9em;">$1</code>');
+
+    return <span dangerouslySetInnerHTML={{ __html: processedText }} />;
+  };
+
+  // Check if content is a header (shouldn't have Add button)
+  const isHeader = (text) => {
+    return /^#{1,6}\s+/.test(text);
+  };
 
   const handleAddClick = (content) => {
     setSelectedContent(content);
@@ -3665,35 +3716,40 @@ function AdvisorModal({ guidance, loading, onClose, formType, currentForm, onCop
                       borderRadius: '8px',
                       borderLeft: '4px solid #2563eb'
                     }}>
-                      {questions.map((question, index) => (
-                        <div key={index} style={{
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          marginBottom: '12px',
-                          gap: '8px'
-                        }}>
-                          <div style={{flex: 1, lineHeight: '1.6'}}>
-                            {question}
+                      {questions.map((question, index) => {
+                        const isHeading = isHeader(question);
+                        return (
+                          <div key={index} style={{
+                            display: isHeading ? 'block' : 'flex',
+                            alignItems: isHeading ? 'normal' : 'flex-start',
+                            marginBottom: isHeading ? '0' : '12px',
+                            gap: isHeading ? '0' : '8px'
+                          }}>
+                            <div style={{flex: 1, lineHeight: '1.6'}}>
+                              {renderMarkdown(question)}
+                            </div>
+                            {!isHeading && (
+                              <button
+                                onClick={() => handleAddClick(question)}
+                                style={{
+                                  backgroundColor: '#2563eb',
+                                  color: 'white',
+                                  border: 'none',
+                                  padding: '4px 8px',
+                                  borderRadius: '4px',
+                                  fontSize: '12px',
+                                  cursor: 'pointer',
+                                  flexShrink: 0,
+                                  fontWeight: '500'
+                                }}
+                                title="Add this question to a form field"
+                              >
+                                Add
+                              </button>
+                            )}
                           </div>
-                          <button
-                            onClick={() => handleAddClick(question)}
-                            style={{
-                              backgroundColor: '#2563eb',
-                              color: 'white',
-                              border: 'none',
-                              padding: '4px 8px',
-                              borderRadius: '4px',
-                              fontSize: '12px',
-                              cursor: 'pointer',
-                              flexShrink: 0,
-                              fontWeight: '500'
-                            }}
-                            title="Add this question to a form field"
-                          >
-                            Add
-                          </button>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -3716,35 +3772,40 @@ function AdvisorModal({ guidance, loading, onClose, formType, currentForm, onCop
                       borderRadius: '8px',
                       borderLeft: '4px solid #10b981'
                     }}>
-                      {recommendations.map((recommendation, index) => (
-                        <div key={index} style={{
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          marginBottom: '12px',
-                          gap: '8px'
-                        }}>
-                          <div style={{flex: 1, lineHeight: '1.6'}}>
-                            {recommendation}
+                      {recommendations.map((recommendation, index) => {
+                        const isHeading = isHeader(recommendation);
+                        return (
+                          <div key={index} style={{
+                            display: isHeading ? 'block' : 'flex',
+                            alignItems: isHeading ? 'normal' : 'flex-start',
+                            marginBottom: isHeading ? '0' : '12px',
+                            gap: isHeading ? '0' : '8px'
+                          }}>
+                            <div style={{flex: 1, lineHeight: '1.6'}}>
+                              {renderMarkdown(recommendation)}
+                            </div>
+                            {!isHeading && (
+                              <button
+                                onClick={() => handleAddClick(recommendation)}
+                                style={{
+                                  backgroundColor: '#10b981',
+                                  color: 'white',
+                                  border: 'none',
+                                  padding: '4px 8px',
+                                  borderRadius: '4px',
+                                  fontSize: '12px',
+                                  cursor: 'pointer',
+                                  flexShrink: 0,
+                                  fontWeight: '500'
+                                }}
+                                title="Add this recommendation to a form field"
+                              >
+                                Add
+                              </button>
+                            )}
                           </div>
-                          <button
-                            onClick={() => handleAddClick(recommendation)}
-                            style={{
-                              backgroundColor: '#10b981',
-                              color: 'white',
-                              border: 'none',
-                              padding: '4px 8px',
-                              borderRadius: '4px',
-                              fontSize: '12px',
-                              cursor: 'pointer',
-                              flexShrink: 0,
-                              fontWeight: '500'
-                            }}
-                            title="Add this recommendation to a form field"
-                          >
-                            Add
-                          </button>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -3767,35 +3828,40 @@ function AdvisorModal({ guidance, loading, onClose, formType, currentForm, onCop
                       borderRadius: '8px',
                       borderLeft: '4px solid #f59e0b'
                     }}>
-                      {suggestedEntries.map((entry, index) => (
-                        <div key={index} style={{
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          marginBottom: '12px',
-                          gap: '8px'
-                        }}>
-                          <div style={{flex: 1, lineHeight: '1.6'}}>
-                            {entry}
+                      {suggestedEntries.map((entry, index) => {
+                        const isHeading = isHeader(entry);
+                        return (
+                          <div key={index} style={{
+                            display: isHeading ? 'block' : 'flex',
+                            alignItems: isHeading ? 'normal' : 'flex-start',
+                            marginBottom: isHeading ? '0' : '12px',
+                            gap: isHeading ? '0' : '8px'
+                          }}>
+                            <div style={{flex: 1, lineHeight: '1.6'}}>
+                              {renderMarkdown(entry)}
+                            </div>
+                            {!isHeading && (
+                              <button
+                                onClick={() => handleAddClick(entry)}
+                                style={{
+                                  backgroundColor: '#f59e0b',
+                                  color: 'white',
+                                  border: 'none',
+                                  padding: '4px 8px',
+                                  borderRadius: '4px',
+                                  fontSize: '12px',
+                                  cursor: 'pointer',
+                                  flexShrink: 0,
+                                  fontWeight: '500'
+                                }}
+                                title="Add this suggested entry to a form field"
+                              >
+                                Add
+                              </button>
+                            )}
                           </div>
-                          <button
-                            onClick={() => handleAddClick(entry)}
-                            style={{
-                              backgroundColor: '#f59e0b',
-                              color: 'white',
-                              border: 'none',
-                              padding: '4px 8px',
-                              borderRadius: '4px',
-                              fontSize: '12px',
-                              cursor: 'pointer',
-                              flexShrink: 0,
-                              fontWeight: '500'
-                            }}
-                            title="Add this suggested entry to a form field"
-                          >
-                            Add
-                          </button>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -3818,28 +3884,40 @@ function AdvisorModal({ guidance, loading, onClose, formType, currentForm, onCop
                   padding: '20px',
                   borderRadius: '8px',
                   borderLeft: '4px solid #10b981',
-                  whiteSpace: 'pre-wrap',
                   lineHeight: '1.6'
                 }}>
-                  {guidance}
+                  {/* Split guidance by lines and render each with markdown */}
+                  {guidance.split('\n').map((line, index) => {
+                    const isHeading = isHeader(line);
+                    return (
+                      <div key={index} style={{
+                        marginBottom: isHeading ? '0' : '8px'
+                      }}>
+                        {renderMarkdown(line) || <br />}
+                      </div>
+                    );
+                  })}
                 </div>
-                <button
-                  onClick={() => handleAddClick(guidance)}
-                  style={{
-                    backgroundColor: '#10b981',
-                    color: 'white',
-                    border: 'none',
-                    padding: '8px 16px',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    cursor: 'pointer',
-                    marginTop: '16px',
-                    fontWeight: '500'
-                  }}
-                  title="Add this guidance to a form field"
-                >
-                  Add to Form
-                </button>
+                {/* Only show Add button if the guidance doesn't contain headers */}
+                {!guidance.split('\n').some(line => isHeader(line)) && (
+                  <button
+                    onClick={() => handleAddClick(guidance)}
+                    style={{
+                      backgroundColor: '#10b981',
+                      color: 'white',
+                      border: 'none',
+                      padding: '8px 16px',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      cursor: 'pointer',
+                      marginTop: '16px',
+                      fontWeight: '500'
+                    }}
+                    title="Add this guidance to a form field"
+                  >
+                    Add to Form
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -3876,8 +3954,10 @@ function AdvisorModal({ guidance, loading, onClose, formType, currentForm, onCop
               padding: '24px',
               borderRadius: '8px',
               boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-              maxWidth: '400px',
+              maxWidth: '500px',
               width: '90%',
+              maxHeight: '80vh',
+              overflowY: 'auto',
               zIndex: 10000 // Much higher z-index to ensure it appears on top
             }}
             onClick={(e) => e.stopPropagation()} // Prevent clicks from bubbling
@@ -3885,7 +3965,20 @@ function AdvisorModal({ guidance, loading, onClose, formType, currentForm, onCop
               <div style={{
                 position: 'relative'
               }}>
-              <h3 style={{margin: '0 0 16px 0', color: '#374151'}}>Add Content To:</h3>
+              {/* Content preview */}
+              <div style={{
+                marginBottom: '20px',
+                padding: '12px',
+                backgroundColor: '#f9fafb',
+                borderRadius: '6px',
+                border: '1px solid #e5e7eb'
+              }}>
+                <p style={{margin: '0 0 8px 0', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase'}}>Content to Add:</p>
+                <p style={{margin: 0, fontSize: '14px', color: '#374151', lineHeight: '1.5'}}>
+                  {selectedContent}
+                </p>
+              </div>
+              <h3 style={{margin: '0 0 16px 0', color: '#374151'}}>Select Field:</h3>
               <div style={{marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '8px'}}>
                 {getAvailableFields().map(field => (
                   <button
@@ -3919,17 +4012,27 @@ function AdvisorModal({ guidance, loading, onClose, formType, currentForm, onCop
                   </button>
                 ))}
               </div>
-              <div style={{display: 'flex', justifyContent: 'flex-end'}}>
-                <button 
-                  onClick={() => setShowFieldSelection(false)}
+              <div style={{display: 'flex', justifyContent: 'center', marginTop: '16px'}}>
+                <button
+                  onClick={() => {
+                    setShowFieldSelection(false);
+                    setSelectedContent('');
+                  }}
                   style={{
-                    padding: '8px 16px',
-                    backgroundColor: '#f3f4f6',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '4px',
+                    padding: '10px 24px',
+                    backgroundColor: '#ef4444',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
                     cursor: 'pointer',
                     fontSize: '14px',
-                    color: '#374151'
+                    fontWeight: '500'
+                  }}
+                  onMouseOver={(e) => {
+                    e.target.style.backgroundColor = '#dc2626';
+                  }}
+                  onMouseOut={(e) => {
+                    e.target.style.backgroundColor = '#ef4444';
                   }}
                 >
                   Cancel
@@ -4269,6 +4372,11 @@ function WritingResultsModal({ modal, onClose }) {
     onClose();
   };
 
+  const handleCancelPolish = () => {
+    // Just close the modal - no changes were applied yet
+    onClose();
+  };
+
   const getIcon = () => {
     switch (modal.type) {
       case 'success': return '✨';
@@ -4543,7 +4651,7 @@ function WritingResultsModal({ modal, onClose }) {
           justifyContent: 'center'
         }}>
           <button
-            onClick={onClose}
+            onClick={modal.type === 'success' && modal.improvements ? handleCancelPolish : onClose}
             style={{
               background: `linear-gradient(135deg, ${getColor()} 0%, ${getColor()}dd 100%)`,
               color: 'white',
@@ -4559,7 +4667,7 @@ function WritingResultsModal({ modal, onClose }) {
             onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
             onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
           >
-            Got it!
+            {modal.type === 'success' && modal.improvements ? 'Cancel' : 'Got it!'}
           </button>
         </div>
       </div>
