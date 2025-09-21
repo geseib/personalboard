@@ -118,9 +118,9 @@ function App() {
 
     // Goals: 2 items in 3-month, 2 items in 1-year, 1 item in 5-year (beyond optional)
     if (data.goals) {
-      const threeMonth = data.goals.find(g => g.timeframe.includes('3 Month'));
-      const oneYear = data.goals.find(g => g.timeframe.includes('1 Year'));
-      const fiveYear = data.goals.find(g => g.timeframe.includes('5'));
+      const threeMonth = data.goals.find(g => g.timeframe && g.timeframe.includes('3 Month'));
+      const oneYear = data.goals.find(g => g.timeframe && g.timeframe.includes('1 Year'));
+      const fiveYear = data.goals.find(g => g.timeframe && g.timeframe.includes('5'));
 
       // More flexible goal counting - check for meaningful content rather than strict newline counting
       const countGoals = (description) => {
@@ -142,6 +142,7 @@ function App() {
       const threeMonthComplete = threeMonth && countGoals(threeMonth.description) >= 2;
       const oneYearComplete = oneYear && countGoals(oneYear.description) >= 2;
       const fiveYearComplete = fiveYear && countGoals(fiveYear.description) >= 1;
+
 
       status.goals = threeMonthComplete && oneYearComplete && fiveYearComplete;
     } else {

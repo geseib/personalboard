@@ -260,6 +260,10 @@ exports.handler = async (event) => {
     if (type === 'mentor_advisor' || type === 'board_member_advisor') {
       // For board member advisors, use the specific member type as the category
       category = data.memberType || 'mentors'; // Use memberType from request data
+    } else if (type.endsWith('_advisor')) {
+      // Handle specific advisor types like mentors_advisor, coaches_advisor, etc.
+      const advisorType = type.replace('_advisor', '');
+      category = advisorType; // mentors_advisor -> mentors, coaches_advisor -> coaches, etc.
     } else {
       // Map other guidance types to appropriate categories
       const categoryMap = {
