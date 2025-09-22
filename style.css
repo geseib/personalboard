@@ -6,6 +6,12 @@ html, body, #root, .app {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* Board section white background override */
+.board-section-white {
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+}
 .app {
   background-size: cover;
   background-position: center;
@@ -15,6 +21,7 @@ html, body, #root, .app {
   color: #fff;
   position: relative;
 }
+/* Dark overlay removed to fix board page appearance
 .app::before {
   content: '';
   position: absolute;
@@ -25,9 +32,10 @@ html, body, #root, .app {
   background: linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.5) 100%);
   pointer-events: none;
 }
+*/
 
 button {
-  background: rgba(255,255,255,0.95);
+  background: #ffffff;
   border: none;
   color: #1a1a1a;
   padding: 10px 20px;
@@ -130,7 +138,7 @@ button:active {
   padding: 20px;
 }
 .list .card {
-  background: rgba(255,255,255,0.95);
+  background: #ffffff;
   padding: 20px;
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.1);
@@ -209,7 +217,7 @@ button:active {
   position: fixed;
   bottom: 0;
   width: 100%;
-  background: rgba(255,255,255,0.95);
+  background: #ffffff;
   backdrop-filter: blur(20px);
   box-shadow: 0 -2px 20px rgba(0,0,0,0.1);
   z-index: 100;
@@ -854,12 +862,11 @@ button:active {
 }
 
 .timeline-section {
-  background: rgba(255,255,255,0.95);
+  background: #ffffff;
   border-radius: 16px;
   padding: 24px;
   margin-bottom: 30px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
 .timeline-section h3 {
@@ -960,7 +967,7 @@ button:active {
   transform: translate(-50%, -50%);
   width: 600px;
   height: 240px;
-  background: rgba(255,255,255,0.95);
+  background: #ffffff;
   border-radius: 120px;
   box-shadow: 0 10px 40px rgba(0,0,0,0.15);
   display: flex;
@@ -979,7 +986,7 @@ button:active {
 
 .board-member {
   position: absolute;
-  background: rgba(255,255,255,0.98);
+  background: #ffffff;
   border-radius: 16px;
   padding: 16px;
   min-width: 140px;
@@ -1068,11 +1075,10 @@ button:active {
 
 /* Cadence Grid Styles */
 .cadence-grid {
-  background: rgba(255, 255, 255, 0.95);
+  background: #ffffff;
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   margin: 16px 0;
 }
 

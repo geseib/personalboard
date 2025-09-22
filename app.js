@@ -50,6 +50,57 @@ function WideTooltip({ children, text }) {
   );
 }
 
+// Simple markdown renderer for AI analysis
+function renderMarkdown(text) {
+  if (!text) return '';
+
+  let html = text;
+
+  // Convert headings
+  html = html.replace(/^### (.*?)$/gm, '<h4 style="color: #1f2937; font-size: 1.1rem; font-weight: 600; margin: 20px 0 10px 0;">$1</h4>');
+  html = html.replace(/^## (.*?)$/gm, '<h3 style="color: #2563eb; font-size: 1.3rem; font-weight: 600; margin: 25px 0 12px 0; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">$1</h3>');
+  html = html.replace(/^# (.*?)$/gm, '<h2 style="color: #1e293b; font-size: 1.5rem; font-weight: 700; margin: 30px 0 15px 0;">$1</h2>');
+
+  // Convert bold text (must be before italic)
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong style="color: #111827; font-weight: 600;">$1</strong>');
+
+  // Convert bullet points (must be before italic to prevent conflict)
+  html = html.replace(/^• (.*?)$/gm, '<li style="margin-left: 20px; margin-bottom: 8px;">$1</li>');
+  html = html.replace(/^- (.*?)$/gm, '<li style="margin-left: 20px; margin-bottom: 8px;">$1</li>');
+  html = html.replace(/^\* (.*?)$/gm, '<li style="margin-left: 20px; margin-bottom: 8px;">$1</li>');
+
+  // Convert italic text (after lists to avoid conflict)
+  html = html.replace(/(?<!\*)\*(?!\*)([^*]+)\*(?!\*)/g, '<em style="font-style: italic;">$1</em>');
+
+  // Wrap consecutive li tags in ul
+  html = html.replace(/(<li.*?<\/li>\s*)+/g, function(match) {
+    return '<ul style="list-style-type: disc; margin: 15px 0; padding-left: 20px;">' + match + '</ul>';
+  });
+
+  // Convert numbered lists
+  html = html.replace(/^\d+\. (.*?)$/gm, '<li style="margin-left: 20px; margin-bottom: 8px;">$1</li>');
+
+  // Wrap consecutive numbered li tags in ol
+  html = html.replace(/(<li.*?<\/li>\s*)+/g, function(match) {
+    if (match.includes('list-style-type: disc')) return match;
+    return '<ol style="list-style-type: decimal; margin: 15px 0; padding-left: 20px;">' + match + '</ol>';
+  });
+
+  // Convert line breaks to paragraphs
+  const paragraphs = html.split('\n\n');
+  html = paragraphs.map(p => {
+    if (p.trim().startsWith('<h') || p.trim().startsWith('<ul') || p.trim().startsWith('<ol')) {
+      return p;
+    }
+    return `<p style="margin-bottom: 15px;">${p}</p>`;
+  }).join('');
+
+  // Convert single line breaks to <br> within paragraphs
+  html = html.replace(/\n/g, '<br>');
+
+  return html;
+}
+
 function App() {
   const [current, setCurrent] = useState('intro');
   const [data, setData] = useState(() => {
@@ -59,8 +110,26 @@ function App() {
       savedData.goals = [
         { timeframe: '3 Months (Immediate Goals)', description: '', notes: '' },
         { timeframe: '1 Year Goals', description: '', notes: '' },
-        { timeframe: '5+ Year Goals (Long-term Vision)', description: '', notes: '' }
+        { timeframe: '5+ Year Goals (Long-term Vision)', description: '', notes: '' },
+        { timeframe: 'Beyond', description: '', notes: '' }
       ];
+    } else {
+      // Migration: Fix existing goals structure if needed
+      const expectedTimeframes = [
+        '3 Months (Immediate Goals)',
+        '1 Year Goals',
+        '5+ Year Goals (Long-term Vision)',
+        'Beyond'
+      ];
+
+      if (savedData.goals.length !== expectedTimeframes.length ||
+          !savedData.goals.some(g => g.timeframe === 'Beyond')) {
+        // Reset goals to correct structure
+        savedData.goals = expectedTimeframes.map(timeframe => {
+          const existing = savedData.goals.find(g => g.timeframe === timeframe);
+          return existing || { timeframe, description: '', notes: '' };
+        });
+      }
     }
     // Initialize you section if it doesn't exist
     if (!savedData.you) {
@@ -1414,7 +1483,8 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
       goals: [
         { timeframe: '3 Months (Immediate Goals)', description: '', notes: '' },
         { timeframe: '1 Year Goals', description: '', notes: '' },
-        { timeframe: '5+ Year Goals (Long-term Vision)', description: '', notes: '' }
+        { timeframe: '5+ Year Goals (Long-term Vision)', description: '', notes: '' },
+        { timeframe: 'Beyond', description: '', notes: '' }
       ]
     };
     
@@ -1932,17 +2002,18 @@ function Board({ data, boardAdvice, boardAdviceLoading }) {
         <div className="board-advice-section" style={{
           marginBottom: '30px',
           padding: '20px',
-          backgroundColor: '#f0f9ff',
-          border: '1px solid #bae6fd',
+          backgroundColor: '#ffffff',
+          border: '1px solid #e5e7eb',
           borderRadius: '8px'
         }}>
           <h3 style={{ color: '#10b981', margin: '0 0 15px 0' }}>AI Board Analysis</h3>
           {boardAdviceLoading ? (
             <div style={{ color: '#6b7280' }}>Generating analysis...</div>
           ) : (
-            <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6', color: '#374151' }}>
-              {boardAdvice}
-            </div>
+            <div
+              style={{ lineHeight: '1.6', color: '#374151' }}
+              dangerouslySetInnerHTML={{ __html: renderMarkdown(boardAdvice) }}
+            />
           )}
         </div>
       )}
@@ -2066,7 +2137,7 @@ function Board({ data, boardAdvice, boardAdviceLoading }) {
 
       {/* Goals Section - matching PDF style */}
       {data.goals && data.goals.length > 0 && (
-        <div style={{
+        <div className="board-section-white" style={{
           marginTop: '40px',
           padding: '25px',
           backgroundColor: '#ffffff',
@@ -2089,7 +2160,7 @@ function Board({ data, boardAdvice, boardAdviceLoading }) {
               marginBottom: '25px',
               paddingLeft: '20px',
               borderLeft: '4px solid #f97316',
-              backgroundColor: '#fffbf5',
+              backgroundColor: '#ffffff',
               padding: '15px 15px 15px 20px',
               borderRadius: '0 8px 8px 0'
             }}>
@@ -2099,7 +2170,7 @@ function Board({ data, boardAdvice, boardAdviceLoading }) {
                 color: '#1f2937',
                 marginBottom: '10px'
               }}>
-                {goal.immediate ? 'Immediate' : goal.oneYear ? '1 Year' : '5 Years'}
+                {goal.timeframe}
               </h3>
               {goal.description && (
                 <div style={{ marginBottom: '10px' }}>
@@ -2146,7 +2217,7 @@ function Board({ data, boardAdvice, boardAdviceLoading }) {
 
       {/* Superpowers Section - matching PDF style */}
       {data.you && data.you.superpowers && data.you.superpowers.length > 0 && (
-        <div style={{
+        <div className="board-section-white" style={{
           marginTop: '40px',
           padding: '25px',
           backgroundColor: '#ffffff',
@@ -2169,7 +2240,7 @@ function Board({ data, boardAdvice, boardAdviceLoading }) {
               marginBottom: '25px',
               paddingLeft: '20px',
               borderLeft: '4px solid #10b981',
-              backgroundColor: '#f0fdf4',
+              backgroundColor: '#ffffff',
               padding: '15px 15px 15px 20px',
               borderRadius: '0 8px 8px 0'
             }}>
@@ -2226,7 +2297,7 @@ function Board({ data, boardAdvice, boardAdviceLoading }) {
 
       {/* Mentees Section - matching PDF style */}
       {data.you && data.you.mentees && data.you.mentees.length > 0 && (
-        <div style={{
+        <div className="board-section-white" style={{
           marginTop: '40px',
           padding: '25px',
           backgroundColor: '#ffffff',
@@ -2249,7 +2320,7 @@ function Board({ data, boardAdvice, boardAdviceLoading }) {
               marginBottom: '25px',
               paddingLeft: '20px',
               borderLeft: '4px solid #8b5cf6',
-              backgroundColor: '#faf5ff',
+              backgroundColor: '#ffffff',
               padding: '15px 15px 15px 20px',
               borderRadius: '0 8px 8px 0'
             }}>

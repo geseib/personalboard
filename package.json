@@ -4,11 +4,13 @@
   "type": "module",
   "scripts": {
     "start": "parcel index.html",
-    "build": "npm run build:app && npm run build:admin && npm run build:slides && npm run build:preso",
+    "build": "npm run build:app && npm run build:admin && npm run build:slides && npm run build:preso && npm run build:preso2 && npm run build:images",
     "build:app": "parcel build index.html",
     "build:admin": "mkdir -p dist/admin && cp admin/index.html admin.js admin.css dist/admin/",
     "build:slides": "mkdir -p dist/slides && cp slides/index.html slides/presentation.html slides/slides.css slides/slides.js dist/slides/",
     "build:preso": "mkdir -p dist/preso && cp preso/index.html dist/preso/",
+    "build:preso2": "mkdir -p dist/preso2 && cp preso2/index.html dist/preso2/",
+    "build:images": "mkdir -p dist/images && cp images/* dist/images/",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "deploy": "./scripts/deploy.sh",
     "deploy:frontend": "./scripts/deploy-frontend.sh"
