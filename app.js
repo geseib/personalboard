@@ -795,10 +795,19 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
       currentY += 10;
     }
     
+    // Calculate board section height dynamically
+    const boardSectionHeight = 200; // Header + table + member positions + padding
+
+    // Check if we need a new page for the board section
+    if (currentY + boardSectionHeight > pageHeight - 40) {
+      doc.addPage();
+      currentY = 20;
+    }
+
     // Board Section Background
     doc.setFillColor(249, 250, 251);
-    doc.roundedRect(15, currentY - 5, pageWidth - 30, 100, 3, 3, 'F');
-    
+    doc.roundedRect(15, currentY - 5, pageWidth - 30, boardSectionHeight, 3, 3, 'F');
+
     // Visual Board Diagram
     doc.setFontSize(16);
     doc.setFont(undefined, 'bold');
@@ -874,9 +883,11 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
       doc.text((member.role || 'Unknown').substring(0, 20), boxX, boxY + 6, { align: 'center' });
     });
     
-    currentY = tableY + tableHeight/2 + 65;
-    
-    // Check if we need a new page
+    // Update currentY to the end of the board section
+    // We need to account for: start position (where we drew background) + section height - top margin
+    currentY = (currentY - 15 - 5) + boardSectionHeight; // Background start + height
+
+    // Check if we need a new page for subsequent content
     if (currentY > pageHeight - 40) {
       doc.addPage();
       currentY = 20;
