@@ -1,0 +1,201 @@
+{
+  "you": {
+    "name": "Oprah Winfrey",
+    "description": "Media mogul, talk show host, actress, television producer, and philanthropist",
+    "superpowers": [
+      {
+        "name": "Technical Skills",
+        "description": "Interview techniques and",
+        "notes": "Interview techniques and conversation mastery. Television production and directing. Content curation and programming"
+      },
+      {
+        "name": "Business Skills",
+        "description": "Building and scaling",
+        "notes": "Building and scaling media businesses. Brand development and management. Strategic partnerships and acquisitions"
+      },
+      {
+        "name": "Organization Skills",
+        "description": "Authentic storytelling and",
+        "notes": "Authentic storytelling and emotional connection. Identifying and developing talent. Philanthropic leadership"
+      }
+    ],
+    "mentees": [
+      {
+        "name": "Dr. Phil McGraw",
+        "role": "Psychologist and television personality",
+        "connection": "Currently engaged",
+        "cadence": "Weekly",
+        "notes": "Started as a trial consultant on my show, now running his own successful program with my production company.",
+        "whatYouTeach": "Television production, audience connection, and building a media brand",
+        "whatYouLearn": "Psychological insights for interviews and practical therapeutic approaches for guests"
+      },
+      {
+        "name": "Rachel Ray",
+        "role": "Celebrity chef and television host",
+        "connection": "Currently engaged",
+        "cadence": "Monthly",
+        "notes": "Discovered and mentored her to create accessible cooking content that resonates with everyday people.",
+        "whatYouTeach": "Authentic on-camera presence, brand building, and connecting with mainstream audiences",
+        "whatYouLearn": "Making complex topics accessible and the importance of practical, everyday content"
+      },
+      {
+        "name": "Iyanla Vanzant",
+        "role": "Spiritual teacher and life coach",
+        "connection": "Currently engaged",
+        "cadence": "Bi-weekly",
+        "notes": "Helped her rebuild her career and launch 'Iyanla: Fix My Life' on OWN network.",
+        "whatYouTeach": "Television production, vulnerability as strength, and building trust with audiences",
+        "whatYouLearn": "Spiritual healing practices and working with deeply troubled individuals"
+      }
+    ]
+  },
+  "goals": [
+    {
+      "timeframe": "3 Months (Immediate Goals)",
+      "description": "Launch OWN (Oprah Winfrey Network) with compelling original programming that reflects my values and vision",
+      "notes": ""
+    },
+    {
+      "timeframe": "1 Year Goals",
+      "description": "Expand Harpo Productions into film development and create strategic partnerships with streaming platforms",
+      "notes": ""
+    },
+    {
+      "timeframe": "5+ Year Goals (Long-term Vision)",
+      "description": "Establish a sustainable media empire that continues to educate, inspire, and empower while building my philanthropic legacy through the Oprah Winfrey Leadership Academy",
+      "notes": ""
+    },
+    {
+      "timeframe": "Beyond",
+      "description": "",
+      "notes": ""
+    }
+  ],
+  "mentors": [
+    {
+      "name": "Maya Angelou",
+      "role": "Poet, author, and spiritual/life philosophy mentor",
+      "connection": "Currently engaged",
+      "cadence": "Weekly",
+      "whatToLearn": "Literary wisdom, spiritual grounding, resilience through adversity, and the power of authentic voice",
+      "whatTheyGet": "Platform for sharing wisdom, financial support for projects, and a devoted student of life lessons",
+      "notes": "Strong - deep personal and professional friendship spanning decades. She taught me that 'when people show you who they are, believe them' and countless other life principles that guide my business and personal decisions Meeting pattern: Weekly phone calls and monthly in-person visits"
+    },
+    {
+      "name": "Nelson Mandela",
+      "role": "Former President of South Africa and leadership/forgiveness mentor",
+      "connection": "Occasionally engaged",
+      "cadence": "Quarterly",
+      "whatToLearn": "Leadership through moral authority, the power of forgiveness, and creating unity from division",
+      "whatTheyGet": "Global platform for sharing messages of peace and reconciliation",
+      "notes": "Strong - mutual respect and admiration, occasional meetings. His example of emerging from prison without bitterness profoundly shaped my understanding of true leadership and the responsibility that comes with influence Meeting pattern: Annual visits and quarterly correspondence"
+    }
+  ],
+  "coaches": [
+    {
+      "name": "Quincy Jones",
+      "role": "Music producer and entertainment industry strategic coach",
+      "connection": "Currently engaged",
+      "cadence": "Monthly",
+      "whatToLearn": "Entertainment industry deal-making, talent development, and maintaining artistic integrity in commercial ventures",
+      "whatTheyGet": "Collaboration opportunities and access to my media platforms for musical projects",
+      "notes": "Strong - longtime friend and business advisor. His decades of experience in entertainment taught me how to navigate complex industry relationships while maintaining creative control Meeting pattern: Monthly business dinners and quarterly strategic planning sessions"
+    },
+    {
+      "name": "Stedman Graham",
+      "role": "Author, businessman, and personal development coach",
+      "connection": "Currently engaged",
+      "cadence": "Daily",
+      "whatToLearn": "Leadership development principles, brand management, and balancing personal relationships with public career",
+      "whatTheyGet": "Partnership in developing leadership curricula and access to my network for his consulting business",
+      "notes": "Strong - life partner and business strategist. His background in organizational development helps me structure my businesses for sustainable growth while maintaining focus on personal development Meeting pattern: Daily personal conversations with weekly business strategy discussions"
+    }
+  ],
+  "sponsors": [
+    {
+      "name": "Roger King",
+      "role": "Television syndication executive and career champion",
+      "connection": "Currently engaged",
+      "cadence": "Weekly",
+      "whatToLearn": "Television syndication strategies, national media market dynamics, and scaling content distribution",
+      "whatTheyGet": "Exclusive content that drives ratings and advertising revenue across their station groups",
+      "notes": "Strong - business partner who believed in my potential early. He took the risk of syndicating my show nationally when others wouldn't, teaching me the importance of having champions who believe in your vision Meeting pattern: Weekly business meetings during active syndication years"
+    },
+    {
+      "name": "Jeff Zucker",
+      "role": "Former NBC executive and media industry advocate",
+      "connection": "Occasionally engaged",
+      "cadence": "Quarterly",
+      "whatToLearn": "Network television operations, content development strategies, and media industry evolution",
+      "whatTheyGet": "Access to my audience and credibility for NBC programming initiatives",
+      "notes": "Moderate - professional relationship with mutual respect. His network experience provides valuable insights into traditional media while I navigate the transition to new platforms Meeting pattern: Quarterly industry events and annual strategic meetings"
+    }
+  ],
+  "connectors": [
+    {
+      "name": "Gayle King",
+      "role": "Journalist, CBS anchor, and best friend connector",
+      "connection": "Currently engaged",
+      "cadence": "Daily",
+      "whatToLearn": "Journalism integrity, maintaining friendships under public scrutiny, and news industry perspectives",
+      "whatTheyGet": "Exclusive access to my world and stories, plus career support and friendship",
+      "notes": "Strong - lifelong best friend and professional ally. Her journalism background and extensive media relationships provide access to news industry leaders and help me stay grounded in authentic relationships Meeting pattern: Daily phone calls and weekly in-person time"
+    },
+    {
+      "name": "Tyler Perry",
+      "role": "Filmmaker, actor, and entertainment industry connector",
+      "connection": "Currently engaged",
+      "cadence": "Monthly",
+      "whatToLearn": "Independent film production, building creative studios, and connecting with African American audiences",
+      "whatTheyGet": "Platform for promoting projects and business development opportunities",
+      "notes": "Strong - creative collaborator and business ally. His success in building an independent entertainment empire provides valuable lessons, and his network includes key Hollywood decision-makers Meeting pattern: Monthly creative meetings and quarterly business discussions"
+    },
+    {
+      "name": "Ava DuVernay",
+      "role": "Film director and progressive media connector",
+      "connection": "Currently engaged",
+      "cadence": "Weekly",
+      "whatToLearn": "Digital media strategies, documentary filmmaking, and social justice storytelling",
+      "whatTheyGet": "Executive producer support, distribution platform access, and industry credibility",
+      "notes": "Strong - mentee who became peer collaborator. Her innovative approach to filmmaking and social activism connects me to a new generation of diverse storytellers and social justice advocates Meeting pattern: Bi-weekly creative calls and monthly project planning meetings"
+    }
+  ],
+  "peers": [
+    {
+      "name": "Ellen DeGeneres",
+      "role": "Talk show host and daytime television peer",
+      "connection": "Currently engaged",
+      "cadence": "Monthly",
+      "whatToLearn": "Comedy integration in serious content, LGBTQ+ advocacy strategies, and maintaining authenticity under pressure",
+      "whatTheyGet": "Daytime television insights and support during industry challenges",
+      "notes": "Strong - friendly industry rivalry and mutual support. Our different approaches to daytime television create healthy competition while our shared commitment to kindness and authenticity creates mutual support Meeting pattern: Monthly industry events and quarterly private conversations"
+    },
+    {
+      "name": "Barbara Walters",
+      "role": "Broadcast journalist and interview technique peer",
+      "connection": "Currently engaged",
+      "cadence": "Quarterly",
+      "whatToLearn": "Hard news interviewing techniques, journalistic credibility, and longevity in television careers",
+      "whatTheyGet": "Insights on connecting with emotional stories and building audience loyalty",
+      "notes": "Strong - professional respect and mentorship exchange. Her pioneering work in broadcast journalism provides a model for combining serious interviewing with entertainment value Meeting pattern: Quarterly professional lunches and annual award show encounters"
+    },
+    {
+      "name": "Martha Stewart",
+      "role": "Media entrepreneur and lifestyle brand peer",
+      "connection": "Occasionally engaged",
+      "cadence": "Quarterly",
+      "whatToLearn": "Lifestyle brand building, product development, and maintaining brand consistency across multiple ventures",
+      "whatTheyGet": "Audience crossover opportunities and insights on emotional brand connection",
+      "notes": "Moderate - occasional collaboration and mutual professional respect. Her success in building a comprehensive lifestyle empire provides valuable lessons in brand extension and product development Meeting pattern: Quarterly industry events and annual business conferences"
+    },
+    {
+      "name": "Shonda Rhimes",
+      "role": "Television producer and content creation peer",
+      "connection": "Occasionally engaged",
+      "cadence": "Monthly",
+      "whatToLearn": "Serialized storytelling, diverse casting strategies, and building television universes",
+      "whatTheyGet": "Platform for promoting shows and insights on audience development and engagement",
+      "notes": "Strong - mutual admiration and occasional collaboration. Her success in creating compelling television content and championing diversity provides inspiration for my own content development strategies Meeting pattern: Bi-monthly industry events and quarterly creative conversations"
+    }
+  ]
+}

@@ -1,0 +1,201 @@
+{
+  "you": {
+    "name": "Warren Buffett",
+    "description": "Chairman and CEO of Berkshire Hathaway, legendary investor and philanthropist",
+    "superpowers": [
+      {
+        "name": "Technical Skills",
+        "description": "Financial analysis and",
+        "notes": "Financial analysis and valuation. Reading and synthesizing vast information. Risk assessment and management"
+      },
+      {
+        "name": "Business Skills",
+        "description": "Value investing and",
+        "notes": "Value investing and market analysis. Insurance and float management. Capital allocation expertise"
+      },
+      {
+        "name": "Organization Skills",
+        "description": "Folksy communication making",
+        "notes": "Folksy communication making complex concepts accessible. Long-term thinking and patience. Shareholder communication"
+      }
+    ],
+    "mentees": [
+      {
+        "name": "Todd Combs",
+        "role": "Investment manager at Berkshire Hathaway",
+        "connection": "Currently engaged",
+        "cadence": "Weekly",
+        "notes": "One of my potential successors who I'm training in value investing and capital allocation.",
+        "whatYouTeach": "Value investing principles, reading financial statements, and patience in investing",
+        "whatYouLearn": "Modern financial instruments and technology sector dynamics"
+      },
+      {
+        "name": "Ted Weschler",
+        "role": "Investment manager at Berkshire Hathaway",
+        "connection": "Currently engaged",
+        "cadence": "Weekly",
+        "notes": "Won charity auctions to have lunch with me, impressed me so much I hired him.",
+        "whatYouTeach": "Portfolio management, understanding business moats, and long-term thinking",
+        "whatYouLearn": "Healthcare sector expertise and modern portfolio analysis techniques"
+      },
+      {
+        "name": "Tracy Britt Cool",
+        "role": "Former Berkshire executive, now CEO of Kanbrick",
+        "connection": "Occasionally engaged",
+        "cadence": "Monthly",
+        "notes": "Harvard grad who became my financial assistant and learned to run companies.",
+        "whatYouTeach": "Business operations, capital allocation, and CEO mentorship",
+        "whatYouLearn": "Millennial perspectives on business and modern management techniques"
+      }
+    ]
+  },
+  "goals": [
+    {
+      "timeframe": "3 Months (Immediate Goals)",
+      "description": "Complete analysis and acquisition of a major insurance company to expand Berkshire's float and investment capital",
+      "notes": ""
+    },
+    {
+      "timeframe": "1 Year Goals",
+      "description": "Position Berkshire's portfolio for inflation protection while maintaining our value investing principles and finding elephant-sized acquisitions",
+      "notes": ""
+    },
+    {
+      "timeframe": "5+ Year Goals (Long-term Vision)",
+      "description": "Ensure smooth succession planning while continuing to compound wealth at 15%+ annually and fulfill my Giving Pledge commitments",
+      "notes": ""
+    },
+    {
+      "timeframe": "Beyond",
+      "description": "",
+      "notes": ""
+    }
+  ],
+  "mentors": [
+    {
+      "name": "Benjamin Graham",
+      "role": "Father of value investing and foundational mentor",
+      "connection": "Currently engaged",
+      "cadence": "Weekly",
+      "whatToLearn": "Security analysis, margin of safety principle, and emotional discipline in investing",
+      "whatTheyGet": "Validation of theories and pride in student's success",
+      "notes": "Strong - professor at Columbia and later employer. His book 'The Intelligent Investor' changed my life - Chapter 8 on market fluctuations and Chapter 20 on margin of safety remain my investing foundation Meeting pattern: Weekly during employment, annual visits until his passing"
+    },
+    {
+      "name": "Philip Fisher",
+      "role": "Growth investing pioneer and strategic mentor",
+      "connection": "Occasionally engaged",
+      "cadence": "Quarterly",
+      "whatToLearn": "Scuttlebutt method of research, importance of management quality, and holding great companies forever",
+      "whatTheyGet": "Integration of growth principles with value investing and expanded influence on investment philosophy",
+      "notes": "Moderate - occasional meetings and correspondence. His emphasis on qualitative factors and holding periods transformed my approach from cigar-butt investing to buying wonderful companies at fair prices Meeting pattern: Annual meetings and quarterly letter exchanges"
+    }
+  ],
+  "coaches": [
+    {
+      "name": "Charlie Munger",
+      "role": "Vice Chairman of Berkshire and intellectual sparring partner",
+      "connection": "Currently engaged",
+      "cadence": "Daily",
+      "whatToLearn": "Mental models, multidisciplinary thinking, and the psychology of human misjudgment",
+      "whatTheyGet": "Platform for ideas and shared journey in building Berkshire",
+      "notes": "Strong - best friend and business partner for over 60 years. He made me move from buying fair companies at wonderful prices to buying wonderful companies at fair prices - transforming Berkshire's entire strategy Meeting pattern: Daily phone calls and weekly in-person meetings"
+    },
+    {
+      "name": "Tom Murphy",
+      "role": "Capital Cities/ABC CEO and business operations coach",
+      "connection": "Currently engaged",
+      "cadence": "Monthly",
+      "whatToLearn": "Operational excellence, decentralized management, and media business dynamics",
+      "whatTheyGet": "Investment capital and strategic advice on major decisions",
+      "notes": "Strong - close friend and board member. The best business manager I've ever met - his decentralized approach influenced how I structure Berkshire's subsidiaries Meeting pattern: Monthly calls and quarterly board meetings"
+    }
+  ],
+  "sponsors": [
+    {
+      "name": "Katherine Graham",
+      "role": "Washington Post publisher and board position sponsor",
+      "connection": "Currently engaged",
+      "cadence": "Monthly",
+      "whatToLearn": "Media industry dynamics, handling public criticism, and courage in leadership",
+      "whatTheyGet": "Business guidance during challenging times and investor credibility",
+      "notes": "Strong - served on Post board and personal friend. Her courage during Watergate and business acumen taught me about principled leadership, and she provided credibility in media circles Meeting pattern: Monthly during board service, quarterly social meetings"
+    },
+    {
+      "name": "Bill Gates Sr.",
+      "role": "Gates Foundation co-chair and philanthropy sponsor",
+      "connection": "Currently engaged",
+      "cadence": "Quarterly",
+      "whatToLearn": "Structured philanthropy, foundation management, and social impact measurement",
+      "whatTheyGet": "Major funding commitments and credibility for philanthropic initiatives",
+      "notes": "Strong - partner in giving pledge initiatives. His work helped structure my giving pledge and showed me how to apply business principles to philanthropy Meeting pattern: Quarterly foundation meetings and annual strategic sessions"
+    }
+  ],
+  "connectors": [
+    {
+      "name": "Bill Gates",
+      "role": "Microsoft founder and bridge to technology world",
+      "connection": "Currently engaged",
+      "cadence": "Quarterly",
+      "whatToLearn": "Technology trends, innovation dynamics, and next-generation business models",
+      "whatTheyGet": "Investment philosophy, business wisdom, and life perspective",
+      "notes": "Strong - close friend and bridge partner. He helps me understand technology investments I might otherwise avoid, and our friendship bridges the old and new economy Meeting pattern: Annual trips, quarterly calls, and regular bridge games"
+    },
+    {
+      "name": "Jamie Dimon",
+      "role": "JPMorgan Chase CEO and financial industry connector",
+      "connection": "Currently engaged",
+      "cadence": "Quarterly",
+      "whatToLearn": "Modern banking dynamics, regulatory environment, and global financial trends",
+      "whatTheyGet": "Long-term perspective on markets and validation of strategies",
+      "notes": "Strong - professional respect and regular interaction. His operational excellence in banking provides insights for our insurance operations and financial sector investments Meeting pattern: Quarterly industry meetings and annual Berkshire meetings"
+    },
+    {
+      "name": "Carol Loomis",
+      "role": "Fortune editor and media connector",
+      "connection": "Currently engaged",
+      "cadence": "Weekly",
+      "whatToLearn": "Clear communication, media dynamics, and public perception management",
+      "whatTheyGet": "Exclusive insights and access for stories",
+      "notes": "Strong - longtime friend and editor of annual letters. Her editing of my annual letters ensures my ideas reach shareholders clearly, and her media connections help manage Berkshire's image Meeting pattern: Weekly during letter writing, monthly social meetings"
+    }
+  ],
+  "peers": [
+    {
+      "name": "George Soros",
+      "role": "Hedge fund manager and different investment philosophy peer",
+      "connection": "Aware of me",
+      "cadence": "Annually",
+      "whatToLearn": "Reflexivity theory, macro trading, and alternative investment approaches",
+      "whatTheyGet": "Perspective on long-term value investing and market psychology",
+      "notes": "Weak - philosophical opposites with mutual respect. His trading approach is opposite to mine, but his success proves there are multiple paths to investment success Meeting pattern: Annual industry events and rare private discussions"
+    },
+    {
+      "name": "Carl Icahn",
+      "role": "Activist investor and corporate raider peer",
+      "connection": "Occasionally engaged",
+      "cadence": "Bi-weekly",
+      "whatToLearn": "Activist strategies, corporate governance pressure tactics, and confrontational negotiation",
+      "whatTheyGet": "Validation of long-term approach and occasional investment ideas",
+      "notes": "Moderate - different approaches but mutual respect. His aggressive activism contrasts with my friendly acquisitions, but we both seek undervalued assets Meeting pattern: Bi-annual encounters at investment conferences"
+    },
+    {
+      "name": "Ray Dalio",
+      "role": "Bridgewater founder and systematic investing peer",
+      "connection": "Occasionally engaged",
+      "cadence": "Annually",
+      "whatToLearn": "Systematic decision-making, radical transparency, and macroeconomic frameworks",
+      "whatTheyGet": "Value investing insights and simplicity in complex markets",
+      "notes": "Moderate - intellectual exchange on investment principles. His principles-based approach resonates, though his complexity contrasts with my simplicity preference Meeting pattern: Annual meetings and occasional principle discussions"
+    },
+    {
+      "name": "Jack Bogle",
+      "role": "Vanguard founder and index investing peer",
+      "connection": "Currently engaged",
+      "cadence": "Annually",
+      "whatToLearn": "Index fund dynamics, fee compression effects, and investor behavior at scale",
+      "whatTheyGet": "Validation of passive investing and respect from active management legend",
+      "notes": "Strong - mutual admiration despite different approaches. I regularly recommend index funds for most investors - his innovation democratized investing despite my active approach Meeting pattern: Annual shareholder meetings and regular correspondence"
+    }
+  ]
+}

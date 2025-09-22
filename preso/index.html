@@ -170,6 +170,29 @@
             opacity: 0.7;
         }
 
+        /* Grid positioning system: 3x3 grid with proper margins */
+        .slide-content.grid-pos-1,
+        .slide-content.grid-pos-2,
+        .slide-content.grid-pos-3,
+        .slide-content.grid-pos-4,
+        .slide-content.grid-pos-5,
+        .slide-content.grid-pos-6,
+        .slide-content.grid-pos-7,
+        .slide-content.grid-pos-8,
+        .slide-content.grid-pos-9 {
+            position: absolute;
+        }
+
+        .grid-pos-1 { top: 15%; left: 15%; }
+        .grid-pos-2 { top: 15%; left: 50%; transform: translateX(-50%); }
+        .grid-pos-3 { top: 15%; right: 15%; }
+        .grid-pos-4 { top: 50%; left: 15%; transform: translateY(-50%); }
+        .grid-pos-5 { top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        .grid-pos-6 { top: 50%; right: 15%; transform: translateY(-50%); }
+        .grid-pos-7 { bottom: 15%; left: 15%; }
+        .grid-pos-8 { bottom: 15%; left: 50%; transform: translateX(-50%); }
+        .grid-pos-9 { bottom: 15%; right: 15%; }
+
         @media (max-width: 768px) {
             h1 { font-size: 3rem; }
             h2 { font-size: 1.8rem; }
@@ -229,7 +252,25 @@
         </div>
     </section>
 
-    <!-- Slide 6: The Board -->
+    <!-- Slide 6: Map Network -->
+    <section class="slide" style="background-image: url('images/Slide11.png');">
+        <div class="slide-content">
+            <div class="big-number">3</div>
+            <div class="statement">Map your network</div>
+            <div class="quote">"Who's already in your orbit?"</div>
+        </div>
+    </section>
+
+    <!-- Slide 7: Mutual Value -->
+    <section class="slide" style="background-image: url('images/Slide12.png');">
+        <div class="slide-content">
+            <div class="big-number">4</div>
+            <div class="statement">Design mutual value</div>
+            <div class="quote">"What can you give • What do you need"</div>
+        </div>
+    </section>
+
+    <!-- Slide 8: The Board -->
     <section class="slide" style="background-image: url('images/Slide10.png');">
         <div class="slide-content">
             <div class="big-number">5</div>
@@ -342,7 +383,7 @@
     </div>
 
     <div class="progress" id="progress"></div>
-    <div class="slide-counter" id="counter">1 / 13</div>
+    <div class="slide-counter" id="counter">1 / 15</div>
 
     <script>
         let currentSlide = 0;
@@ -390,5 +431,6 @@
         // Initialize
         showSlide(0);
     </script>
+    <script src="../burger-menu.js"></script>
 </body>
 </html>

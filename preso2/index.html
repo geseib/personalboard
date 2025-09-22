@@ -6,6 +6,7 @@
     <title>Personal Board of Directors - Executive Presentation</title>
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <link rel="alternate icon" href="../favicon.ico">
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -123,6 +124,33 @@
         .board-type .name {
             font-size: 1.8rem;
             font-weight: 300;
+        }
+
+        .qr-code-container {
+            position: fixed;
+            bottom: 140px;
+            right: 40px;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .qr-code-container canvas {
+            border-radius: 8px;
+        }
+
+        .qr-code-label {
+            color: #374151;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 8px;
+            text-align: center;
         }
 
         .navigation {
@@ -252,7 +280,25 @@
         </div>
     </section>
 
-    <!-- Slide 6: The Board -->
+    <!-- Slide 6: Map Network -->
+    <section class="slide" style="background-image: url('../images/Slide11.png');">
+        <div class="slide-content grid-pos-4">
+            <div class="big-number">3</div>
+            <div class="statement">Map your network</div>
+            <div class="quote">"Who's already in your orbit?"</div>
+        </div>
+    </section>
+
+    <!-- Slide 7: Mutual Value -->
+    <section class="slide" style="background-image: url('../images/Slide12.png');">
+        <div class="slide-content grid-pos-4">
+            <div class="big-number">4</div>
+            <div class="statement">Design mutual value</div>
+            <div class="quote">"What can you give • What do you need"</div>
+        </div>
+    </section>
+
+    <!-- Slide 8: The Board -->
     <section class="slide" style="background-image: url('../images/Slide10.png');">
         <div class="slide-content">
             <div class="big-number">5</div>
@@ -358,14 +404,14 @@
             <div class="quote">"Start today"</div>
         </div>
     </section>
-
+    
     <div class="navigation">
         <button class="nav-btn" onclick="prevSlide()" id="prevBtn">←</button>
         <button class="nav-btn" onclick="nextSlide()" id="nextBtn">→</button>
     </div>
 
     <div class="progress" id="progress"></div>
-    <div class="slide-counter" id="counter">1 / 13</div>
+    <div class="slide-counter" id="counter">1 / 15</div>
 
     <script>
         let currentSlide = 0;
@@ -412,6 +458,38 @@
 
         // Initialize
         showSlide(0);
+
+        // Generate QR Code with current host URL
+        function generateQRCode() {
+            // Get the current host (just the domain, no path)
+            const hostUrl = window.location.protocol + '//' + window.location.host;
+
+            // Generate QR code
+            QRCode.toCanvas(document.getElementById('qrcode'), hostUrl, {
+                width: 100,
+                height: 100,
+                color: {
+                    dark: '#000000',
+                    light: '#FFFFFF'
+                },
+                margin: 1
+            }, function (error) {
+                if (error) {
+                    console.error('QR Code generation error:', error);
+                    // Hide QR container on error
+                    document.getElementById('qrContainer').style.display = 'none';
+                } else {
+                    console.log('QR Code generated successfully for:', hostUrl);
+                }
+            });
+        }
+
+        // Generate QR code when page loads
+        document.addEventListener('DOMContentLoaded', generateQRCode);
+
+        // Also generate after a small delay to ensure QRCode library is loaded
+        setTimeout(generateQRCode, 100);
     </script>
+    <script src="../burger-menu.js"></script>
 </body>
 </html>

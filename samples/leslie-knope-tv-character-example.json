@@ -1,0 +1,192 @@
+{
+  "you": {
+    "name": "Leslie Knope",
+    "description": "Deputy Director of Parks and Recreation Department, Pawnee, Indiana",
+    "superpowers": [
+      {
+        "name": "Technical Skills",
+        "description": "Project management and",
+        "notes": "Project management and event planning. Research and preparation - comprehensive documentation. Policy development and implementation"
+      },
+      {
+        "name": "Business Skills",
+        "description": "Government operations and",
+        "notes": "Government operations and budget management. Public-private partnership development. Grant writing and funding acquisition"
+      },
+      {
+        "name": "Organization Skills",
+        "description": "Public speaking and",
+        "notes": "Public speaking and inspiring others. Building coalitions and turning opponents into allies. Team motivation and leadership"
+      }
+    ],
+    "mentees": [
+      {
+        "name": "April Ludgate",
+        "role": "Deputy Director of Animal Control",
+        "connection": "Currently engaged",
+        "cadence": "Daily",
+        "notes": "Started as my sullen assistant, now becoming a capable government leader in her own unique way.",
+        "whatYouTeach": "Finding passion in public service, career development, and channeling cynicism productively",
+        "whatYouLearn": "Connecting with younger generations and the value of authentic communication over forced enthusiasm"
+      },
+      {
+        "name": "Nadia Stasky",
+        "role": "Parks Department intern",
+        "connection": "Occasionally engaged",
+        "cadence": "Weekly",
+        "notes": "Eager intern who reminds me of myself - almost too eager, which teaches me about balance.",
+        "whatYouTeach": "Government operations, event planning, and maintaining enthusiasm through bureaucracy",
+        "whatYouLearn": "The importance of work-life balance and not overwhelming people with intensity"
+      }
+    ]
+  },
+  "goals": [
+    {
+      "timeframe": "3 Months (Immediate Goals)",
+      "description": "Successfully launch the Harvest Festival to restore the Parks Department budget and prove our value to the city",
+      "notes": ""
+    },
+    {
+      "timeframe": "1 Year Goals",
+      "description": "Run for city council to have greater influence on Pawnee's development and quality of life improvements",
+      "notes": ""
+    },
+    {
+      "timeframe": "5+ Year Goals (Long-term Vision)",
+      "description": "Become mayor of Pawnee and implement comprehensive parks expansion, with the ultimate goal of running for state-level office",
+      "notes": ""
+    },
+    {
+      "timeframe": "Beyond",
+      "description": "",
+      "notes": ""
+    }
+  ],
+  "mentors": [
+    {
+      "name": "Ron Swanson",
+      "role": "Parks Department Director and leadership philosophy guide",
+      "connection": "Currently engaged",
+      "cadence": "Daily",
+      "whatToLearn": "Leadership through principle, how to delegate effectively, and balancing personal convictions with public service",
+      "whatTheyGet": "Passionate advocacy for our department and someone who handles the people aspects he prefers to avoid",
+      "notes": "Strong - direct supervisor who became unexpected mentor. Though our philosophies about government are opposite, his integrity and loyalty have taught me valuable lessons about authentic leadership Meeting pattern: Daily work interactions with monthly deeper conversations"
+    },
+    {
+      "name": "Joe Biden",
+      "role": "Vice President and political inspiration",
+      "connection": "Aware of me",
+      "cadence": "Occasional public events and one memorable meeting",
+      "whatToLearn": "National-level political strategy, policy development, and maintaining optimism in partisan environments",
+      "whatTheyGet": "Enthusiasm from the next generation of public servants and grassroots political insights",
+      "notes": "Weak - professional admiration from a distance. He represents everything I admire about public service - his authenticity and genuine care for people inspire my own approach to politics"
+    }
+  ],
+  "coaches": [
+    {
+      "name": "Ben Wyatt",
+      "role": "Budget specialist and campaign management coach",
+      "connection": "Currently engaged",
+      "cadence": "Daily",
+      "whatToLearn": "Financial analysis, budget management, and strategic political timing",
+      "whatTheyGet": "Creative project ideas and help navigating the emotional aspects of public service setbacks",
+      "notes": "Strong - professional partner who became romantic partner. His analytical approach balances my enthusiasm, and his experience with political failure helps me learn resilience Meeting pattern: Daily collaboration on projects and career planning"
+    },
+    {
+      "name": "Dave Sanderson",
+      "role": "Police officer and tactical planning advisor",
+      "connection": "Occasionally engaged",
+      "cadence": "Monthly",
+      "whatToLearn": "Risk assessment, crowd control strategies, and emergency response protocols",
+      "whatTheyGet": "Detailed event planning and coordination with city departments",
+      "notes": "Moderate - occasional professional collaboration. His practical, safety-focused approach helps ground my ambitious event plans in reality Meeting pattern: Monthly meetings for event security and emergency planning"
+    }
+  ],
+  "sponsors": [
+    {
+      "name": "City Manager Chris Traeger",
+      "role": "Senior city official and budget advocate",
+      "connection": "Currently engaged",
+      "cadence": "Weekly",
+      "whatToLearn": "City-wide resource allocation and cross-departmental collaboration strategies",
+      "whatTheyGet": "Detailed project proposals and measurable results that make him look good to the city council",
+      "notes": "Strong - supportive supervisor who believes in our department. His enthusiastic management style matches my energy, and his influence with the city council is crucial for our major initiatives Meeting pattern: Weekly budget meetings and quarterly performance reviews"
+    },
+    {
+      "name": "Councilman Bill Dexhart",
+      "role": "City council member and occasional political ally",
+      "connection": "Aware of me",
+      "cadence": "Monthly",
+      "whatToLearn": "City council dynamics and the art of political compromise",
+      "whatTheyGet": "Projects that benefit his district and positive publicity for supporting popular initiatives",
+      "notes": "Weak - complicated political relationship. Despite his personal scandals, his vote is important, and I've learned to focus on policy alignment rather than personal judgment Meeting pattern: Monthly city council meetings and occasional private lobbying"
+    }
+  ],
+  "connectors": [
+    {
+      "name": "Ann Perkins",
+      "role": "Nurse and healthcare policy connector",
+      "connection": "Currently engaged",
+      "cadence": "Daily",
+      "whatToLearn": "Healthcare policy, work-life balance, and maintaining friendships while pursuing ambitious goals",
+      "whatTheyGet": "Political advocacy for public health initiatives and help navigating local government processes",
+      "notes": "Strong - best friend and policy collaborator. Her healthcare background opens doors to medical professionals and policy experts, plus she keeps me grounded in real people's needs Meeting pattern: Daily personal conversations and weekly professional collaboration"
+    },
+    {
+      "name": "Tom Haverford",
+      "role": "Entrepreneur and media/marketing connector",
+      "connection": "Currently engaged",
+      "cadence": "Daily",
+      "whatToLearn": "Social media strategy, brand building, and connecting with younger demographics",
+      "whatTheyGet": "Project management support and help turning creative ideas into actionable plans",
+      "notes": "Strong - colleague with complementary skills. His connections to local business owners and understanding of modern marketing are invaluable for promoting city initiatives Meeting pattern: Daily office interaction with monthly collaboration on marketing projects"
+    },
+    {
+      "name": "April Ludgate",
+      "role": "Administrative assistant with youth culture connections",
+      "connection": "Currently engaged",
+      "cadence": "Daily",
+      "whatToLearn": "How to communicate with disaffected youth and the importance of authentic rather than forced enthusiasm",
+      "whatTheyGet": "Career development opportunities and guidance on finding work that actually matters to her",
+      "notes": "Strong - mentee who became valuable team member. Her cynical perspective challenges my assumptions, and her connections to alternative communities help broaden our outreach Meeting pattern: Daily work interaction with weekly career development conversations"
+    }
+  ],
+  "peers": [
+    {
+      "name": "Andy Dwyer",
+      "role": "Parks Department maintenance and enthusiasm peer",
+      "connection": "Currently engaged",
+      "cadence": "Daily",
+      "whatToLearn": "Maintaining childlike wonder and creativity in problem-solving",
+      "whatTheyGet": "Structure for his ideas and help channeling his enthusiasm into productive projects",
+      "notes": "Strong - colleague and friend who shares my energy. His genuine excitement and creative approaches remind me why I love public service and help me see familiar problems from new angles Meeting pattern: Daily work collaboration and weekly social activities"
+    },
+    {
+      "name": "Donna Meagle",
+      "role": "Parks Department administrator and life balance peer",
+      "connection": "Currently engaged",
+      "cadence": "Daily",
+      "whatToLearn": "Self-care, maintaining boundaries, and the importance of personal time and relationships",
+      "whatTheyGet": "Project coordination support and someone who appreciates her organizational skills",
+      "notes": "Strong - colleague who provides perspective on priorities. Her ability to maintain work-life balance while still being effective challenges me to consider whether my intensity is always necessary Meeting pattern: Daily office interaction with monthly deeper conversations about career and life"
+    },
+    {
+      "name": "Jerry Gergich",
+      "role": "Parks Department colleague and family balance example",
+      "connection": "Occasionally engaged",
+      "cadence": "Daily",
+      "whatToLearn": "Contentment with simple pleasures and the value of strong family relationships",
+      "whatTheyGet": "Inclusion in department projects and occasional recognition for his contributions",
+      "notes": "Moderate - daily colleague with occasional meaningful exchanges. Despite being the target of office jokes, his genuine happiness and loving family show me alternative definitions of success Meeting pattern: Daily office interaction with quarterly personal conversations"
+    },
+    {
+      "name": "Mark Brendanawicz",
+      "role": "Former city planner and pragmatic politics peer",
+      "connection": "Aware of me",
+      "cadence": "Occasional coffee meetings and rare project consultations",
+      "whatToLearn": "When to compromise ideals for practical progress and recognizing when it's time to move on",
+      "whatTheyGet": "Updates on city development projects and occasionally consulting opportunities",
+      "notes": "Weak - former colleague who left government. His departure from government service serves as a cautionary tale about burnout, but his practical approach still offers valuable perspective"
+    }
+  ]
+}

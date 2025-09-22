@@ -1,8 +1,8 @@
 /* Floating Action Button */
 .feedback-fab-container {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
+  bottom: 8px;
+  right: 16px;
   z-index: 999;
   display: flex;
   flex-direction: column-reverse;
@@ -37,13 +37,13 @@
 }
 
 .feedback-fab {
-  width: 56px;
-  height: 56px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
-  font-size: 24px;
+  font-size: 20px;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   transition: all 0.3s ease;
@@ -330,14 +330,8 @@
 /* Mobile Responsiveness */
 @media (max-width: 640px) {
   .feedback-fab-container {
-    bottom: 16px;
-    right: 16px;
-  }
-
-  .feedback-fab {
-    width: 48px;
-    height: 48px;
-    font-size: 20px;
+    bottom: 8px;
+    right: 12px;
   }
 
   .feedback-modal-content {

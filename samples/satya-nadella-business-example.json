@@ -1,0 +1,201 @@
+{
+  "you": {
+    "name": "Satya Nadella",
+    "description": "CEO of Microsoft, cloud computing pioneer and cultural transformation leader",
+    "superpowers": [
+      {
+        "name": "Technical Skills",
+        "description": "Cloud computing architecture",
+        "notes": "Cloud computing architecture. AI and machine learning systems. Enterprise software development"
+      },
+      {
+        "name": "Business Skills",
+        "description": "Digital transformation strategies",
+        "notes": "Digital transformation strategies. Platform economics and ecosystems. Strategic partnerships with competitors"
+      },
+      {
+        "name": "Organization Skills",
+        "description": "Growth mindset cultivation",
+        "notes": "Growth mindset cultivation. Empathetic leadership. Cultural transformation"
+      }
+    ],
+    "mentees": [
+      {
+        "name": "Scott Guthrie",
+        "role": "Executive VP of Cloud and AI at Microsoft",
+        "connection": "Currently engaged",
+        "cadence": "Weekly",
+        "notes": "Key leader in Azure's development who I'm grooming for broader leadership.",
+        "whatYouTeach": "Strategic thinking, cultural transformation, and balancing technical depth with business acumen",
+        "whatYouLearn": "Deep technical architecture and developer community dynamics"
+      },
+      {
+        "name": "Rajesh Jha",
+        "role": "Executive VP of Experiences and Devices",
+        "connection": "Currently engaged",
+        "cadence": "Weekly",
+        "notes": "Leading Office 365 and Microsoft's productivity transformation.",
+        "whatYouTeach": "Growth mindset philosophy, customer empathy, and leading through change",
+        "whatYouLearn": "Product innovation in productivity space and managing large engineering teams"
+      },
+      {
+        "name": "Kevin Scott",
+        "role": "CTO of Microsoft",
+        "connection": "Currently engaged",
+        "cadence": "Bi-weekly",
+        "notes": "Brought from LinkedIn to help drive AI strategy across Microsoft.",
+        "whatYouTeach": "Microsoft culture, partner ecosystem dynamics, and enterprise customer needs",
+        "whatYouLearn": "AI research trends, Silicon Valley innovation practices, and startup mentality"
+      }
+    ]
+  },
+  "goals": [
+    {
+      "timeframe": "3 Months (Immediate Goals)",
+      "description": "Accelerate Azure adoption to close the gap with AWS and establish Microsoft as the enterprise cloud leader",
+      "notes": ""
+    },
+    {
+      "timeframe": "1 Year Goals",
+      "description": "Successfully integrate Activision Blizzard acquisition and expand Xbox Game Pass to 50 million subscribers",
+      "notes": ""
+    },
+    {
+      "timeframe": "5+ Year Goals (Long-term Vision)",
+      "description": "Position Microsoft as the leader in AI infrastructure and applications, making Copilot ubiquitous across all knowledge work",
+      "notes": ""
+    },
+    {
+      "timeframe": "Beyond",
+      "description": "",
+      "notes": ""
+    }
+  ],
+  "mentors": [
+    {
+      "name": "Bill Gates",
+      "role": "Microsoft co-founder and technology vision mentor",
+      "connection": "Currently engaged",
+      "cadence": "Monthly",
+      "whatToLearn": "Long-term technology trends, maintaining innovation at scale, and balancing business with social impact",
+      "whatTheyGet": "Confidence that Microsoft's legacy continues and insights on modern technology shifts",
+      "notes": "Strong - regular advisor despite stepping back from daily operations. His emphasis on platform thinking and developer ecosystems shaped my approach to Azure and GitHub Meeting pattern: Monthly one-on-ones and quarterly strategic reviews"
+    },
+    {
+      "name": "Steve Ballmer",
+      "role": "Former Microsoft CEO and organizational transition mentor",
+      "connection": "Occasionally engaged",
+      "cadence": "Quarterly",
+      "whatToLearn": "Microsoft's institutional history, enterprise relationships, and what cultural elements to preserve vs. change",
+      "whatTheyGet": "Validation that Microsoft can transform while respecting its enterprise roots",
+      "notes": "Complex - predecessor with different style but shared Microsoft passion. Despite different leadership styles, his enterprise focus and competitive spirit informed my approach to commercial cloud Meeting pattern: Quarterly check-ins and annual strategic discussions"
+    }
+  ],
+  "coaches": [
+    {
+      "name": "Carol Dweck",
+      "role": "Stanford psychologist and growth mindset coach",
+      "connection": "Currently engaged",
+      "cadence": "Bi-weekly",
+      "whatToLearn": "Growth mindset principles, organizational psychology, and cultural change management",
+      "whatTheyGet": "Real-world application of academic theories and global platform for ideas",
+      "notes": "Strong - intellectual influence and cultural transformation advisor. Her growth mindset research became the foundation of Microsoft's cultural transformation from know-it-all to learn-it-all Meeting pattern: Bi-annual workshops and quarterly culture discussions"
+    },
+    {
+      "name": "Reid Hoffman",
+      "role": "LinkedIn co-founder and strategic networking coach",
+      "connection": "Currently engaged",
+      "cadence": "Monthly",
+      "whatToLearn": "Network effects, platform dynamics, and Silicon Valley innovation culture",
+      "whatTheyGet": "Influence on Microsoft's strategy and successful integration of LinkedIn",
+      "notes": "Strong - board member and strategic advisor post-LinkedIn acquisition. His insights on professional networks and platform strategy influenced our approach to LinkedIn, GitHub, and Teams Meeting pattern: Monthly strategic sessions and quarterly board meetings"
+    }
+  ],
+  "sponsors": [
+    {
+      "name": "John Thompson",
+      "role": "Microsoft Chairman and CEO transition sponsor",
+      "connection": "Currently engaged",
+      "cadence": "Weekly",
+      "whatToLearn": "Board management, CEO transition dynamics, and stakeholder communication",
+      "whatTheyGet": "Successful leadership transition and Microsoft's renewed growth",
+      "notes": "Strong - board chairman who championed my CEO appointment. His support during the CEO selection process and early days was crucial for establishing credibility with investors and employees Meeting pattern: Weekly during transition, monthly ongoing meetings"
+    },
+    {
+      "name": "Brad Smith",
+      "role": "Microsoft President and policy/legal sponsor",
+      "connection": "Currently engaged",
+      "cadence": "Daily",
+      "whatToLearn": "Regulatory navigation, government relations, and global policy dynamics",
+      "whatTheyGet": "Technical vision alignment and CEO support for complex legal strategies",
+      "notes": "Strong - key partner in navigating regulatory and policy challenges. His expertise in regulation and policy allows me to focus on technology and business while he handles complex legal challenges Meeting pattern: Daily collaboration on major issues, weekly leadership meetings"
+    }
+  ],
+  "connectors": [
+    {
+      "name": "Sundar Pichai",
+      "role": "Google CEO and big tech peer connector",
+      "connection": "Occasionally engaged",
+      "cadence": "Quarterly",
+      "whatToLearn": "Consumer technology strategies, AI research approaches, and managing technical talent",
+      "whatTheyGet": "Enterprise insights and potential areas for collaboration despite competition",
+      "notes": "Moderate - competitor and collaborator on industry issues. Our shared Indian heritage and engineering backgrounds create connection despite fierce competition in cloud and productivity Meeting pattern: Quarterly industry forums and occasional direct discussions"
+    },
+    {
+      "name": "Marc Benioff",
+      "role": "Salesforce CEO and enterprise software connector",
+      "connection": "Occasionally engaged",
+      "cadence": "Bi-weekly",
+      "whatToLearn": "SaaS business models, customer success strategies, and stakeholder capitalism",
+      "whatTheyGet": "Platform partnership opportunities and validation of enterprise strategies",
+      "notes": "Complex - competitor and partner with mutual respect. His pioneering of enterprise SaaS influenced Azure's development, and our partnership despite competition shows ecosystem maturity Meeting pattern: Bi-annual conference encounters and strategic discussions"
+    },
+    {
+      "name": "Jensen Huang",
+      "role": "NVIDIA CEO and AI hardware connector",
+      "connection": "Currently engaged",
+      "cadence": "Monthly",
+      "whatToLearn": "AI hardware roadmaps, GPU computing paradigms, and supply chain management",
+      "whatTheyGet": "Major customer commitment and software ecosystem support",
+      "notes": "Strong - critical partner in AI infrastructure. Our partnership on Azure AI infrastructure and his GPU innovations are crucial for Microsoft's AI ambitions Meeting pattern: Monthly during major AI initiatives, quarterly strategic alignment"
+    }
+  ],
+  "peers": [
+    {
+      "name": "Andy Jassy",
+      "role": "Amazon CEO and cloud computing rival",
+      "connection": "Occasionally engaged",
+      "cadence": "Industry events and rare direct interactions",
+      "whatToLearn": "Infrastructure scale economics, developer-first approaches, and long-term investment patience",
+      "whatTheyGet": "Validation of cloud strategies and competitive pressure driving innovation",
+      "notes": "Moderate - fierce competitor with professional respect. AWS's early lead taught us valuable lessons, and our competition drives the entire cloud industry forward"
+    },
+    {
+      "name": "Tim Cook",
+      "role": "Apple CEO and ecosystem strategy peer",
+      "connection": "Occasionally engaged",
+      "cadence": "Bi-weekly",
+      "whatToLearn": "Supply chain excellence, premium positioning, and ecosystem lock-in strategies",
+      "whatTheyGet": "Enterprise partnership opportunities and cross-platform compatibility insights",
+      "notes": "Moderate - different strategies with mutual respect. Our different approaches - his closed ecosystem vs. our openness - offer contrasting paths to platform success Meeting pattern: Bi-annual industry summits and occasional partnership discussions"
+    },
+    {
+      "name": "Arvind Krishna",
+      "role": "IBM CEO and enterprise transformation peer",
+      "connection": "Currently engaged",
+      "cadence": "Quarterly",
+      "whatToLearn": "Hybrid cloud strategies, enterprise consulting integration, and legacy system modernization",
+      "whatTheyGet": "Cloud platform partnership and modern development tools",
+      "notes": "Strong - enterprise market peer with complementary strengths. IBM's enterprise relationships and our cloud platform create natural partnership opportunities despite competition Meeting pattern: Quarterly enterprise forums and partnership discussions"
+    },
+    {
+      "name": "Pat Gelsinger",
+      "role": "Intel CEO and hardware/software integration peer",
+      "connection": "Currently engaged",
+      "cadence": "Monthly",
+      "whatToLearn": "Chip design roadmaps, manufacturing challenges, and hardware/software co-design",
+      "whatTheyGet": "Software optimization for new architectures and strategic customer commitment",
+      "notes": "Strong - long history from his previous Microsoft involvement. Our partnership on confidential computing and edge scenarios shows how former Wintel alliance evolves in cloud era Meeting pattern: Monthly technical discussions and quarterly business reviews"
+    }
+  ]
+}

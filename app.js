@@ -172,6 +172,8 @@ function App() {
   const [authError, setAuthError] = useState('');
   const [writingResultsModal, setWritingResultsModal] = useState({ show: false });
   const [authLoading, setAuthLoading] = useState(false);
+  const [showChangeRoleModal, setShowChangeRoleModal] = useState(false);
+  const [changeRoleData, setChangeRoleData] = useState({ member: null, oldType: '', memberIndex: -1 });
 
   // Function to check if a section meets completion criteria
   const getSectionCompletionStatus = () => {
@@ -361,6 +363,40 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
       list.splice(index, 1);
       return { ...prev, [type]: list };
     });
+  };
+
+  const handleChangeRoleClick = (oldType, member, memberIndex) => {
+    setChangeRoleData({ member, oldType, memberIndex });
+    setShowChangeRoleModal(true);
+  };
+
+  const handleChangeRole = (newType) => {
+    const { member, oldType, memberIndex } = changeRoleData;
+
+    if (oldType === newType) {
+      // No change needed
+      setShowChangeRoleModal(false);
+      return;
+    }
+
+    setData(prev => {
+      // Remove from old type
+      const oldList = [...prev[oldType]];
+      oldList.splice(memberIndex, 1);
+
+      // Add to new type
+      const newList = [...(prev[newType] || [])];
+      newList.push(member);
+
+      return {
+        ...prev,
+        [oldType]: oldList,
+        [newType]: newList
+      };
+    });
+
+    setShowChangeRoleModal(false);
+    setChangeRoleData({ member: null, oldType: '', memberIndex: -1 });
   };
 
   const saveEntry = entry => {
@@ -1497,12 +1533,12 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
     <div className="app" style={{ backgroundImage: `url(${page.image})` }}>
       <input type="file" id="upload" accept="application/json" style={{ display: 'none' }} onChange={handleUpload} />
       <div className="top-buttons">
-        <Tooltip text="Import a backup *.json file to restore previously saved board data">
+        <BottomTooltip text="Import a backup *.json file to restore previously saved board data">
           <button onClick={() => document.getElementById('upload').click()}>Upload</button>
-        </Tooltip>
-        <Tooltip text="Clear all data and start with a fresh board">
+        </BottomTooltip>
+        <BottomTooltip text="Clear all data and start with a fresh board">
           <button onClick={reset}>Start New</button>
-        </Tooltip>
+        </BottomTooltip>
       </div>
       <Quote text={page.quote} position={page.quotePosition} />
       {current !== 'intro' && current !== 'board' && (
@@ -1595,7 +1631,7 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
         </div>
       )}
       <div className="content">
-        {current === 'intro' ? <Intro onLearnClick={() => setShowIntroLearn(true)} onVideoClick={() => setShowVideoModal(true)} /> : current === 'you' ? <You data={data.you || {superpowers: [], mentees: []}} onEdit={handleEdit} onDelete={handleDelete} /> : current === 'goals' ? <Goals items={data[current] || []} onEdit={handleEdit} /> : current === 'board' ? <Board data={data} boardAdvice={boardAdvice} boardAdviceLoading={boardAdviceLoading} /> : current === 'mentors' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} /> : current === 'coaches' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} /> : <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} />}
+        {current === 'intro' ? <Intro onLearnClick={() => setShowIntroLearn(true)} onVideoClick={() => setShowVideoModal(true)} /> : current === 'you' ? <You data={data.you || {superpowers: [], mentees: []}} onEdit={handleEdit} onDelete={handleDelete} /> : current === 'goals' ? <Goals items={data[current] || []} onEdit={handleEdit} /> : current === 'board' ? <Board data={data} boardAdvice={boardAdvice} boardAdviceLoading={boardAdviceLoading} /> : current === 'mentors' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} onChangeRole={handleChangeRoleClick} /> : current === 'coaches' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} onChangeRole={handleChangeRoleClick} /> : <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} onChangeRole={handleChangeRoleClick} />}
       </div>
       <nav className="nav">
         {pages.map(p => {
@@ -1667,6 +1703,13 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
         }}
         error={authError}
         loading={authLoading}
+      />}
+
+      {showChangeRoleModal && <ChangeRoleModal
+        member={changeRoleData.member}
+        oldType={changeRoleData.oldType}
+        onChangeRole={handleChangeRole}
+        onClose={() => setShowChangeRoleModal(false)}
       />}
 
       <WritingResultsModal
@@ -1886,7 +1929,7 @@ function You({ data, onEdit, onDelete }) {
   );
 }
 
-function List({ type, items, onEdit, onDelete }) {
+function List({ type, items, onEdit, onDelete, onChangeRole }) {
   return (
     <div className="list">
       {items.map((item, idx) => (
@@ -1894,12 +1937,21 @@ function List({ type, items, onEdit, onDelete }) {
           <div className="card-header">
             <h3>{item.name}</h3>
             <div className="card-actions">
-              <button className="icon-btn edit-btn" onClick={() => onEdit(type, item, idx)} title="Edit">
-                ✏️
-              </button>
-              <button className="icon-btn delete-btn" onClick={() => onDelete(type, idx)} title="Delete">
-                🗑️
-              </button>
+              <Tooltip text="Edit">
+                <button className="icon-btn edit-btn" onClick={() => onEdit(type, item, idx)}>
+                  ✏️
+                </button>
+              </Tooltip>
+              <Tooltip text="Change Role">
+                <button className="icon-btn change-role-btn" onClick={() => onChangeRole(type, item, idx)}>
+                  🔄
+                </button>
+              </Tooltip>
+              <Tooltip text="Delete">
+                <button className="icon-btn delete-btn" onClick={() => onDelete(type, idx)}>
+                  🗑️
+                </button>
+              </Tooltip>
             </div>
           </div>
           <p><strong>Role:</strong> {item.role}</p>
@@ -2295,6 +2347,129 @@ function Board({ data, boardAdvice, boardAdviceLoading }) {
         </div>
       )}
 
+      {/* Board Member Details Section */}
+      {allMembers.length > 0 && (
+        <div className="board-section-white" style={{
+          marginTop: '40px',
+          padding: '25px',
+          backgroundColor: '#ffffff',
+          borderRadius: '12px',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+          border: '1px solid #e5e7eb'
+        }}>
+          <h2 style={{
+            fontSize: '1.5rem',
+            fontWeight: '700',
+            color: '#2563eb',
+            marginBottom: '20px',
+            borderBottom: '2px solid #2563eb',
+            paddingBottom: '10px'
+          }}>
+            Board Member Details
+          </h2>
+          {Object.keys(data).map(type => {
+            if (!data[type] || type === 'goals' || type === 'you' || data[type].length === 0) return null;
+
+            return (
+              <div key={type} style={{ marginBottom: '30px' }}>
+                <h3 style={{
+                  fontSize: '1.3rem',
+                  fontWeight: '600',
+                  color: colors[type] || '#6b7280',
+                  marginBottom: '15px',
+                  textTransform: 'capitalize'
+                }}>
+                  {type}
+                </h3>
+                {data[type].map((member, index) => (
+                  <div key={index} style={{
+                    marginBottom: '25px',
+                    paddingLeft: '20px',
+                    borderLeft: `4px solid ${colors[type] || '#6b7280'}`,
+                    backgroundColor: '#ffffff',
+                    padding: '15px 15px 15px 20px',
+                    borderRadius: '0 8px 8px 0'
+                  }}>
+                    <h4 style={{
+                      fontSize: '1.2rem',
+                      fontWeight: '600',
+                      color: '#1f2937',
+                      marginBottom: '5px'
+                    }}>
+                      {member.name}
+                    </h4>
+                    <p style={{
+                      fontSize: '0.9rem',
+                      color: '#6b7280',
+                      marginBottom: '10px'
+                    }}>
+                      {member.role} • {member.connection} • {member.cadence}
+                    </p>
+                    {member.notes && (
+                      <div style={{ marginBottom: '10px' }}>
+                        <h5 style={{
+                          fontSize: '0.9rem',
+                          fontWeight: '600',
+                          color: '#6b7280',
+                          marginBottom: '4px'
+                        }}>
+                          Notes:
+                        </h5>
+                        <p style={{
+                          fontSize: '0.95rem',
+                          color: '#4b5563',
+                          lineHeight: '1.6'
+                        }}>
+                          {member.notes}
+                        </p>
+                      </div>
+                    )}
+                    {member.whatToLearn && (
+                      <div style={{ marginBottom: '10px' }}>
+                        <h5 style={{
+                          fontSize: '0.9rem',
+                          fontWeight: '600',
+                          color: '#10b981',
+                          marginBottom: '4px'
+                        }}>
+                          What You Learn From Them:
+                        </h5>
+                        <p style={{
+                          fontSize: '0.95rem',
+                          color: '#4b5563',
+                          lineHeight: '1.6'
+                        }}>
+                          {member.whatToLearn}
+                        </p>
+                      </div>
+                    )}
+                    {member.whatTheyGet && (
+                      <div>
+                        <h5 style={{
+                          fontSize: '0.9rem',
+                          fontWeight: '600',
+                          color: colors[type] || '#6b7280',
+                          marginBottom: '4px'
+                        }}>
+                          What They Get From You:
+                        </h5>
+                        <p style={{
+                          fontSize: '0.95rem',
+                          color: '#4b5563',
+                          lineHeight: '1.6'
+                        }}>
+                          {member.whatTheyGet}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Mentees Section - matching PDF style */}
       {data.you && data.you.mentees && data.you.mentees.length > 0 && (
         <div className="board-section-white" style={{
@@ -2422,6 +2597,7 @@ function IntroLearnModal({ onClose }) {
             <h3 style={{color: '#2563eb', fontSize: '1.1em', marginBottom: '8px'}}>What It Is</h3>
             <p>Your Personal Board of Directors is a structured but living system to align your career with the people who will help you grow. The program takes you through:</p>
             <p><strong>Intro</strong> – Framing your career journey.</p>
+            <p><strong>You</strong> – Setting technical, business, and organization superpowers.</p>
             <p><strong>Goals</strong> – Setting immediate, 1-year, and 5-year objectives.</p>
             <p><strong>Mentors</strong> – Wisdom and perspective.</p>
             <p><strong>Coaches</strong> – Skill and performance building.</p>
@@ -5013,6 +5189,98 @@ function WritingResultsModal({ modal, onClose }) {
           >
             {modal.type === 'success' && modal.improvements ? 'Cancel' : 'Got it!'}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChangeRoleModal({ member, oldType, onChangeRole, onClose }) {
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
+  const boardMemberTypes = [
+    { key: 'mentors', label: 'Mentors', description: 'Wisdom & strategic guidance' },
+    { key: 'coaches', label: 'Coaches', description: 'Skills & performance building' },
+    { key: 'sponsors', label: 'Sponsors', description: 'Advocacy & door opening' },
+    { key: 'connectors', label: 'Connectors', description: 'Network expansion' },
+    { key: 'peers', label: 'Peers', description: 'Mutual support & collaboration' }
+  ];
+
+  const handleRoleSelect = (newType) => {
+    onChangeRole(newType);
+  };
+
+  return (
+    <div className="modal" onClick={handleOverlayClick}>
+      <div className="modal-content" style={{maxWidth: '500px'}}>
+        <div className="modal-header">
+          <h2>Change Role for {member?.name}</h2>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+
+        <div className="modal-body">
+          <p style={{marginBottom: '20px', color: '#666'}}>
+            Currently: <strong>{oldType?.charAt(0).toUpperCase() + oldType?.slice(1, -1)}</strong>
+          </p>
+          <p style={{marginBottom: '20px', color: '#666'}}>
+            Select a new role for this board member:
+          </p>
+
+          <div style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
+            {boardMemberTypes.map(type => (
+              <button
+                key={type.key}
+                onClick={() => handleRoleSelect(type.key)}
+                disabled={type.key === oldType}
+                style={{
+                  padding: '16px 20px',
+                  border: `2px solid ${type.key === oldType ? '#e5e7eb' : '#2563eb'}`,
+                  borderRadius: '8px',
+                  background: type.key === oldType ? '#f9fafb' : 'white',
+                  color: type.key === oldType ? '#9ca3af' : '#1f2937',
+                  cursor: type.key === oldType ? 'not-allowed' : 'pointer',
+                  textAlign: 'left',
+                  transition: 'all 0.2s ease',
+                  opacity: type.key === oldType ? 0.5 : 1
+                }}
+                onMouseOver={(e) => {
+                  if (type.key !== oldType) {
+                    e.target.style.backgroundColor = '#eff6ff';
+                    e.target.style.borderColor = '#1d4ed8';
+                  }
+                }}
+                onMouseOut={(e) => {
+                  if (type.key !== oldType) {
+                    e.target.style.backgroundColor = 'white';
+                    e.target.style.borderColor = '#2563eb';
+                  }
+                }}
+              >
+                <div style={{fontWeight: '600', fontSize: '16px', marginBottom: '4px'}}>
+                  {type.label}
+                </div>
+                <div style={{fontSize: '14px', opacity: 0.8}}>
+                  {type.description}
+                </div>
+              </button>
+            ))}
+          </div>
+
+          <div style={{
+            marginTop: '20px',
+            padding: '12px',
+            backgroundColor: '#fef3c7',
+            border: '1px solid #f59e0b',
+            borderRadius: '6px'
+          }}>
+            <p style={{margin: 0, fontSize: '14px', color: '#92400e'}}>
+              💡 All member details (notes, learnings, etc.) will be preserved when changing roles.
+            </p>
+          </div>
         </div>
       </div>
     </div>

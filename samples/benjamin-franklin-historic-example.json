@@ -1,0 +1,192 @@
+{
+  "you": {
+    "name": "Benjamin Franklin",
+    "description": "Polymath, inventor, diplomat, and founding father",
+    "superpowers": [
+      {
+        "name": "Technical Skills",
+        "description": "Scientific inquiry and",
+        "notes": "Scientific inquiry and experimental methodology. Writing and persuasive communication. Innovation and practical problem solving"
+      },
+      {
+        "name": "Business Skills",
+        "description": "Diplomatic negotiation and",
+        "notes": "Diplomatic negotiation and international relations. Publishing and printing industry expertise"
+      },
+      {
+        "name": "Organization Skills",
+        "description": "Networking and relationship",
+        "notes": "Networking and relationship building. Public speaking and debate. Coalition building"
+      }
+    ],
+    "mentees": [
+      {
+        "name": "William Temple Franklin",
+        "role": "Grandson and diplomatic secretary",
+        "connection": "Currently engaged",
+        "cadence": "Daily",
+        "notes": "My grandson who I'm training in diplomacy and scientific inquiry. He serves as my secretary in Paris.",
+        "whatYouTeach": "Diplomatic protocol, scientific methodology, and the art of negotiation",
+        "whatYouLearn": "Fresh perspectives on younger generation's views and modern European fashion"
+      },
+      {
+        "name": "Francis Hopkinson",
+        "role": "Lawyer, musician, and fellow inventor",
+        "connection": "Occasionally engaged",
+        "cadence": "Monthly",
+        "notes": "A talented young polymath who seeks my guidance on balancing artistic and scientific pursuits.",
+        "whatYouTeach": "Scientific experimentation, political philosophy, and how to influence through writing",
+        "whatYouLearn": "Musical composition techniques and the role of arts in political movements"
+      }
+    ]
+  },
+  "goals": [
+    {
+      "timeframe": "3 Months (Immediate Goals)",
+      "description": "Complete negotiations with France for military alliance against Britain",
+      "notes": ""
+    },
+    {
+      "timeframe": "1 Year Goals",
+      "description": "Establish postal system improvements and expand printing business partnerships across colonies",
+      "notes": ""
+    },
+    {
+      "timeframe": "5+ Year Goals (Long-term Vision)",
+      "description": "Help draft and ratify a new constitution for the United States that balances federal and state powers",
+      "notes": ""
+    },
+    {
+      "timeframe": "Beyond",
+      "description": "",
+      "notes": ""
+    }
+  ],
+  "mentors": [
+    {
+      "name": "Cotton Mather",
+      "role": "Puritan minister and intellectual guide",
+      "connection": "Currently engaged",
+      "cadence": "Monthly",
+      "whatToLearn": "Moral philosophy, scientific methodology, and the integration of faith with empirical inquiry",
+      "whatTheyGet": "Fresh perspectives on natural philosophy and access to my experimental observations",
+      "notes": "Strong - met through Boston intellectual circles. Though we disagree on some religious matters, his scientific curiosity and systematic approach to learning greatly influenced my early intellectual development Meeting pattern: Monthly correspondence and occasional meetings"
+    },
+    {
+      "name": "Peter Collinson",
+      "role": "British merchant and natural philosopher",
+      "connection": "Currently engaged",
+      "cadence": "Weekly",
+      "whatToLearn": "European scientific developments, botanical knowledge, and international scholarly networks",
+      "whatTheyGet": "Reports on American electrical experiments and natural observations from the colonies",
+      "notes": "Strong - longtime correspondent and patron. He introduced me to the Royal Society and provided crucial scientific instruments for my electrical experiments Meeting pattern: Regular letters every 2-3 weeks"
+    }
+  ],
+  "coaches": [
+    {
+      "name": "Josiah Franklin",
+      "role": "Father and business ethics instructor",
+      "connection": "Currently engaged",
+      "cadence": "Weekly",
+      "whatToLearn": "Practical business management, ethical trade practices, and financial discipline",
+      "whatTheyGet": "Ideas for business innovation and updates on printing industry developments",
+      "notes": "Strong - family relationship. Though he wanted me to be a candle maker, his lessons on hard work and honest dealing shaped my business philosophy Meeting pattern: Weekly family dinners and business discussions"
+    },
+    {
+      "name": "James Logan",
+      "role": "Scholar and Pennsylvania colonial secretary",
+      "connection": "Occasionally engaged",
+      "cadence": "Monthly",
+      "whatToLearn": "Classical languages, formal logic, and governmental administration",
+      "whatTheyGet": "Practical insights on colonial affairs and printing services for government documents",
+      "notes": "Moderate - professional relationship through Pennsylvania politics. His vast library and classical education help refine my self-taught learning approach Meeting pattern: Monthly meetings during political seasons"
+    }
+  ],
+  "sponsors": [
+    {
+      "name": "Thomas Penn",
+      "role": "Proprietor of Pennsylvania colony",
+      "connection": "Occasionally engaged",
+      "cadence": "Quarterly",
+      "whatToLearn": "High-level colonial politics and land development strategies",
+      "whatTheyGet": "Public support for proprietary policies and access to popular opinion through my publications",
+      "notes": "Moderate - complex political relationship. Though we often disagree on taxation and representation, his support has been crucial for major civic projects Meeting pattern: Quarterly formal meetings and correspondence"
+    },
+    {
+      "name": "Lord Hillsborough",
+      "role": "British Secretary of State for Colonial Affairs",
+      "connection": "Aware of me",
+      "cadence": "Bi-weekly",
+      "whatToLearn": "British imperial policy and European diplomatic strategies",
+      "whatTheyGet": "Intelligence on American colonial sentiment and potential compromise positions",
+      "notes": "Weak - formal diplomatic relationship. Our relationship is strained due to colonial taxation disputes, but he remains a key figure for American interests in London Meeting pattern: Bi-annual formal diplomatic meetings"
+    }
+  ],
+  "connectors": [
+    {
+      "name": "David Hume",
+      "role": "Scottish philosopher and historian",
+      "connection": "Currently engaged",
+      "cadence": "Quarterly",
+      "whatToLearn": "Philosophical methodology and historical analysis techniques",
+      "whatTheyGet": "American perspectives on human nature and practical applications of philosophical principles",
+      "notes": "Strong - intellectual friendship. His skeptical philosophy challenges my thinking while his network includes leading European intellectuals Meeting pattern: Quarterly correspondence and annual meetings when in Edinburgh"
+    },
+    {
+      "name": "Dr. John Fothergill",
+      "role": "Quaker physician and botanist in London",
+      "connection": "Currently engaged",
+      "cadence": "Monthly",
+      "whatToLearn": "Medical advances and Quaker approaches to social reform",
+      "whatTheyGet": "American botanical specimens and insights on colonial health practices",
+      "notes": "Strong - scientific and political ally. His connections span both scientific societies and peace-minded political circles crucial for American negotiations Meeting pattern: Monthly meetings when in London, regular correspondence"
+    },
+    {
+      "name": "Marquis de Lafayette",
+      "role": "French aristocrat and military officer",
+      "connection": "Currently engaged",
+      "cadence": "Weekly",
+      "whatToLearn": "French court etiquette and European military strategies",
+      "whatTheyGet": "Strategic advice on American military capabilities and democratic ideals",
+      "notes": "Strong - diplomatic and personal friendship. His enthusiasm for American liberty and connections to French nobility make him invaluable for securing French alliance Meeting pattern: Weekly meetings during Paris diplomatic mission"
+    }
+  ],
+  "peers": [
+    {
+      "name": "John Adams",
+      "role": "Fellow diplomat and political philosopher",
+      "connection": "Currently engaged",
+      "cadence": "Daily",
+      "whatToLearn": "Legal reasoning and Massachusetts political strategies",
+      "whatTheyGet": "Diplomatic experience and insights on French culture and negotiation",
+      "notes": "Strong - collaborative working relationship. Though he sometimes finds my informal style inappropriate, our complementary skills make us an effective diplomatic team Meeting pattern: Daily interaction during joint diplomatic missions"
+    },
+    {
+      "name": "George Washington",
+      "role": "Military commander and fellow founding father",
+      "connection": "Currently engaged",
+      "cadence": "Monthly",
+      "whatToLearn": "Military leadership and executive decision-making under pressure",
+      "whatTheyGet": "Political strategy advice and help with international support for the Continental Army",
+      "notes": "Strong - mutual respect and collaboration. His integrity and leadership complement my diplomatic skills - together we represent different but essential aspects of American leadership Meeting pattern: Monthly correspondence, quarterly face-to-face meetings"
+    },
+    {
+      "name": "Thomas Jefferson",
+      "role": "Fellow diplomat and political theorist",
+      "connection": "Currently engaged",
+      "cadence": "Weekly",
+      "whatToLearn": "Architectural principles and systematic approaches to legal reform",
+      "whatTheyGet": "Practical diplomatic experience and insights on French scientific circles",
+      "notes": "Strong - intellectual partnership. His idealism and philosophical depth balance my pragmatism - we often debate the proper role of government in society Meeting pattern: Weekly discussions during shared time in Paris"
+    },
+    {
+      "name": "Joseph Priestley",
+      "role": "Natural philosopher and fellow experimenter",
+      "connection": "Currently engaged",
+      "cadence": "Weekly",
+      "whatToLearn": "Chemistry advances and systematic experimental design",
+      "whatTheyGet": "Electrical experiment results and American scientific observations",
+      "notes": "Strong - scientific collaboration. Our shared commitment to experimental philosophy creates productive intellectual exchanges, though we sometimes disagree on political matters Meeting pattern: Bi-weekly correspondence with quarterly experimental sessions"
+    }
+  ]
+}

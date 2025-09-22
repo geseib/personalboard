@@ -1,0 +1,201 @@
+{
+  "you": {
+    "name": "Steve Jobs",
+    "description": "Co-founder and CEO of Apple, visionary technology entrepreneur and product innovator",
+    "superpowers": [
+      {
+        "name": "Technical Skills",
+        "description": "Product design and",
+        "notes": "Product design and user experience. Technology integration with liberal arts. Software and hardware convergence"
+      },
+      {
+        "name": "Business Skills",
+        "description": "Platform ecosystem development",
+        "notes": "Platform ecosystem development. Retail innovation and experience design. Supply chain and operations management"
+      },
+      {
+        "name": "Organization Skills",
+        "description": "Reality distortion field",
+        "notes": "Reality distortion field - inspiring impossible achievements. Presentation mastery. Simplification and focus"
+      }
+    ],
+    "mentees": [
+      {
+        "name": "Jony Ive",
+        "role": "Chief Design Officer at Apple",
+        "connection": "Currently engaged",
+        "cadence": "Daily",
+        "notes": "My closest collaborator who shares my obsession with simplicity and perfection in design.",
+        "whatYouTeach": "Product philosophy, the importance of saying no, and fighting for design integrity",
+        "whatYouLearn": "Industrial design techniques and British perspectives on craftsmanship"
+      },
+      {
+        "name": "Tim Cook",
+        "role": "COO and successor at Apple",
+        "connection": "Currently engaged",
+        "cadence": "Daily",
+        "notes": "Teaching him Apple's culture while learning from his operational excellence.",
+        "whatYouTeach": "Product vision, company culture, and maintaining Apple's innovative edge",
+        "whatYouLearn": "Supply chain mastery, operational discipline, and managing global logistics"
+      },
+      {
+        "name": "Mark Zuckerberg",
+        "role": "Facebook CEO",
+        "connection": "Occasionally engaged",
+        "cadence": "Quarterly",
+        "notes": "Young entrepreneur who seeks advice on product and company building, though we disagree on privacy.",
+        "whatYouTeach": "Product focus, building company culture, and the importance of controlling user experience",
+        "whatYouLearn": "Social networking dynamics and next generation's digital habits"
+      }
+    ]
+  },
+  "goals": [
+    {
+      "timeframe": "3 Months (Immediate Goals)",
+      "description": "Launch the iPhone successfully and establish it as a revolutionary device that redefines mobile computing",
+      "notes": ""
+    },
+    {
+      "timeframe": "1 Year Goals",
+      "description": "Build the App Store ecosystem to create a sustainable platform for developers and recurring revenue for Apple",
+      "notes": ""
+    },
+    {
+      "timeframe": "5+ Year Goals (Long-term Vision)",
+      "description": "Transform Apple into the most valuable technology company by expanding into tablets, revolutionizing retail, and creating an integrated ecosystem of devices",
+      "notes": ""
+    },
+    {
+      "timeframe": "Beyond",
+      "description": "",
+      "notes": ""
+    }
+  ],
+  "mentors": [
+    {
+      "name": "Andy Grove",
+      "role": "Intel CEO and strategic business mentor",
+      "connection": "Currently engaged",
+      "cadence": "Monthly",
+      "whatToLearn": "Strategic inflection points, operational excellence, and managing through crisis",
+      "whatTheyGet": "Insights into consumer technology trends and next generation computing paradigms",
+      "notes": "Strong - regular advisor on critical business decisions. His 'Only the Paranoid Survive' philosophy shaped my approach to competitive threats and the importance of cannibilizing our own products Meeting pattern: Monthly one-on-one sessions and emergency calls for major decisions"
+    },
+    {
+      "name": "Mike Markkula",
+      "role": "Apple's first major investor and business mentor",
+      "connection": "Currently engaged",
+      "cadence": "Weekly",
+      "whatToLearn": "Marketing philosophy, building company culture, and the importance of product positioning",
+      "whatTheyGet": "Vision for technology's future and validation of investment strategies",
+      "notes": "Strong - board member and father figure in business. He taught me the three keys to Apple: empathy with customers, focus, and impute - ensuring every touchpoint reflects our values Meeting pattern: Bi-weekly meetings during critical periods, monthly board interactions"
+    }
+  ],
+  "coaches": [
+    {
+      "name": "Bill Campbell",
+      "role": "Executive coach and leadership advisor",
+      "connection": "Currently engaged",
+      "cadence": "Weekly",
+      "whatToLearn": "Team building, managing executive relationships, and balancing vision with operational needs",
+      "whatTheyGet": "Front-row seat to technology innovation and influence on industry direction",
+      "notes": "Strong - trusted coach known as 'Coach of Silicon Valley'. He helps me navigate board relationships and manage my perfectionist tendencies while maintaining high standards Meeting pattern: Weekly walks and Sunday football sessions"
+    },
+    {
+      "name": "Kobun Chino Otogawa",
+      "role": "Zen Buddhist priest and spiritual advisor",
+      "connection": "Currently engaged",
+      "cadence": "Irregular but profound sessions during major life decisions",
+      "whatToLearn": "Zen principles, simplicity in design thinking, and finding clarity through meditation",
+      "whatTheyGet": "Support for Buddhist centers and integration of Eastern philosophy in Western business",
+      "notes": "Strong - spiritual guide since my early twenties. His teachings on simplicity and focus deeply influence my product philosophy - the elimination of the unnecessary to reveal the essential"
+    }
+  ],
+  "sponsors": [
+    {
+      "name": "Bob Iger",
+      "role": "Disney CEO and strategic business partner",
+      "connection": "Currently engaged",
+      "cadence": "Monthly",
+      "whatToLearn": "Content industry dynamics, managing creative businesses, and strategic M&A",
+      "whatTheyGet": "Technology innovation for Disney and insights on digital distribution future",
+      "notes": "Strong - board member at Disney after Pixar acquisition. Our Pixar-Disney deal showed me how to leverage content and technology together, influencing my vision for iTunes and Apple TV+ Meeting pattern: Monthly board meetings and quarterly strategic sessions"
+    },
+    {
+      "name": "Larry Ellison",
+      "role": "Oracle CEO and personal friend/business ally",
+      "connection": "Currently engaged",
+      "cadence": "Weekly",
+      "whatToLearn": "Enterprise software strategies, competitive warfare tactics, and luxury lifestyle design",
+      "whatTheyGet": "Consumer technology insights and validation of business strategies from a peer",
+      "notes": "Strong - close personal friend and informal advisor. His fierce competitive nature and willingness to fight rivals resonates with my approach to competition, particularly with Microsoft and Google Meeting pattern: Weekly personal time and monthly business discussions"
+    }
+  ],
+  "connectors": [
+    {
+      "name": "Rupert Murdoch",
+      "role": "Media mogul and content industry connector",
+      "connection": "Occasionally engaged",
+      "cadence": "Quarterly",
+      "whatToLearn": "Content industry politics, global media strategies, and negotiating with content owners",
+      "whatTheyGet": "Access to digital distribution platforms and insights on technology disruption of media",
+      "notes": "Moderate - complex relationship balancing competition and cooperation. Despite tensions over content pricing, his network provides crucial relationships for iTunes and Apple TV+ content deals Meeting pattern: Quarterly industry events and annual strategic meetings"
+    },
+    {
+      "name": "Bono",
+      "role": "U2 frontman and cultural connector",
+      "connection": "Currently engaged",
+      "cadence": "Quarterly",
+      "whatToLearn": "Cultural relevance, artistic authenticity, and global social consciousness",
+      "whatTheyGet": "Revolutionary music distribution platforms and marketing innovations for U2",
+      "notes": "Strong - creative partnership around music and technology. Our collaboration on iPod U2 edition and iTunes exclusives showed how to merge technology with cultural icons Meeting pattern: Quarterly creative sessions and product launch collaborations"
+    },
+    {
+      "name": "John Lasseter",
+      "role": "Pixar CCO and creative technology connector",
+      "connection": "Currently engaged",
+      "cadence": "Weekly",
+      "whatToLearn": "Creative process management, storytelling excellence, and nurturing artistic talent",
+      "whatTheyGet": "Business strategy and technology resources to realize creative visions",
+      "notes": "Strong - key partner in Pixar's success. His creative genius at Pixar taught me how to manage creative teams without stifling innovation - crucial for Apple's design team Meeting pattern: Weekly during Pixar involvement, monthly after Disney sale"
+    }
+  ],
+  "peers": [
+    {
+      "name": "Bill Gates",
+      "role": "Microsoft founder and technology industry peer/rival",
+      "connection": "Occasionally engaged",
+      "cadence": "Annually",
+      "whatToLearn": "Software platform strategies, philanthropic approaches, and different paths to technology impact",
+      "whatTheyGet": "Validation of different approaches and mutual respect despite competition",
+      "notes": "Complex - fierce competitor who became philosophical peer. Our rivalry drove innovation in personal computing, though we fundamentally disagree on open vs. integrated approaches Meeting pattern: Annual industry encounters and rare private conversations"
+    },
+    {
+      "name": "Michael Dell",
+      "role": "Dell founder and computer industry peer",
+      "connection": "Aware of me",
+      "cadence": "Industry events and public exchanges",
+      "whatToLearn": "Supply chain optimization and direct-to-consumer models",
+      "whatTheyGet": "Lessons on product differentiation and premium positioning",
+      "notes": "Weak - public antagonist turned grudging respecter. His 1997 comment about shutting Apple down and returning money to shareholders motivates me to prove the value of innovation over pure efficiency"
+    },
+    {
+      "name": "Jeff Bezos",
+      "role": "Amazon founder and technology visionary peer",
+      "connection": "Occasionally engaged",
+      "cadence": "Bi-weekly",
+      "whatToLearn": "Long-term thinking, customer obsession at scale, and platform economics",
+      "whatTheyGet": "Product innovation insights and understanding of premium market strategies",
+      "notes": "Moderate - mutual respect with competitive tensions. His customer focus aligns with my philosophy, though our approaches differ - his everything store vs. my curated experience Meeting pattern: Bi-annual industry summits and occasional strategic discussions"
+    },
+    {
+      "name": "Mark Zuckerberg",
+      "role": "Facebook founder and next-generation technology peer",
+      "connection": "Occasionally engaged",
+      "cadence": "Occasional dinners and product discussion sessions",
+      "whatToLearn": "Social networking dynamics and next-generation user behavior",
+      "whatTheyGet": "Product philosophy and lessons on building sustainable business models",
+      "notes": "Moderate - mentee-like relationship with growing tensions. His rapid iteration approach contrasts with my perfectionism, and our different views on privacy create philosophical tensions"
+    }
+  ]
+}

@@ -58,7 +58,7 @@ echo -e "${YELLOW}📤 Syncing files to S3...${NC}"
 
 # Delete old files first (optional - ensures clean deployment)
 echo -e "${YELLOW}🧹 Cleaning S3 bucket...${NC}"
-aws s3 rm s3://$BUCKET_NAME/ --recursive --exclude "images/*"
+# aws s3 rm s3://$BUCKET_NAME/ --recursive --exclude "images/*"
 
 # Sync HTML files with no cache
 aws s3 sync dist/ s3://$BUCKET_NAME/ \
@@ -70,14 +70,18 @@ aws s3 sync dist/ s3://$BUCKET_NAME/ \
     --exclude "*.gif" \
     --exclude "*.svg" \
     --exclude "*.ico" \
-    --cache-control "no-cache, no-store, must-revalidate"
+    --cache-control "no-cache, no-store, must-revalidate" \
+    --cli-connect-timeout 600 \
+    --cli-read-timeout 600
 
 # Sync CSS and JS files with longer cache
 aws s3 sync dist/ s3://$BUCKET_NAME/ \
     --exclude "*" \
     --include "*.js" \
     --include "*.css" \
-    --cache-control "public, max-age=31536000, immutable"
+    --cache-control "public, max-age=31536000, immutable" \
+    --cli-connect-timeout 600 \
+    --cli-read-timeout 600
 
 # Sync images with medium cache
 aws s3 sync dist/ s3://$BUCKET_NAME/ \
@@ -88,7 +92,9 @@ aws s3 sync dist/ s3://$BUCKET_NAME/ \
     --include "*.gif" \
     --include "*.svg" \
     --include "*.ico" \
-    --cache-control "public, max-age=86400"
+    --cache-control "public, max-age=86400" \
+    --cli-connect-timeout 600 \
+    --cli-read-timeout 600
 
 # Copy images from public directory if they exist
 if [ -d "public/images" ]; then

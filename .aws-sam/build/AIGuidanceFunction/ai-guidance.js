@@ -260,6 +260,10 @@ exports.handler = async (event) => {
     if (type === 'mentor_advisor' || type === 'board_member_advisor') {
       // For board member advisors, use the specific member type as the category
       category = data.memberType || 'mentors'; // Use memberType from request data
+    } else if (type.endsWith('_advisor')) {
+      // Handle specific advisor types like mentors_advisor, coaches_advisor, etc.
+      const advisorType = type.replace('_advisor', '');
+      category = advisorType; // mentors_advisor -> mentors, coaches_advisor -> coaches, etc.
     } else {
       // Map other guidance types to appropriate categories
       const categoryMap = {
@@ -317,11 +321,19 @@ exports.handler = async (event) => {
           userPrompt = getBoardAnalysisAdvisorUserPrompt(data, context);
           break;
         default:
-          return {
-            statusCode: 400,
-            headers,
-            body: JSON.stringify({ error: `No configuration found for guidance type: ${type}` })
-          };
+          // Check if it's a generic advisor type (e.g., coaches_advisor, sponsors_advisor, etc.)
+          if (type.endsWith('_advisor')) {
+            const advisorType = type.replace('_advisor', '');
+            // Use generic board member advisor for all specific advisor types
+            systemPrompt = getBoardMemberAdvisorSystemPrompt(advisorType);
+            userPrompt = getBoardMemberAdvisorUserPrompt(data, context);
+          } else {
+            return {
+              statusCode: 400,
+              headers,
+              body: JSON.stringify({ error: `No configuration found for guidance type: ${type}` })
+            };
+          }
       }
 
       const response = await bedrockChat({
