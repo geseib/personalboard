@@ -920,7 +920,13 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
         detail: 'Peers are professionals at similar career stages who face comparable challenges and opportunities. They provide mutual support, shared problem-solving, and the camaraderie of people walking similar paths. Peers offer reciprocal relationships where you both give and receive support.'
       }
     };
-    
+
+    // Role Descriptions - Always start on new page if there are members
+    if (hasMembers) {
+      doc.addPage();
+      currentY = 20;
+    }
+
     // Calculate height dynamically for role descriptions section
     const roleStartY = currentY;
     let roleHeight = 25; // Base height for title
@@ -1013,12 +1019,7 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
         
         // Member details
         data[type].forEach(member => {
-          if (currentY > pageHeight - 30) {
-            doc.addPage();
-            currentY = 20;
-          }
-          
-          // Calculate content height before drawing the box
+          // Calculate content height before checking page break
           const contentStartY = currentY;
           let contentHeight = 18; // Base height for name and basic info
           
@@ -1037,7 +1038,13 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
             const noteLines = doc.splitTextToSize(member.notes, pageWidth - 65);
             contentHeight += 6 + (noteLines.length * 4);
           }
-          
+
+          // Check if entire card fits on current page
+          if (currentY + contentHeight > pageHeight - 20) {
+            doc.addPage();
+            currentY = 20;
+          }
+
           // Member card background with calculated height
           doc.setFillColor(255, 255, 255);
           doc.setDrawColor(229, 231, 235);
@@ -1106,13 +1113,9 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
     
     // Goals Section
     if (data.goals && data.goals.length > 0) {
-      // Check if we need a new page
-      if (currentY > pageHeight - 80) {
-        doc.addPage();
-        currentY = 20;
-      } else {
-        currentY += 20; // Add some spacing from previous section
-      }
+      // Always start Goals on a new page
+      doc.addPage();
+      currentY = 20;
       
       // Goals Section Header
       doc.setFillColor(37, 99, 235);
@@ -1347,20 +1350,9 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
         currentY += 10;
         
         data.you.mentees.forEach((mentee, index) => {
-          // Check if we need a new page for this mentee
-          if (currentY > pageHeight - 40) {
-            doc.addPage();
-            currentY = 20;
-          }
-          
-          // Mentee card background
-          doc.setFillColor(255, 255, 255);
-          doc.setDrawColor(139, 92, 246);
-          doc.setLineWidth(0.5);
-          
-          const cardStartY = currentY;
+          // Calculate card height first
           let cardHeight = 25; // Base height
-          
+
           // Calculate card height based on content
           if (mentee.whatYouTeach) {
             const teachLines = doc.splitTextToSize(mentee.whatYouTeach, pageWidth - 65);
@@ -1374,7 +1366,21 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
             const noteLines = doc.splitTextToSize(mentee.notes, pageWidth - 65);
             cardHeight += 6 + (noteLines.length * 4);
           }
-          
+
+          // Check if entire card fits on current page
+          if (currentY + cardHeight > pageHeight - 20) {
+            doc.addPage();
+            currentY = 20;
+          }
+
+          // Set card starting position
+          const cardStartY = currentY;
+
+          // Mentee card background
+          doc.setFillColor(255, 255, 255);
+          doc.setDrawColor(139, 92, 246);
+          doc.setLineWidth(0.5);
+
           // Draw card
           doc.rect(25, cardStartY, pageWidth - 50, cardHeight, 'D');
           
@@ -1499,9 +1505,9 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
             height: 8
           });
         } else if (line.startsWith('- ') || line.startsWith('* ')) {
-          // Bullet points - wrap text properly
+          // Bullet points - use more width
           const bulletText = line.replace(/^[*-] /, '');
-          const wrappedBullet = doc.splitTextToSize(bulletText, pageWidth - 55);
+          const wrappedBullet = doc.splitTextToSize(bulletText, pageWidth - 40);
           wrappedBullet.forEach((wrappedLine, index) => {
             processedContent.push({
               type: index === 0 ? 'bullet' : 'bullet-cont',
@@ -1510,8 +1516,8 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
             });
           });
         } else if (line.match(/^\d+\./)) {
-          // Numbered lists - wrap text properly
-          const wrappedNumber = doc.splitTextToSize(line, pageWidth - 55);
+          // Numbered lists - use more width
+          const wrappedNumber = doc.splitTextToSize(line, pageWidth - 40);
           wrappedNumber.forEach((wrappedLine, index) => {
             processedContent.push({
               type: index === 0 ? 'numbered' : 'numbered-cont',
@@ -1520,8 +1526,8 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
             });
           });
         } else {
-          // Regular paragraph - use smaller width to prevent overflow
-          const wrappedLines = doc.splitTextToSize(line, pageWidth - 50);
+          // Regular paragraph - use 75% more width
+          const wrappedLines = doc.splitTextToSize(line, pageWidth - 35);
           wrappedLines.forEach((wrappedLine, index) => {
             processedContent.push({
               type: 'paragraph',
@@ -1546,6 +1552,11 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
         if (currentY > pageHeight - 25) {
           doc.addPage();
           currentY = 20;
+
+          // Continue green background on new page
+          doc.setFillColor(240, 253, 244);
+          doc.setDrawColor(187, 247, 208);
+          doc.rect(20, 10, pageWidth - 40, pageHeight - 30, 'FD');
         }
 
         if (item.type === 'space') {
