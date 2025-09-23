@@ -1235,13 +1235,9 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
     
     // You Section (Superpowers & Mentees)
     if (data.you && (data.you.superpowers || data.you.mentees)) {
-      // Check if we need a new page
-      if (currentY > pageHeight - 80) {
-        doc.addPage();
-        currentY = 20;
-      } else {
-        currentY += 20; // Add some spacing from previous section
-      }
+      // Always start on a new page for You section
+      doc.addPage();
+      currentY = 20;
       
       // You Section Header
       doc.setFillColor(16, 185, 129); // Green header
@@ -1339,11 +1335,9 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
       
       // Mentees Section
       if (data.you.mentees && data.you.mentees.length > 0) {
-        // Check if we need a new page
-        if (currentY > pageHeight - 40) {
-          doc.addPage();
-          currentY = 20;
-        }
+        // Always start mentees on a new page
+        doc.addPage();
+        currentY = 20;
         
         // Mentees subsection header
         doc.setFontSize(14);
@@ -1389,6 +1383,7 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
           doc.rect(25, cardStartY, 4, cardHeight, 'F');
           
           // Mentee name and details
+          currentY = cardStartY + 8; // Reset currentY to inside the card
           doc.setFontSize(12);
           doc.setFont(undefined, 'bold');
           doc.setTextColor(17, 24, 39);
@@ -1450,13 +1445,9 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
     
     // Board Analysis Section
     if (currentBoardAdvice) {
-      // Check if we need a new page
-      if (currentY > pageHeight - 80) {
-        doc.addPage();
-        currentY = 20;
-      } else {
-        currentY += 20; // Add some spacing from previous section
-      }
+      // Always start on a new page for AI analysis
+      doc.addPage();
+      currentY = 20;
       
       // Board Analysis Section Header
       doc.setFillColor(16, 185, 129); // Green header
@@ -1508,22 +1499,29 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
             height: 8
           });
         } else if (line.startsWith('- ') || line.startsWith('* ')) {
-          // Bullet points
-          processedContent.push({
-            type: 'bullet',
-            text: line.replace(/^[*-] /, ''),
-            height: 5
+          // Bullet points - wrap text properly
+          const bulletText = line.replace(/^[*-] /, '');
+          const wrappedBullet = doc.splitTextToSize(bulletText, pageWidth - 55);
+          wrappedBullet.forEach((wrappedLine, index) => {
+            processedContent.push({
+              type: index === 0 ? 'bullet' : 'bullet-cont',
+              text: wrappedLine,
+              height: 4
+            });
           });
         } else if (line.match(/^\d+\./)) {
-          // Numbered lists
-          processedContent.push({
-            type: 'numbered',
-            text: line,
-            height: 5
+          // Numbered lists - wrap text properly
+          const wrappedNumber = doc.splitTextToSize(line, pageWidth - 55);
+          wrappedNumber.forEach((wrappedLine, index) => {
+            processedContent.push({
+              type: index === 0 ? 'numbered' : 'numbered-cont',
+              text: wrappedLine,
+              height: 4
+            });
           });
         } else {
-          // Regular paragraph
-          const wrappedLines = doc.splitTextToSize(line, pageWidth - 60);
+          // Regular paragraph - use smaller width to prevent overflow
+          const wrappedLines = doc.splitTextToSize(line, pageWidth - 50);
           wrappedLines.forEach((wrappedLine, index) => {
             processedContent.push({
               type: 'paragraph',
@@ -1582,11 +1580,23 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
             doc.setTextColor(55, 65, 81);
             doc.text('• ' + item.text, x + 5, currentY);
             break;
+          case 'bullet-cont':
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(55, 65, 81);
+            doc.text('  ' + item.text, x + 5, currentY);
+            break;
           case 'numbered':
             doc.setFontSize(10);
             doc.setFont(undefined, 'normal');
             doc.setTextColor(55, 65, 81);
             doc.text(item.text, x + 5, currentY);
+            break;
+          case 'numbered-cont':
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(55, 65, 81);
+            doc.text('   ' + item.text, x + 5, currentY);
             break;
           case 'paragraph':
             doc.setFontSize(10);
