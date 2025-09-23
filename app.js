@@ -1392,9 +1392,9 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
           doc.setFontSize(12);
           doc.setFont(undefined, 'bold');
           doc.setTextColor(17, 24, 39);
-          doc.text(mentee.name, 35, currentY + 8);
-          currentY += 8;
-          
+          doc.text(mentee.name, 35, currentY);
+          currentY += 6;
+
           doc.setFontSize(10);
           doc.setFont(undefined, 'normal');
           doc.setTextColor(107, 114, 128);
@@ -1473,22 +1473,133 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
       doc.setDrawColor(187, 247, 208); // Green border
       doc.rect(20, currentY - 5, pageWidth - 40, 10, 'FD'); // Will adjust height
       
-      // Analysis content
+      // Analysis content with markdown support
       const analysisStartY = currentY;
-      doc.setFontSize(10);
-      doc.setFont(undefined, 'normal');
-      doc.setTextColor(55, 65, 81);
-      
-      const analysisLines = doc.splitTextToSize(currentBoardAdvice, pageWidth - 50);
-      const analysisHeight = analysisLines.length * 4 + 10;
-      
-      // Redraw background with correct height
+      const bgStartY = analysisStartY - 5;
+
+      // Process markdown content
+      const lines = currentBoardAdvice.split('\n');
+      const processedContent = [];
+
+      lines.forEach(line => {
+        line = line.trim();
+        if (!line) {
+          processedContent.push({ type: 'space', height: 4 });
+          return;
+        }
+
+        // Headers
+        if (line.startsWith('### ')) {
+          processedContent.push({
+            type: 'header3',
+            text: line.replace('### ', ''),
+            height: 6
+          });
+        } else if (line.startsWith('## ')) {
+          processedContent.push({
+            type: 'header2',
+            text: line.replace('## ', ''),
+            height: 7
+          });
+        } else if (line.startsWith('# ')) {
+          processedContent.push({
+            type: 'header1',
+            text: line.replace('# ', ''),
+            height: 8
+          });
+        } else if (line.startsWith('- ') || line.startsWith('* ')) {
+          // Bullet points
+          processedContent.push({
+            type: 'bullet',
+            text: line.replace(/^[*-] /, ''),
+            height: 5
+          });
+        } else if (line.match(/^\d+\./)) {
+          // Numbered lists
+          processedContent.push({
+            type: 'numbered',
+            text: line,
+            height: 5
+          });
+        } else {
+          // Regular paragraph
+          const wrappedLines = doc.splitTextToSize(line, pageWidth - 60);
+          wrappedLines.forEach((wrappedLine, index) => {
+            processedContent.push({
+              type: 'paragraph',
+              text: wrappedLine,
+              height: 4
+            });
+          });
+        }
+      });
+
+      // Calculate total height
+      const totalHeight = processedContent.reduce((sum, item) => sum + item.height + 1, 0) + 10;
+
+      // Draw background
       doc.setFillColor(240, 253, 244);
       doc.setDrawColor(187, 247, 208);
-      doc.rect(20, analysisStartY - 5, pageWidth - 40, analysisHeight, 'FD');
-      
-      doc.text(analysisLines, 25, currentY);
-      currentY += analysisLines.length * 4 + 15;
+      doc.rect(20, bgStartY, pageWidth - 40, totalHeight, 'FD');
+
+      // Render content
+      processedContent.forEach(item => {
+        // Check if we need a new page
+        if (currentY > pageHeight - 25) {
+          doc.addPage();
+          currentY = 20;
+        }
+
+        if (item.type === 'space') {
+          currentY += item.height;
+          return;
+        }
+
+        const x = 25;
+
+        switch (item.type) {
+          case 'header1':
+            doc.setFontSize(14);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(37, 99, 235);
+            doc.text(item.text, x, currentY);
+            break;
+          case 'header2':
+            doc.setFontSize(12);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(37, 99, 235);
+            doc.text(item.text, x, currentY);
+            break;
+          case 'header3':
+            doc.setFontSize(11);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(55, 65, 81);
+            doc.text(item.text, x, currentY);
+            break;
+          case 'bullet':
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(55, 65, 81);
+            doc.text('• ' + item.text, x + 5, currentY);
+            break;
+          case 'numbered':
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(55, 65, 81);
+            doc.text(item.text, x + 5, currentY);
+            break;
+          case 'paragraph':
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(55, 65, 81);
+            doc.text(item.text, x, currentY);
+            break;
+        }
+
+        currentY += item.height + 1;
+      });
+
+      currentY += 10; // Final spacing
     }
     
     doc.save('personal-board.pdf');
