@@ -921,6 +921,11 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
       }
     };
 
+    // Check if there are any board members
+    const hasMembers = Object.keys(data).some(type =>
+      data[type] && data[type].length > 0 && type !== 'goals' && type !== 'you'
+    );
+
     // Role Descriptions - Always start on new page if there are members
     if (hasMembers) {
       doc.addPage();
