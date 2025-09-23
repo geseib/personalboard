@@ -2126,23 +2126,23 @@ function Board({ data, boardAdvice, boardAdviceLoading }) {
     }
   });
 
-  // Define more positions around the table for more members - better spaced out with wider circle
+  // Define positions around the table - closer and within view
   const positions = [
-    { top: '-5%', left: '50%', transform: 'translateX(-50%)' }, // 12 o'clock (top center)
-    { top: '8%', right: '-15%', transform: 'none' }, // 1-2 o'clock (more to the right)
-    { top: '30%', right: '-18%', transform: 'none' }, // 3 o'clock (well beyond edge)
-    { top: '52%', right: '-15%', transform: 'none' }, // 4 o'clock
-    { top: '74%', right: '-8%', transform: 'none' }, // 5 o'clock
-    { bottom: '-5%', right: '20%', transform: 'none' }, // 6 o'clock right
-    { bottom: '-5%', left: '20%', transform: 'none' }, // 6 o'clock left
-    { top: '74%', left: '-8%', transform: 'none' }, // 7 o'clock
-    { top: '52%', left: '-15%', transform: 'none' }, // 8 o'clock
-    { top: '30%', left: '-18%', transform: 'none' }, // 9 o'clock (well beyond edge)
-    { top: '8%', left: '-15%', transform: 'none' }, // 10-11 o'clock
-    { top: '0%', left: '25%', transform: 'none' }, // 11 o'clock
-    { top: '0%', right: '25%', transform: 'none' }, // 1 o'clock
-    { bottom: '0%', left: '25%', transform: 'none' }, // 7 o'clock
-    { bottom: '0%', right: '25%', transform: 'none' }, // 5 o'clock
+    { top: '10%', left: '50%', transform: 'translateX(-50%)' }, // 12 o'clock (top center)
+    { top: '15%', right: '15%', transform: 'none' }, // 1 o'clock
+    { top: '30%', right: '8%', transform: 'none' }, // 2 o'clock
+    { top: '50%', right: '5%', transform: 'translateY(-50%)' }, // 3 o'clock (right)
+    { top: '70%', right: '8%', transform: 'none' }, // 4 o'clock
+    { bottom: '15%', right: '15%', transform: 'none' }, // 5 o'clock
+    { bottom: '10%', right: '35%', transform: 'none' }, // 6 o'clock right
+    { bottom: '10%', left: '35%', transform: 'none' }, // 6 o'clock left
+    { bottom: '15%', left: '15%', transform: 'none' }, // 7 o'clock
+    { top: '70%', left: '8%', transform: 'none' }, // 8 o'clock
+    { top: '50%', left: '5%', transform: 'translateY(-50%)' }, // 9 o'clock (left)
+    { top: '30%', left: '8%', transform: 'none' }, // 10 o'clock
+    { top: '15%', left: '15%', transform: 'none' }, // 11 o'clock
+    { top: '20%', right: '25%', transform: 'none' }, // Additional position
+    { top: '20%', left: '25%', transform: 'none' }, // Additional position
   ];
   
   // Define text alignment for each type
