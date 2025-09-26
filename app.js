@@ -9,15 +9,15 @@ import './feedback.css';
 
 
 const pages = [
-  { key: 'intro', title: 'Intro', image: '/images/Slide2.png', quote: '', quotePosition: 'center' },
-  { key: 'you', title: 'You', image: '/images/Slide11.png', quote: 'Know yourself first.', quotePosition: 'bottom-left' },
-  { key: 'goals', title: 'Goals', image: '/images/Slide12.png', quote: 'Your vision shapes your board.', quotePosition: 'bottom-right' },
-  { key: 'mentors', title: 'Mentors', image: '/images/Slide7.png', quote: 'A mentor opens doors.', quotePosition: 'bottom-right' },
-  { key: 'coaches', title: 'Coaches', image: '/images/Slide6.png', quote: 'Coaches refine potential.', quotePosition: 'bottom-left' },
-  { key: 'connectors', title: 'Connectors', image: '/images/Slide4.png', quote: 'Connections spark growth.', quotePosition: 'center' },
-  { key: 'sponsors', title: 'Sponsors', image: '/images/Slide8.png', quote: 'Sponsorship elevates.', quotePosition: 'bottom-right' },
-  { key: 'peers', title: 'Peers', image: '/images/Slide9.png', quote: 'Peers share the path.', quotePosition: 'bottom-right' },
-  { key: 'board', title: 'Board', image: '/images/Slide10.png', quote: '', quotePosition: 'center' }
+  { key: 'intro', title: 'Intro', image: './images/Slide2.png', quote: '', quotePosition: 'center' },
+  { key: 'you', title: 'You', image: './images/Slide11.png', quote: 'Know yourself first.', quotePosition: 'bottom-left' },
+  { key: 'goals', title: 'Goals', image: './images/Slide12.png', quote: 'Your vision shapes your board.', quotePosition: 'bottom-right' },
+  { key: 'mentors', title: 'Mentors', image: './images/Slide7.png', quote: 'A mentor opens doors.', quotePosition: 'bottom-right' },
+  { key: 'coaches', title: 'Coaches', image: './images/Slide6.png', quote: 'Coaches refine potential.', quotePosition: 'bottom-left' },
+  { key: 'connectors', title: 'Connectors', image: './images/Slide4.png', quote: 'Connections spark growth.', quotePosition: 'center' },
+  { key: 'sponsors', title: 'Sponsors', image: './images/Slide8.png', quote: 'Sponsorship elevates.', quotePosition: 'bottom-right' },
+  { key: 'peers', title: 'Peers', image: './images/Slide9.png', quote: 'Peers share the path.', quotePosition: 'bottom-right' },
+  { key: 'board', title: 'Board', image: './images/Slide10.png', quote: '', quotePosition: 'center' }
 ];
 
 // Tooltip component that matches the "Next Step" pointer styling
@@ -102,7 +102,30 @@ function renderMarkdown(text) {
 }
 
 function App() {
-  const [current, setCurrent] = useState('intro');
+  // Check URL parameter for section
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialSection = urlParams.get('section') || 'intro';
+
+  const [current, setCurrent] = useState(initialSection);
+
+  // Handle URL parameter changes
+  useEffect(() => {
+    const handleUrlChange = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const section = urlParams.get('section');
+      if (section && pages.some(p => p.key === section)) {
+        setCurrent(section);
+      }
+    };
+
+    // Listen for popstate events (back/forward buttons)
+    window.addEventListener('popstate', handleUrlChange);
+
+    return () => {
+      window.removeEventListener('popstate', handleUrlChange);
+    };
+  }, []);
+
   const [data, setData] = useState(() => {
     const savedData = JSON.parse(localStorage.getItem('boardData') || '{}');
     // Initialize goals if they don't exist
@@ -669,10 +692,13 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
       console.log('No existing analysis found, generating for PDF...');
       currentBoardAdvice = await getBoardAdvice();
     }
-    
+
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.height;
+
+    // Get user's name
+    const userName = data.you?.name || 'Your';
     let currentY = 25;
     
     // Add header background
@@ -683,7 +709,8 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
     doc.setFontSize(28);
     doc.setFont(undefined, 'bold');
     doc.setTextColor(255, 255, 255);
-    doc.text('Personal Board of Directors', pageWidth / 2, currentY, { align: 'center' });
+    const pdfTitle = userName === 'Your' ? 'Personal Board of Directors' : `${userName}'s Board of Directors`;
+    doc.text(pdfTitle, pageWidth / 2, currentY, { align: 'center' });
     currentY += 12;
     
     // Date
@@ -1779,13 +1806,15 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
         </div>
       )}
       <div className="content">
-        {current === 'intro' ? <Intro onLearnClick={() => setShowIntroLearn(true)} onVideoClick={() => setShowVideoModal(true)} /> : current === 'you' ? <You data={data.you || {superpowers: [], mentees: []}} onEdit={handleEdit} onDelete={handleDelete} /> : current === 'goals' ? <Goals items={data[current] || []} onEdit={handleEdit} /> : current === 'board' ? <Board data={data} boardAdvice={boardAdvice} boardAdviceLoading={boardAdviceLoading} /> : current === 'mentors' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} onChangeRole={handleChangeRoleClick} /> : current === 'coaches' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} onChangeRole={handleChangeRoleClick} /> : <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} onChangeRole={handleChangeRoleClick} />}
+        {current === 'intro' ? <Intro onLearnClick={() => setShowIntroLearn(true)} onVideoClick={() => setShowVideoModal(true)} /> : current === 'you' ? <You data={data.you || {superpowers: [], mentees: []}} onEdit={handleEdit} onDelete={handleDelete} onUpdateData={(updatedYouData) => { setData({...data, you: updatedYouData}); localStorage.setItem('boardData', JSON.stringify({...data, you: updatedYouData})); }} /> : current === 'goals' ? <Goals items={data[current] || []} onEdit={handleEdit} /> : current === 'board' ? <Board data={data} boardAdvice={boardAdvice} boardAdviceLoading={boardAdviceLoading} /> : current === 'mentors' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} onChangeRole={handleChangeRoleClick} /> : current === 'coaches' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} onChangeRole={handleChangeRoleClick} /> : <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} onChangeRole={handleChangeRoleClick} />}
       </div>
       <nav className="nav">
         {pages.map(p => {
           const count = p.key === 'intro' || p.key === 'board' || p.key === 'goals' || p.key === 'you' ? 0 : (data[p.key] || []).length;
           const showCount = p.key !== 'intro' && p.key !== 'board' && p.key !== 'goals' && p.key !== 'you';
           const startHereSection = getStartHereSection();
+          const completionStatus = getSectionCompletionStatus();
+          const showCheckmark = (p.key === 'you' && completionStatus.you) || (p.key === 'goals' && completionStatus.goals);
           
           const tooltipText = 
             p.key === 'intro' ? 'Introduction to Personal Board of Directors' :
@@ -1809,6 +1838,9 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
                 <span className="nav-title">{p.title}</span>
                 {showCount && (
                   <span className="nav-count">{count}</span>
+                )}
+                {showCheckmark && (
+                  <span className="nav-count" style={{ backgroundColor: '#2563eb' }}>✓</span>
                 )}
                 {p.key === startHereSection && (
                   <div className="start-here-arrow">
@@ -1993,9 +2025,92 @@ function Goals({ items, onEdit }) {
   );
 }
 
-function You({ data, onEdit, onDelete }) {
+function You({ data, onEdit, onDelete, onUpdateData }) {
+  const [userName, setUserName] = useState(data.name || 'You');
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [tempName, setTempName] = useState(userName);
+
+  const handleNameClick = () => {
+    setIsEditingName(true);
+    setTempName(userName);
+  };
+
+  const handleNameSave = () => {
+    setUserName(tempName);
+    onUpdateData({ ...data, name: tempName });
+    setIsEditingName(false);
+  };
+
+  const handleNameCancel = () => {
+    setTempName(userName);
+    setIsEditingName(false);
+  };
+
+  const handleNameKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleNameSave();
+    } else if (e.key === 'Escape') {
+      handleNameCancel();
+    }
+  };
+
   return (
     <div className="you-section">
+      {/* User Name Title */}
+      <div style={{
+        textAlign: 'center',
+        marginTop: '20px',
+        marginBottom: '30px'
+      }}>
+        {isEditingName ? (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
+            <input
+              type="text"
+              value={tempName}
+              onChange={(e) => setTempName(e.target.value)}
+              onKeyDown={handleNameKeyDown}
+              onBlur={handleNameSave}
+              autoFocus
+              style={{
+                fontSize: '28px',
+                fontWeight: 'bold',
+                color: '#1f2937',
+                border: '2px solid #10b981',
+                borderRadius: '8px',
+                padding: '5px 10px',
+                outline: 'none',
+                textAlign: 'center'
+              }}
+            />
+          </div>
+        ) : (
+          <div
+            onClick={handleNameClick}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '10px',
+              cursor: 'pointer',
+              padding: '5px 10px',
+              borderRadius: '8px',
+              transition: 'background-color 0.2s',
+              ':hover': { backgroundColor: '#f3f4f6' }
+            }}
+            onMouseEnter={(e) => e.target.style.backgroundColor = '#f3f4f6'}
+            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+          >
+            <h1 style={{
+              fontSize: '28px',
+              fontWeight: 'bold',
+              color: '#1f2937'
+            }}>
+              {userName}
+            </h1>
+            <span style={{ fontSize: '20px', color: '#6b7280' }}>✏️</span>
+          </div>
+        )}
+      </div>
+
       {/* Superpowers Row */}
       <div className="section-row">
         <h2 style={{color: '#10b981', marginBottom: '16px', borderBottom: '2px solid #10b981', paddingBottom: '8px', fontSize: '24px', fontWeight: 'bold'}}>Your Superpowers</h2>
@@ -2316,7 +2431,7 @@ function Board({ data, boardAdvice, boardAdviceLoading }) {
       {/* Board Diagram */}
       <div className="board-diagram">
         <div className="board-table">
-          <div className="table-label">Your Board</div>
+          <div className="table-label">{data.you?.name ? `${data.you.name}'s Board` : 'Your Board'}</div>
         </div>
         {allMembers.map((member, idx) => {
           const pos = positions[idx % positions.length];

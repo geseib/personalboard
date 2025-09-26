@@ -174,7 +174,8 @@
             targetUrl = '..' + href;
           }
 
-          window.location.href = targetUrl;
+          // Open in new tab
+          window.open(targetUrl, '_blank');
         }
       });
     });

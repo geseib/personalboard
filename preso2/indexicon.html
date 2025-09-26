@@ -121,12 +121,6 @@
             text-align: center;
         }
 
-        .board-type .icon {
-            font-size: 3rem;
-            margin-bottom: 20px;
-            display: block;
-        }
-
         .board-type .icon-img {
             width: 80px;
             height: 80px;
@@ -290,7 +284,6 @@
             <div class="statement">Know yourself first</div>
             <div class="quote">"Define your superpowers"</div>
         </div>
-        <button class="app-link-btn" data-section="you">Open in App →</button>
     </section>
 
     <!-- Slide 5: Set Vision -->
@@ -300,7 +293,6 @@
             <div class="statement">Set your vision</div>
             <div class="quote">"3 months • 1 year • 5+ years"</div>
         </div>
-        <button class="app-link-btn" data-section="goals">Open in App →</button>
     </section>
 
     <!-- Slide 6: Map Network -->
@@ -321,7 +313,7 @@
         </div>
     </section>
 
-    <!-- Slide 8: The Board -->
+    <!-- Slide 8: The Board - WITH CUSTOM ICONS -->
     <section class="slide" style="background-image: url('../images/Slide10.png');">
         <div class="slide-content">
             <div class="big-number">5</div>
@@ -351,7 +343,7 @@
         </div>
     </section>
 
-    <!-- Slide 7: Mentors -->
+    <!-- Slide 9: Mentors -->
     <section class="slide" style="background-image: url('../images/Slide7.png');">
         <div class="slide-content grid-pos-2">
             <div class="statement">
@@ -362,7 +354,7 @@
         </div>
     </section>
 
-    <!-- Slide 8: Coaches -->
+    <!-- Slide 10: Coaches -->
     <section class="slide" style="background-image: url('../images/Slide6.png');">
         <div class="slide-content">
             <div class="statement">
@@ -373,7 +365,7 @@
         </div>
     </section>
 
-    <!-- Slide 9: Sponsors -->
+    <!-- Slide 11: Sponsors -->
     <section class="slide" style="background-image: url('../images/Slide8.png');">
         <div class="slide-content grid-pos-9">
             <div class="statement">
@@ -384,7 +376,7 @@
         </div>
     </section>
 
-    <!-- Slide 10: Connectors -->
+    <!-- Slide 12: Connectors -->
     <section class="slide" style="background-image: url('../images/Slide4.png');">
         <div class="slide-content grid-pos-6">
             <div class="statement">
@@ -395,46 +387,45 @@
         </div>
     </section>
 
-    <!-- Slide 11: Peers -->
+    <!-- Slide 13: Peers -->
     <section class="slide" style="background-image: url('../images/Slide9.png');">
         <div class="slide-content grid-pos-2">
             <div class="statement">
                 <span class="highlight">Peers</span><br>
-                Support • Accountability • Collaboration
+                Support • Perspective • Growth
             </div>
-            <div class="quote">"Your career companions"</div>
+            <div class="quote">"Your journey companions"</div>
         </div>
     </section>
 
-    <!-- Slide 12: The Network Effect -->
-    <section class="slide" style="background-image: url('../images/Slide8.png');">
-        <div class="slide-content grid-pos-3">
+    <!-- Slide 14: The Power -->
+    <section class="slide" style="background-image: url('../images/Slide10.png');">
+        <div class="slide-content grid-pos-5">
             <div class="statement">
-                Your network is<br>
-                <span class="highlight">your net worth</span>
+                The power of<br>
+                <span class="highlight">structured relationships</span>
             </div>
-            <div class="quote">"Strategic relationships accelerate everything"</div>
+            <div class="quote">"From random to strategic"</div>
         </div>
     </section>
 
-    <!-- Slide 13: Call to Action -->
-    <section class="slide" style="background-image: url('../images/Slide2.png');">
-        <div class="slide-content grid-pos-2">
-            <div class="statement">
-                Build your board.<br>
-                <span class="highlight">Transform your career.</span>
+    <!-- Slide 15: Call to Action -->
+    <section class="slide" style="background-image: url('../images/Slide3.png');">
+        <div class="slide-content">
+            <div class="statement">Start building your board</div>
+            <div class="quote">
+                <span class="highlight">board.seibtribe.us</span>
             </div>
-            <div class="quote">"Start today"</div>
         </div>
     </section>
+
+    <div class="progress"></div>
+    <div class="slide-counter">1 / 15</div>
 
     <div class="navigation">
-        <button class="nav-btn" onclick="prevSlide()" id="prevBtn">←</button>
-        <button class="nav-btn" onclick="nextSlide()" id="nextBtn">→</button>
+        <button class="nav-btn" onclick="previousSlide()">Previous</button>
+        <button class="nav-btn" onclick="nextSlide()">Next</button>
     </div>
-
-    <div class="progress" id="progress"></div>
-    <div class="slide-counter" id="counter">1 / 15</div>
 
     <script>
         // Track the app window
@@ -480,36 +471,39 @@
             slides[currentSlide].classList.add('active');
 
             // Update progress bar
-            const progress = ((currentSlide + 1) / totalSlides) * 100;
-            document.getElementById('progress').style.width = progress + '%';
+            const progress = document.querySelector('.progress');
+            progress.style.width = `${((currentSlide + 1) / totalSlides) * 100}%`;
 
             // Update counter
-            document.getElementById('counter').textContent = `${currentSlide + 1} / ${totalSlides}`;
-
-            // Update button visibility
-            document.getElementById('prevBtn').style.opacity = currentSlide === 0 ? '0.5' : '1';
-            document.getElementById('nextBtn').style.opacity = currentSlide === totalSlides - 1 ? '0.5' : '1';
+            document.querySelector('.slide-counter').textContent = `${currentSlide + 1} / ${totalSlides}`;
         }
 
         function nextSlide() {
-            if (currentSlide < totalSlides - 1) {
-                showSlide(currentSlide + 1);
-            }
+            showSlide(currentSlide + 1);
         }
 
-        function prevSlide() {
-            if (currentSlide > 0) {
-                showSlide(currentSlide - 1);
-            }
+        function previousSlide() {
+            showSlide(currentSlide - 1);
         }
 
         // Keyboard navigation
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'ArrowRight' || e.key === ' ') {
-                nextSlide();
-            } else if (e.key === 'ArrowLeft') {
-                prevSlide();
-            }
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') nextSlide();
+            if (e.key === 'ArrowLeft') previousSlide();
+        });
+
+        // Touch navigation for mobile
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        document.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+        });
+
+        document.addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            if (touchStartX - touchEndX > 50) nextSlide();
+            if (touchEndX - touchStartX > 50) previousSlide();
         });
 
         // Initialize
@@ -584,8 +578,6 @@
 
         // Create buttons after a short delay to ensure DOM is ready
         setTimeout(createAppButtons, 100);
-
     </script>
-    <script src="../burger-menu.js"></script>
 </body>
 </html>
