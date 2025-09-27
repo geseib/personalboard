@@ -26,6 +26,12 @@ Parameters:
     Type: String
     NoEcho: true
     Description: GitHub Personal Access Token for creating issues
+  AdminPassword:
+    Type: String
+    NoEcho: true
+    Description: Password for admin interface access
+    MinLength: 8
+    MaxLength: 50
 Resources:
   AccessCodesTable:
     Type: AWS::DynamoDB::Table
@@ -218,6 +224,8 @@ Resources:
             Ref: Environment
           PROMPT_MANAGEMENT_TABLE:
             Ref: PromptManagementTable
+          ADMIN_PASSWORD:
+            Ref: AdminPassword
       Policies:
       - Version: '2012-10-17'
         Statement:

@@ -430,11 +430,15 @@
 
     <div class="navigation">
         <button class="nav-btn" onclick="prevSlide()" id="prevBtn">←</button>
+        <button class="nav-btn" onclick="toggleAudio()" id="audioBtn">▶</button>
         <button class="nav-btn" onclick="nextSlide()" id="nextBtn">→</button>
     </div>
 
     <div class="progress" id="progress"></div>
     <div class="slide-counter" id="counter">1 / 15</div>
+
+    <!-- Audio element for narration -->
+    <audio id="slideAudio" preload="none"></audio>
 
     <script>
         // Track the app window
@@ -474,6 +478,94 @@
         const slides = document.querySelectorAll('.slide');
         const totalSlides = slides.length;
 
+        // Audio narration system
+        const audio = document.getElementById('slideAudio');
+        const audioBtn = document.getElementById('audioBtn');
+        let isPlaying = false;
+        let autoAdvanceEnabled = true;
+        let autoAdvanceTimer = null;
+        let userWantsAudio = false; // Track if user has activated audio mode
+
+        // Audio narration functions
+        function loadAudioForSlide(slideIndex) {
+            // Clear any existing auto-advance timer
+            clearTimeout(autoAdvanceTimer);
+
+            // Stop current audio
+            audio.pause();
+            audio.currentTime = 0;
+
+            // Load audio for current slide (all slides now have audio)
+            const slideNumber = slideIndex + 1;
+            audio.src = `../narration/slide${slideNumber}-audio.mp3`;
+            audio.load();
+
+            // If user wants audio, start playing automatically after 2 second pause
+            if (userWantsAudio) {
+                // 2 second pause to let user see the slide, then start audio
+                setTimeout(() => {
+                    audio.play().then(() => {
+                        audioBtn.textContent = '⏸';
+                        isPlaying = true;
+                        autoAdvanceEnabled = true;
+                    }).catch(error => {
+                        console.error('Auto-play failed:', error);
+                        // Reset to manual mode if auto-play fails
+                        audioBtn.textContent = '▶';
+                        isPlaying = false;
+                        userWantsAudio = false;
+                    });
+                }, 2000);
+            } else {
+                // Reset play button to initial state
+                audioBtn.textContent = '▶';
+                isPlaying = false;
+            }
+        }
+
+        function toggleAudio() {
+            if (isPlaying) {
+                // Pause audio and turn off audio mode
+                audio.pause();
+                audioBtn.textContent = '▶';
+                isPlaying = false;
+                userWantsAudio = false; // User has turned off audio
+                autoAdvanceEnabled = false;
+                clearTimeout(autoAdvanceTimer);
+            } else {
+                // Play audio and turn on audio mode
+                if (audio.src) {
+                    userWantsAudio = true; // User wants audio to continue
+                    audio.play().then(() => {
+                        audioBtn.textContent = '⏸';
+                        isPlaying = true;
+                        autoAdvanceEnabled = true;
+                    }).catch(error => {
+                        console.error('Audio play failed:', error);
+                        alert('Could not play audio. Please check if the audio file exists.');
+                        userWantsAudio = false; // Reset if failed
+                    });
+                }
+            }
+        }
+
+        // Audio event listeners
+        audio.addEventListener('ended', () => {
+            audioBtn.textContent = '▶';
+            isPlaying = false;
+
+            // Auto-advance to next slide immediately if enabled
+            if (autoAdvanceEnabled && currentSlide < totalSlides - 1) {
+                nextSlide();
+            }
+        });
+
+        audio.addEventListener('error', (e) => {
+            console.error('Audio error:', e);
+            audioBtn.textContent = '▶';
+            isPlaying = false;
+        });
+
         function showSlide(n) {
             slides[currentSlide].classList.remove('active');
             currentSlide = (n + totalSlides) % totalSlides;
@@ -489,6 +581,9 @@
             // Update button visibility
             document.getElementById('prevBtn').style.opacity = currentSlide === 0 ? '0.5' : '1';
             document.getElementById('nextBtn').style.opacity = currentSlide === totalSlides - 1 ? '0.5' : '1';
+
+            // Load audio for new slide
+            loadAudioForSlide(currentSlide);
         }
 
         function nextSlide() {
