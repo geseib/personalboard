@@ -698,7 +698,7 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
     const pageHeight = doc.internal.pageSize.height;
 
     // Get user's name
-    const userName = data.you?.name || 'Your';
+    const userName = data.you?.name || 'Your Name';
     let currentY = 25;
     
     // Add header background
@@ -709,7 +709,7 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
     doc.setFontSize(28);
     doc.setFont(undefined, 'bold');
     doc.setTextColor(255, 255, 255);
-    const pdfTitle = userName === 'Your' ? 'Personal Board of Directors' : `${userName}'s Board of Directors`;
+    const pdfTitle = userName === 'Your Name' ? 'Personal Board of Directors' : `${userName}'s Board of Directors`;
     doc.text(pdfTitle, pageWidth / 2, currentY, { align: 'center' });
     currentY += 12;
     
@@ -1707,17 +1707,61 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
   return (
     <div className="app" style={{ backgroundImage: `url(${page.image})` }}>
       <input type="file" id="upload" accept="application/json" style={{ display: 'none' }} onChange={handleUpload} />
-      <div className="top-buttons">
-        <BottomTooltip text="Import a backup *.json file to restore previously saved board data">
-          <button onClick={() => document.getElementById('upload').click()}>Upload</button>
-        </BottomTooltip>
-        <BottomTooltip text="Clear all data and start with a fresh board">
-          <button onClick={reset}>Start New</button>
-        </BottomTooltip>
+
+      {/* Top bar with centered title and right-side buttons */}
+      <div style={{
+        position: 'fixed',
+        top: '20px',
+        left: '0',
+        right: '0',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '0 20px',
+        zIndex: 100
+      }}>
+        {/* Left side spacer to balance layout */}
+        <div style={{ width: '160px' }}></div>
+
+        {/* Centered page title */}
+        {current !== 'intro' && (
+          <h1 style={{
+            fontSize: '2.5rem',
+            fontWeight: 'bold',
+            color: (current === 'coaches' || current === 'sponsors') ? '#ffffff' : '#4A90E2',
+            margin: '0',
+            textTransform: 'capitalize',
+            position: 'absolute',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            textShadow: (current === 'coaches' || current === 'sponsors') ? '2px 2px 4px rgba(0,0,0,0.8)' : '1px 1px 3px rgba(0,0,0,0.3)'
+          }}>
+            {current === 'you' ? 'You' :
+             current === 'goals' ? 'Goals' :
+             current === 'mentors' ? 'Mentors' :
+             current === 'coaches' ? 'Coaches' :
+             current === 'sponsors' ? 'Sponsors' :
+             current === 'connectors' ? 'Connectors' :
+             current === 'peers' ? 'Peers' :
+             current === 'board' ? 'Board' : ''}
+          </h1>
+        )}
+
+        {/* Right side buttons */}
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <BottomTooltip text="Import a backup *.json file to restore previously saved board data">
+            <button onClick={() => document.getElementById('upload').click()}>Upload</button>
+          </BottomTooltip>
+          <BottomTooltip text="Clear all data and start with a fresh board">
+            <button onClick={reset}>Start New</button>
+          </BottomTooltip>
+        </div>
       </div>
+
       <Quote text={page.quote} position={page.quotePosition} />
       {current !== 'intro' && current !== 'board' && (
         <div className="actions">
+          {/* Action buttons moved below */}
           {(current === 'you' || current === 'goals' || current === 'mentors' || current === 'coaches' || current === 'connectors' || current === 'sponsors' || current === 'peers') && (
             <BottomTooltip text="Watch video tutorial for this section">
               <button 
@@ -1730,11 +1774,11 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
                   else if (current === 'peers') setShowPeersVideoModal(true);
                 }}
                 style={{
-                  padding: '8px 16px',
+                  padding: '10px 20px',
                   backgroundColor: '#ef4444',
                   color: 'white',
                   border: 'none',
-                  borderRadius: '6px',
+                  borderRadius: '8px',
                   fontSize: '14px',
                   fontWeight: '500',
                   cursor: 'pointer',
@@ -1766,14 +1810,14 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
       {current === 'board' && (
         <div className="board-actions">
           <BottomTooltip text="Watch video about your complete board">
-            <button 
+            <button
               onClick={() => setShowBoardVideoModal(true)}
               style={{
-                padding: '8px 16px',
+                padding: '10px 20px',
                 backgroundColor: '#ef4444',
                 color: 'white',
                 border: 'none',
-                borderRadius: '6px',
+                borderRadius: '8px',
                 fontSize: '14px',
                 fontWeight: '500',
                 cursor: 'pointer',
@@ -1783,7 +1827,7 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
               onMouseOver={(e) => e.target.style.backgroundColor = '#dc2626'}
               onMouseOut={(e) => e.target.style.backgroundColor = '#ef4444'}
             >
-              🎥 Video
+              Video
             </button>
           </BottomTooltip>
           <BottomTooltip text="Analyze your entire board composition and get strategic recommendations">
@@ -2011,7 +2055,15 @@ function Goals({ items, onEdit }) {
               <h3>{item.timeframe}</h3>
               <div className="card-actions">
                 <button className="icon-btn edit-btn" onClick={() => onEdit('goals', item, idx)} title="Edit">
-                  ✏️
+                  <img
+                    src="./images/icons/pencil.png"
+                    alt="Edit"
+                    style={{
+                      width: '16px',
+                      height: '16px',
+                      filter: 'brightness(0) saturate(100%) invert(42%) sepia(93%) saturate(1352%) hue-rotate(205deg) brightness(98%) contrast(85%)'
+                    }}
+                  />
                 </button>
                 {/* No delete button for goals */}
               </div>
@@ -2026,7 +2078,7 @@ function Goals({ items, onEdit }) {
 }
 
 function You({ data, onEdit, onDelete, onUpdateData }) {
-  const [userName, setUserName] = useState(data.name || 'You');
+  const [userName, setUserName] = useState(data.name || 'Your Name');
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState(userName);
 
@@ -2059,8 +2111,8 @@ function You({ data, onEdit, onDelete, onUpdateData }) {
       {/* User Name Title */}
       <div style={{
         textAlign: 'center',
-        marginTop: '20px',
-        marginBottom: '30px'
+        marginTop: '10px',
+        marginBottom: '15px'
       }}>
         {isEditingName ? (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
@@ -2084,30 +2136,41 @@ function You({ data, onEdit, onDelete, onUpdateData }) {
             />
           </div>
         ) : (
-          <div
-            onClick={handleNameClick}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '10px',
-              cursor: 'pointer',
-              padding: '5px 10px',
-              borderRadius: '8px',
-              transition: 'background-color 0.2s',
-              ':hover': { backgroundColor: '#f3f4f6' }
-            }}
-            onMouseEnter={(e) => e.target.style.backgroundColor = '#f3f4f6'}
-            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-          >
-            <h1 style={{
-              fontSize: '28px',
-              fontWeight: 'bold',
-              color: '#1f2937'
-            }}>
-              {userName}
-            </h1>
-            <span style={{ fontSize: '20px', color: '#6b7280' }}>✏️</span>
-          </div>
+          <BottomTooltip text="Add your name here">
+            <div
+              onClick={handleNameClick}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '10px',
+                cursor: 'pointer',
+                padding: '5px 10px',
+                borderRadius: '8px',
+                transition: 'background-color 0.2s',
+                ':hover': { backgroundColor: '#f3f4f6' }
+              }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = '#f3f4f6'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+            >
+              <h1 style={{
+                fontSize: '28px',
+                fontWeight: 'bold',
+                color: '#1f2937'
+              }}>
+                {userName}
+              </h1>
+              <img
+                src="./images/icons/pencil.png"
+                alt="Edit"
+                style={{
+                  width: '20px',
+                  height: '20px',
+                  filter: 'brightness(0) saturate(100%) invert(42%) sepia(93%) saturate(1352%) hue-rotate(205deg) brightness(98%) contrast(85%)',
+                  cursor: 'pointer'
+                }}
+              />
+            </div>
+          </BottomTooltip>
         )}
       </div>
 
@@ -2136,7 +2199,15 @@ function You({ data, onEdit, onDelete, onUpdateData }) {
                     <h3>{item.name}</h3>
                     <div className="card-actions">
                       <button className="icon-btn edit-btn" onClick={() => onEdit('superpowers', item, idx)} title="Edit">
-                        ✏️
+                        <img
+                          src="./images/icons/pencil.png"
+                          alt="Edit"
+                          style={{
+                            width: '16px',
+                            height: '16px',
+                            filter: 'brightness(0) saturate(100%) invert(42%) sepia(93%) saturate(1352%) hue-rotate(205deg) brightness(98%) contrast(85%)'
+                          }}
+                        />
                       </button>
                       {/* No delete button for superpowers - they're fixed */}
                     </div>
@@ -2160,7 +2231,15 @@ function You({ data, onEdit, onDelete, onUpdateData }) {
                 <h3>{item.name}</h3>
                 <div className="card-actions">
                   <button className="icon-btn edit-btn" onClick={() => onEdit('mentees', item, idx)} title="Edit">
-                    ✏️
+                    <img
+                      src="./images/icons/pencil.png"
+                      alt="Edit"
+                      style={{
+                        width: '16px',
+                        height: '16px',
+                        filter: 'brightness(0) saturate(100%) invert(42%) sepia(93%) saturate(1352%) hue-rotate(205deg) brightness(98%) contrast(85%)'
+                      }}
+                    />
                   </button>
                   <button className="icon-btn delete-btn" onClick={() => onDelete('mentees', idx)} title="Delete">
                     🗑️
@@ -2202,7 +2281,15 @@ function List({ type, items, onEdit, onDelete, onChangeRole }) {
             <div className="card-actions">
               <Tooltip text="Edit">
                 <button className="icon-btn edit-btn" onClick={() => onEdit(type, item, idx)}>
-                  ✏️
+                  <img
+                    src="./images/icons/pencil.png"
+                    alt="Edit"
+                    style={{
+                      width: '16px',
+                      height: '16px',
+                      filter: 'brightness(0) saturate(100%) invert(42%) sepia(93%) saturate(1352%) hue-rotate(205deg) brightness(98%) contrast(85%)'
+                    }}
+                  />
                 </button>
               </Tooltip>
               <Tooltip text="Change Role">

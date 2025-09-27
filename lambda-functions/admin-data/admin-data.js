@@ -4,10 +4,42 @@ const { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, DeleteComma
 const client = new DynamoDBClient();
 const dynamodb = DynamoDBDocumentClient.from(client);
 const TABLE_NAME = process.env.PROMPT_MANAGEMENT_TABLE || process.env.DYNAMODB_TABLE;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'adminpass123';
+
+/**
+ * Validate admin password from request headers
+ */
+function validateAdminPassword(event) {
+    const providedPassword = event.headers['X-Admin-Password'] || event.headers['x-admin-password'];
+
+    if (!providedPassword) {
+        console.log('🔒 Password validation failed: No password provided');
+        return false;
+    }
+
+    if (providedPassword !== ADMIN_PASSWORD) {
+        console.log('🔒 Password validation failed: Incorrect password');
+        return false;
+    }
+
+    console.log('🔓 Password validation successful');
+    return true;
+}
+
+/**
+ * Return unauthorized response
+ */
+function unauthorizedResponse() {
+    return {
+        statusCode: 401,
+        headers: corsHeaders,
+        body: JSON.stringify({ error: 'Unauthorized: Invalid admin password' })
+    };
+}
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+    'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Admin-Password',
     'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
 };
 
@@ -345,6 +377,11 @@ exports.handler = async (event) => {
                 headers: corsHeaders,
                 body: ''
             };
+        }
+
+        // Validate admin password for all non-OPTIONS requests
+        if (!validateAdminPassword(event)) {
+            return unauthorizedResponse();
         }
 
         const { httpMethod, path } = event;

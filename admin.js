@@ -36,15 +36,159 @@ let currentStats = {
     apiVersion: 'v2.0'
 };
 let activeSelections = {};
+let adminPassword = null;
 
 // Cache management
 const CACHE_KEY = 'admin_prompt_data';
 const CACHE_TIMESTAMP_KEY = 'admin_prompt_data_timestamp';
 
+/**
+ * Prompt user for admin password
+ */
+async function promptForPassword(showError = false) {
+    return new Promise((resolve, reject) => {
+        // Create modal backdrop
+        const backdrop = document.createElement('div');
+        backdrop.className = 'modal-backdrop';
+        backdrop.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        // Create modal
+        const modal = document.createElement('div');
+        modal.className = 'password-modal';
+        modal.style.cssText = `
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            max-width: 400px;
+            width: 90%;
+        `;
+
+        modal.innerHTML = `
+            <h3 style="margin: 0 0 20px 0; color: #333;">Admin Authentication Required</h3>
+            <p style="margin: 0 0 20px 0; color: #666;">Enter the admin password to access prompt management:</p>
+            ${showError ? '<p style="margin: 0 0 20px 0; color: #e74c3c; font-weight: bold;">❌ Incorrect password. Please try again.</p>' : ''}
+            <input type="password" id="admin-password-input"
+                   style="width: 100%; padding: 10px; border: 1px solid ${showError ? '#e74c3c' : '#ddd'}; border-radius: 4px; margin-bottom: 20px;"
+                   placeholder="Enter admin password">
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button id="password-cancel"
+                        style="padding: 10px 20px; border: 1px solid #ddd; background: #f5f5f5; border-radius: 4px; cursor: pointer;">
+                    Cancel
+                </button>
+                <button id="password-submit"
+                        style="padding: 10px 20px; border: none; background: #007cba; color: white; border-radius: 4px; cursor: pointer;">
+                    Login
+                </button>
+            </div>
+        `;
+
+        backdrop.appendChild(modal);
+        document.body.appendChild(backdrop);
+
+        const passwordInput = document.getElementById('admin-password-input');
+        const submitBtn = document.getElementById('password-submit');
+        const cancelBtn = document.getElementById('password-cancel');
+
+        // Focus on input
+        passwordInput.focus();
+
+        // Handle submit
+        const handleSubmit = async () => {
+            const password = passwordInput.value.trim();
+            if (!password) {
+                passwordInput.style.borderColor = '#e74c3c';
+                passwordInput.focus();
+                return;
+            }
+
+            // Store password temporarily
+            sessionStorage.setItem('adminPassword', password);
+            adminPassword = password;
+
+            // Test the password by making a simple API call
+            try {
+                const response = await fetch(`${AI_API_BASE_URL}/admin/prompts`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-Admin-Password': password
+                    }
+                });
+
+                if (response.status === 401) {
+                    // Wrong password - clear stored password and show error
+                    sessionStorage.removeItem('adminPassword');
+                    adminPassword = null;
+                    document.body.removeChild(backdrop);
+                    // Recursively call with error flag
+                    const result = await promptForPassword(true);
+                    resolve(result);
+                } else if (response.ok) {
+                    // Password is correct
+                    document.body.removeChild(backdrop);
+                    resolve(password);
+                } else {
+                    // Other error
+                    throw new Error(`Unexpected response: ${response.status}`);
+                }
+            } catch (error) {
+                console.error('Error validating password:', error);
+                // On network error, assume password might be ok and continue
+                document.body.removeChild(backdrop);
+                resolve(password);
+            }
+        };
+
+        // Handle cancel
+        const handleCancel = () => {
+            sessionStorage.removeItem('adminPassword');
+            adminPassword = null;
+            document.body.removeChild(backdrop);
+            reject(new Error('Password prompt cancelled'));
+        };
+
+        // Event listeners
+        submitBtn.addEventListener('click', handleSubmit);
+        cancelBtn.addEventListener('click', handleCancel);
+        passwordInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleSubmit();
+            }
+        });
+
+        // Click backdrop to cancel
+        backdrop.addEventListener('click', (e) => {
+            if (e.target === backdrop) {
+                handleCancel();
+            }
+        });
+    });
+}
+
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', async function() {
     try {
         console.log('🚀 Initializing Admin Interface...');
+
+        // Check for stored password or prompt for it
+        adminPassword = sessionStorage.getItem('adminPassword');
+        if (!adminPassword) {
+            await promptForPassword();
+        }
+
         await loadPromptData();
         loadPromptCategories();
         setupSearch();
@@ -54,6 +198,38 @@ document.addEventListener('DOMContentLoaded', async function() {
         showNotification('Failed to load prompt configurations', 'error');
     }
 });
+
+/**
+ * Make authenticated API call with automatic password re-prompt on 401
+ */
+async function authenticatedFetch(url, options = {}) {
+    // Ensure password header is included
+    options.headers = {
+        ...options.headers,
+        'X-Admin-Password': adminPassword
+    };
+
+    const response = await fetch(url, options);
+
+    if (response.status === 401) {
+        // Password is invalid or expired - clear it and re-prompt
+        sessionStorage.removeItem('adminPassword');
+        adminPassword = null;
+
+        // Prompt for password again
+        try {
+            await promptForPassword(true);
+            // Retry the request with new password
+            options.headers['X-Admin-Password'] = adminPassword;
+            return await fetch(url, options);
+        } catch (error) {
+            console.error('Password prompt cancelled');
+            throw new Error('Authentication required');
+        }
+    }
+
+    return response;
+}
 
 /**
  * Check if cached data is still valid
@@ -206,7 +382,7 @@ async function loadPromptData(forceRefresh = false) {
 
         console.log('🌐 Fetching fresh data from backend');
 
-        const response = await fetch(`${AI_API_BASE_URL}/admin/prompts`, {
+        const response = await authenticatedFetch(`${AI_API_BASE_URL}/admin/prompts`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -541,7 +717,7 @@ async function activatePrompt(promptId) {
         console.log('🎯 ACTIVATE DEBUG: Request URL:', url);
 
         // Send proper PUT request with headers and body
-        const response = await fetch(url, {
+        const response = await authenticatedFetch(url, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'
@@ -584,7 +760,7 @@ async function deactivateCategory(categoryKey) {
         const url = `${AI_API_BASE_URL}/admin/prompts/None/activate`;
         console.log('🎯 CATEGORY DEACTIVATE: Request URL:', url);
 
-        const response = await fetch(url, {
+        const response = await authenticatedFetch(url, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'
@@ -620,7 +796,7 @@ async function deactivateCategory(categoryKey) {
  */
 async function createPrompt(promptData) {
     try {
-        const response = await fetch(`${AI_API_BASE_URL}/admin/prompts`, {
+        const response = await authenticatedFetch(`${AI_API_BASE_URL}/admin/prompts`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -663,7 +839,7 @@ async function deleteCustomPrompt(promptId) {
         console.log('🗑️ DELETE DEBUG: Request URL:', url);
 
         // Send proper DELETE request
-        const response = await fetch(url, {
+        const response = await authenticatedFetch(url, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json'

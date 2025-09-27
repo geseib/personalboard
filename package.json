@@ -3,7 +3,7 @@
   "version": "2.1.0",
   "type": "module",
   "scripts": {
-    "start": "parcel index.html",
+    "start": "parcel index.html --port 8888",
     "build": "npm run build:app && npm run build:admin && npm run build:slides && npm run build:preso && npm run build:preso2 && npm run build:images",
     "build:app": "parcel build index.html",
     "build:admin": "mkdir -p dist/admin && cp admin/index.html dist/admin/ && cp admin.js admin.css burger-menu.js dist/",
