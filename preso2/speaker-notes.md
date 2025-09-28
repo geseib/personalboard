@@ -60,7 +60,7 @@ You'll define goals across three timeframes: Three months for immediate wins, On
 
 For each timeframe, write 2-3 specific, measurable goals. Instead of "get promoted," write "secure senior manager role in product development." Be specific about what success looks like.
 
-Without this clarity, even the best board members can't provide meaningful guidance. Give them a target, and they'll help you hit it.
+Without this clarity, even the best board members can't provide meaningful guidance. Actually, you cant even pick the board members to add to your board. Give them a target, find the right board members,  and they'll help you hit your dream goals. 
 
 ---
 
@@ -112,7 +112,7 @@ And Peers provide support, accountability, and collaborative growth as your care
 
 Mentors are your strategic advisors. They've walked the path you're on and can help you avoid pitfalls while accelerating your progress.
 
-Click "Open Mentors Section" to start building your mentor strategy. You'll identify potential mentors by name, define what specific guidance you need from each, and plan your approach for reaching out.
+Click the "Mentors" tab to start building your mentor strategy. You'll identify potential mentors by name, define what specific guidance you need from each, and plan your approach for reaching out.
 
 Think about senior leaders in your field, former managers who've moved up, or industry experts you admire. The best mentor relationships involve quarterly conversations where you discuss long-term strategy, career decisions, and industry trends.
 
@@ -136,9 +136,9 @@ Think about colleagues who excel in areas where you want to improve, training fa
 
 This is the role most people don't understand but desperately need. Sponsors are your champions behind closed doors.
 
-Click "Open Sponsors Section" to identify potential sponsors and plan how to earn their advocacy. You'll think about senior leaders who have influence in your organization, define what value you can provide to them, and strategize how to build these critical relationships.
+Click the "Sponsors" tab to identify potential sponsors and plan how to earn their advocacy. You'll think about senior leaders who have influence in your organization, define what value you can provide to them, and strategize how to build these critical relationships.
 
-They're the ones advocating for you in promotion discussions, recommending you for stretch assignments, and opening doors to opportunities you might never hear about. Remember: You earn sponsorship through exceptional performance and strategic relationship building.
+They're the ones advocating for you in promotion discussions, recommending you for stretch assignments, providing references, and opening doors to opportunities you might never hear about. Remember: You earn sponsorship through exceptional performance and strategic relationship building.
 
 ---
 
@@ -148,7 +148,7 @@ They're the ones advocating for you in promotion discussions, recommending you f
 
 Connectors are your bridge to new opportunities. They know everyone and love making introductions.
 
-Click "Open Connectors Section" to identify your network expanders. You'll list people who are naturally well-connected, think about what introductions might be valuable, and plan how to nurture these relationships.
+Click the "Connectors" tab to identify your network expanders. You'll list people who are naturally well-connected, think about what introductions might be valuable, and plan how to nurture these relationships.
 
 These are the people who say, "You need to meet..." and then make magic happen. They expand your network exponentially because they see connections others miss. Great connectors help you reach opportunities that would otherwise remain invisible.
 
@@ -160,7 +160,7 @@ These are the people who say, "You need to meet..." and then make magic happen. 
 
 Don't underestimate the power of peers. These are your career companions – people at similar levels who provide support, accountability, and collaborative growth.
 
-Click "Open Peers Section" to build your support network. You'll identify colleagues at similar career stages, both inside and outside your organization, and think about how you can support each other's growth.
+Click the "Peers" tab to build your support network. You'll identify colleagues at similar career stages, both inside and outside your organization, and think about how you can support each other's growth.
 
 Peers understand your challenges because they're facing similar ones. They can provide different perspectives, share resources, and help you stay motivated during tough times. The best peer relationships are built on mutual support and shared ambition.
 
@@ -184,13 +184,15 @@ This isn't networking for networking's sake. This is relationship building with 
 
 So here's your challenge: Build your board and transform your career.
 
-Click "Open Board Section" to see your complete Personal Board of Directors. This is where all your work comes together – you'll see your skills, goals, and all five types of board members in one strategic overview.
+Click the "Board" tab to see your complete Personal Board of Directors. This is where all your work comes together – you'll see your skills, goals, and all five types of board members in one strategic overview.
 
 Use this board view to track your relationships, plan your outreach, and measure your progress. Export it as a PDF to review regularly and share with trusted advisors.
 
 Start today. Identify one person who could serve as a mentor, coach, sponsor, connector, or peer. Reach out with a specific request and clear value proposition.
 
 Your career is too important to navigate alone. Build your board. Transform your future. Start today.
+
+oh, and one last thing... Im rooting for you. Go make those dreams possible with your Personal Board of Directors. 
 
 ---
 
