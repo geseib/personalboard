@@ -436,6 +436,20 @@ exports.handler = async (event) => {
             return await deletePrompt(promptId);
         } else if (httpMethod === 'GET' && path === '/admin/seed') {
             return await seedDatabase();
+        } else if (httpMethod === 'GET' && path === '/admin/themes') {
+            return await getThemes();
+        } else if (httpMethod === 'POST' && path.startsWith('/admin/themes/') && path.endsWith('/activate')) {
+            const themeName = path.split('/')[3];
+            return await activateTheme(themeName);
+        } else if (httpMethod === 'DELETE' && path.startsWith('/admin/themes/')) {
+            const themeName = path.split('/')[3];
+            return await deleteTheme(themeName);
+        } else if (httpMethod === 'POST' && path === '/admin/themes/advanced/save') {
+            const body = event.isBase64Encoded ?
+                Buffer.from(event.body, 'base64').toString('utf-8') :
+                event.body;
+            const themeData = JSON.parse(body);
+            return await saveAdvancedTheme(themeData);
         }
 
         return {
@@ -525,6 +539,7 @@ async function createPrompt(promptData) {
         category: promptData.category,
         status: 'inactive',
         isCustom: true,
+        theme: promptData.theme || null, // Add theme field
         tokenCount: promptData.tokenCount || 1500,
         systemPrompt: promptData.systemPrompt,
         userPromptTemplate: promptData.userPromptTemplate,
@@ -869,4 +884,277 @@ async function seedDatabase() {
         headers: corsHeaders,
         body: JSON.stringify({ message: 'Database seeded successfully' })
     };
+}
+
+/**
+ * Get all available themes
+ */
+async function getThemes() {
+    // Get all theme configurations
+    const themesResult = await dynamodb.send(new ScanCommand({
+        TableName: TABLE_NAME,
+        FilterExpression: 'begins_with(PK, :pk)',
+        ExpressionAttributeValues: {
+            ':pk': 'THEME#'
+        }
+    }));
+
+    const themes = themesResult.Items.map(item => ({
+        themeId: item.PK.replace('THEME#', ''),
+        themeName: item.themeName,
+        description: item.description,
+        prompts: item.prompts,
+        isDefault: item.PK === 'THEME#Default'
+    }));
+
+    // Get current active prompts to determine which theme is active
+    const activeResult = await dynamodb.send(new ScanCommand({
+        TableName: TABLE_NAME,
+        FilterExpression: 'begins_with(PK, :pk) AND SK = :sk',
+        ExpressionAttributeValues: {
+            ':pk': 'ADVISOR#',
+            ':sk': 'PROMPT'
+        }
+    }));
+
+    const currentConfig = {};
+    activeResult.Items.forEach(item => {
+        const category = item.PK.replace('ADVISOR#', '');
+        currentConfig[category] = item.activePromptId;
+    });
+
+    // Determine which theme matches current configuration
+    let activeThemeId = null;
+    for (const theme of themes) {
+        let isMatch = true;
+        for (const [category, promptId] of Object.entries(theme.prompts)) {
+            if (currentConfig[category] !== promptId) {
+                isMatch = false;
+                break;
+            }
+        }
+        if (isMatch) {
+            activeThemeId = theme.themeId;
+            break;
+        }
+    }
+
+    return {
+        statusCode: 200,
+        headers: corsHeaders,
+        body: JSON.stringify({
+            themes,
+            activeThemeId,
+            currentConfig
+        })
+    };
+}
+
+/**
+ * Activate a theme
+ */
+async function activateTheme(themeName) {
+    console.log('🎨 Activating theme:', themeName);
+
+    // Get theme configuration
+    const themeResult = await dynamodb.send(new GetCommand({
+        TableName: TABLE_NAME,
+        Key: {
+            PK: `THEME#${themeName}`,
+            SK: 'CONFIG'
+        }
+    }));
+
+    if (!themeResult.Item) {
+        return {
+            statusCode: 404,
+            headers: corsHeaders,
+            body: JSON.stringify({ error: 'Theme not found' })
+        };
+    }
+
+    const theme = themeResult.Item;
+    const activationResults = [];
+
+    // Board member categories that support fallback
+    const boardMemberCategories = ['mentors', 'coaches', 'sponsors', 'connectors', 'peers'];
+
+    // Apply theme prompts
+    for (const [category, promptId] of Object.entries(theme.prompts)) {
+        try {
+            await dynamodb.send(new PutCommand({
+                TableName: TABLE_NAME,
+                Item: {
+                    PK: `ADVISOR#${category}`,
+                    SK: 'PROMPT',
+                    activePromptId: promptId,
+                    updatedAt: new Date().toISOString()
+                }
+            }));
+            activationResults.push({
+                category,
+                promptId,
+                status: 'activated'
+            });
+        } catch (error) {
+            console.error(`Failed to activate ${category}:`, error);
+            activationResults.push({
+                category,
+                promptId,
+                status: 'failed',
+                error: error.message
+            });
+        }
+    }
+
+    // For board member categories not specified in the theme, set to fallback
+    for (const category of boardMemberCategories) {
+        if (!theme.prompts[category]) {
+            try {
+                await dynamodb.send(new PutCommand({
+                    TableName: TABLE_NAME,
+                    Item: {
+                        PK: `ADVISOR#${category}`,
+                        SK: 'PROMPT',
+                        activePromptId: 'None', // Fallback mode
+                        updatedAt: new Date().toISOString()
+                    }
+                }));
+                activationResults.push({
+                    category,
+                    promptId: 'None',
+                    status: 'fallback'
+                });
+            } catch (error) {
+                console.error(`Failed to set fallback for ${category}:`, error);
+                activationResults.push({
+                    category,
+                    promptId: 'None',
+                    status: 'failed',
+                    error: error.message
+                });
+            }
+        }
+    }
+
+    // Other categories (like writing) are left unchanged if not specified in theme
+
+    return {
+        statusCode: 200,
+        headers: corsHeaders,
+        body: JSON.stringify({
+            message: `Theme "${theme.themeName}" activated successfully`,
+            results: activationResults
+        })
+    };
+}
+
+/**
+ * Save current configuration as Advanced theme
+ */
+async function saveAdvancedTheme(themeData) {
+    // Get current active selections
+    const activeResult = await dynamodb.send(new ScanCommand({
+        TableName: TABLE_NAME,
+        FilterExpression: 'begins_with(PK, :pk) AND SK = :sk',
+        ExpressionAttributeValues: {
+            ':pk': 'ADVISOR#',
+            ':sk': 'PROMPT'
+        }
+    }));
+
+    const currentPrompts = {};
+    activeResult.Items.forEach(item => {
+        const category = item.PK.replace('ADVISOR#', '');
+        currentPrompts[category] = item.activePromptId;
+    });
+
+    // Create or update Advanced theme
+    const advancedTheme = {
+        PK: 'THEME#Advanced',
+        SK: 'CONFIG',
+        themeName: themeData.name || 'Advanced (Custom)',
+        description: themeData.description || 'Custom configuration saved from current active prompts',
+        prompts: currentPrompts,
+        createdAt: new Date().toISOString(),
+        savedBy: themeData.savedBy || 'admin'
+    };
+
+    await dynamodb.send(new PutCommand({
+        TableName: TABLE_NAME,
+        Item: advancedTheme
+    }));
+
+    return {
+        statusCode: 200,
+        headers: corsHeaders,
+        body: JSON.stringify({
+            message: 'Advanced theme saved successfully',
+            theme: advancedTheme
+        })
+    };
+}
+
+/**
+ * Delete a theme
+ */
+async function deleteTheme(themeName) {
+    // Prevent deletion of Default theme
+    if (themeName === 'Default') {
+        return {
+            statusCode: 400,
+            headers: corsHeaders,
+            body: JSON.stringify({
+                error: 'Cannot delete Default theme'
+            })
+        };
+    }
+
+    try {
+        // Check if theme exists
+        const themeResult = await dynamodb.send(new GetCommand({
+            TableName: TABLE_NAME,
+            Key: {
+                PK: `THEME#${themeName}`,
+                SK: 'CONFIG'
+            }
+        }));
+
+        if (!themeResult.Item) {
+            return {
+                statusCode: 404,
+                headers: corsHeaders,
+                body: JSON.stringify({
+                    error: 'Theme not found'
+                })
+            };
+        }
+
+        // Delete the theme
+        await dynamodb.send(new DeleteCommand({
+            TableName: TABLE_NAME,
+            Key: {
+                PK: `THEME#${themeName}`,
+                SK: 'CONFIG'
+            }
+        }));
+
+        return {
+            statusCode: 200,
+            headers: corsHeaders,
+            body: JSON.stringify({
+                message: `Theme "${themeName}" deleted successfully`
+            })
+        };
+
+    } catch (error) {
+        console.error('Error deleting theme:', error);
+        return {
+            statusCode: 500,
+            headers: corsHeaders,
+            body: JSON.stringify({
+                error: 'Failed to delete theme'
+            })
+        };
+    }
 }

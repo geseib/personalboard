@@ -17,6 +17,8 @@
     "deploy:frontend": "./scripts/deploy-frontend.sh"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.896.0",
+    "@aws-sdk/lib-dynamodb": "^3.896.0",
     "aws-sdk": "^2.1692.0",
     "jspdf": "^2.5.1",
     "react": "^18.2.0",

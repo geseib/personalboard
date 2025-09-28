@@ -1,5 +1,84 @@
 /* Admin Page Styles */
 
+/* Theme Selector Styles */
+.theme-selector-section {
+    margin-bottom: 20px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.theme-selector-container {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.theme-label {
+    font-weight: 600;
+    color: #333;
+}
+
+.theme-select {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    min-width: 200px;
+    background: white;
+}
+
+.theme-preview {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
+}
+
+.theme-preview h3 {
+    margin: 0 0 10px 0;
+    color: #007cba;
+}
+
+.theme-description {
+    margin: 0 0 15px 0;
+    color: #666;
+    font-style: italic;
+}
+
+.theme-changes {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.change-section {
+    padding: 10px;
+    background: white;
+    border-radius: 4px;
+}
+
+.change-section strong {
+    display: block;
+    margin-bottom: 8px;
+    color: #333;
+}
+
+.change-section ul {
+    margin: 0;
+    padding-left: 20px;
+    list-style: none;
+}
+
+.change-section li {
+    padding: 3px 0;
+    font-size: 14px;
+    color: #555;
+}
+
 /* Base styles to match main website */
 html, body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;

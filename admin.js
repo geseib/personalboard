@@ -37,6 +37,8 @@ let currentStats = {
 };
 let activeSelections = {};
 let adminPassword = null;
+let availableThemes = [];
+let activeThemeId = null;
 
 // Cache management
 const CACHE_KEY = 'admin_prompt_data';
@@ -190,8 +192,10 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
 
         await loadPromptData();
+        await loadThemes();
         loadPromptCategories();
         setupSearch();
+        setupThemeSelector();
         console.log('✅ Admin interface ready');
     } catch (error) {
         console.error('❌ Failed to initialize admin interface:', error);
@@ -505,7 +509,9 @@ async function refreshData() {
 
     try {
         await loadPromptData(true);
+        await loadThemes();
         loadPromptCategories();
+        populateThemeSelector();
         showNotification('Data refreshed successfully', 'success');
     } catch (error) {
         showNotification('Failed to refresh data', 'error');
@@ -1104,6 +1110,617 @@ function hideViewPromptModal() {
     }
 }
 
+/**
+ * Load available themes from the server
+ */
+async function loadThemes() {
+    try {
+        const response = await authenticatedFetch(`${AI_API_BASE_URL}/admin/themes`);
+
+        if (!response.ok) {
+            throw new Error(`Failed to load themes: ${response.status}`);
+        }
+
+        const data = await response.json();
+        availableThemes = data.themes || [];
+        activeThemeId = data.activeThemeId;
+
+        console.log(`📚 Loaded ${availableThemes.length} themes, active: ${activeThemeId}`);
+
+    } catch (error) {
+        console.error('❌ Error loading themes:', error);
+        showNotification('Failed to load themes', 'error');
+    }
+}
+
+/**
+ * Setup theme selector UI
+ */
+function setupThemeSelector() {
+    // Add theme selector to the control section
+    const controlSection = document.querySelector('.admin-controls');
+    if (!controlSection) return;
+
+    // Create theme selector container
+    const themeSelectorDiv = document.createElement('div');
+    themeSelectorDiv.className = 'theme-selector-section';
+    themeSelectorDiv.innerHTML = `
+        <div class="theme-selector-container">
+            <label for="theme-select" class="theme-label">Theme:</label>
+            <select id="theme-select" class="theme-select">
+                <option value="">Select a theme...</option>
+            </select>
+            <button id="activate-theme-btn" class="admin-btn admin-btn-primary" onclick="activateSelectedTheme()" disabled>
+                Activate Theme
+            </button>
+            <button id="save-current-btn" class="admin-btn admin-btn-secondary" onclick="showSaveCurrentModal()">
+                Save Current Advisors
+            </button>
+            <button id="delete-theme-btn" class="admin-btn admin-btn-danger" onclick="deleteSelectedTheme()" style="display: none;">
+                Delete Theme
+            </button>
+        </div>
+        <div id="theme-preview" class="theme-preview" style="display: none;">
+            <!-- Theme preview will be populated here -->
+        </div>
+    `;
+
+    // Insert before the control buttons
+    const controlButtons = controlSection.querySelector('.control-buttons');
+    controlSection.insertBefore(themeSelectorDiv, controlButtons);
+
+    // Populate theme selector
+    populateThemeSelector();
+}
+
+/**
+ * Populate the theme selector dropdown
+ */
+function populateThemeSelector() {
+    const themeSelect = document.getElementById('theme-select');
+    if (!themeSelect) return;
+
+    // Clear existing options except the first
+    themeSelect.innerHTML = '<option value="">Select a theme...</option>';
+
+    // Add theme options
+    availableThemes.forEach(theme => {
+        const option = document.createElement('option');
+        option.value = theme.themeId;
+        option.textContent = theme.themeName;
+        if (theme.themeId === activeThemeId) {
+            option.textContent += ' (Active)';
+            option.selected = true;
+        }
+        themeSelect.appendChild(option);
+    });
+
+    // Add event listener for theme selection
+    themeSelect.addEventListener('change', handleThemeSelection);
+}
+
+/**
+ * Handle theme selection
+ */
+function handleThemeSelection() {
+    const themeSelect = document.getElementById('theme-select');
+    const activateBtn = document.getElementById('activate-theme-btn');
+    const previewDiv = document.getElementById('theme-preview');
+
+    const selectedThemeId = themeSelect.value;
+
+    if (!selectedThemeId) {
+        activateBtn.disabled = true;
+        previewDiv.style.display = 'none';
+        return;
+    }
+
+    // Find the selected theme
+    const selectedTheme = availableThemes.find(t => t.themeId === selectedThemeId);
+    if (!selectedTheme) return;
+
+    // Enable activate button if not already active
+    activateBtn.disabled = (selectedThemeId === activeThemeId);
+
+    // Show/hide delete button - don't allow deletion of Default theme
+    const deleteBtn = document.getElementById('delete-theme-btn');
+    if (selectedThemeId === 'Default') {
+        deleteBtn.style.display = 'none';
+    } else {
+        deleteBtn.style.display = 'inline-block';
+    }
+
+    // Show theme preview
+    showThemePreview(selectedTheme);
+}
+
+/**
+ * Show theme preview
+ */
+function showThemePreview(theme) {
+    const previewDiv = document.getElementById('theme-preview');
+    if (!previewDiv) return;
+
+    // Board member categories
+    const boardMemberCategories = ['mentors', 'coaches', 'sponsors', 'connectors', 'peers'];
+
+    // Categorize changes
+    const changes = {
+        activated: [],
+        fallback: [],
+        unchanged: []
+    };
+
+    // Check each category
+    const allCategories = {
+        'skills': 'Skills & Superpowers',
+        'goals': 'Goals & Vision',
+        'board_members': 'Board Members (Fallback)',
+        'mentors': 'Mentors',
+        'coaches': 'Coaches',
+        'sponsors': 'Sponsors',
+        'connectors': 'Connectors',
+        'peers': 'Peers',
+        'overall': 'Overall Board',
+        'writing': 'Writing Assistant'
+    };
+
+    Object.keys(allCategories).forEach(category => {
+        if (theme.prompts && theme.prompts[category]) {
+            changes.activated.push(`✅ ${allCategories[category]} → ${theme.prompts[category].replace(/_/g, ' ')}`);
+        } else if (boardMemberCategories.includes(category)) {
+            changes.fallback.push(`🔄 ${allCategories[category]} → Use Board Members fallback`);
+        } else if (category !== 'board_members') {
+            changes.unchanged.push(`➖ ${allCategories[category]} → No change`);
+        }
+    });
+
+    // Build preview HTML
+    let previewHTML = `
+        <h3>Theme Preview: ${theme.themeName}</h3>
+        <p class="theme-description">${theme.description || ''}</p>
+        <div class="theme-changes">
+    `;
+
+    if (changes.activated.length > 0) {
+        previewHTML += '<div class="change-section"><strong>Will be updated:</strong><ul>';
+        changes.activated.forEach(change => {
+            previewHTML += `<li>${change}</li>`;
+        });
+        previewHTML += '</ul></div>';
+    }
+
+    if (changes.fallback.length > 0) {
+        previewHTML += '<div class="change-section"><strong>Will use fallback:</strong><ul>';
+        changes.fallback.forEach(change => {
+            previewHTML += `<li>${change}</li>`;
+        });
+        previewHTML += '</ul></div>';
+    }
+
+    if (changes.unchanged.length > 0) {
+        previewHTML += '<div class="change-section"><strong>Will stay unchanged:</strong><ul>';
+        changes.unchanged.forEach(change => {
+            previewHTML += `<li>${change}</li>`;
+        });
+        previewHTML += '</ul></div>';
+    }
+
+    previewHTML += '</div>';
+
+    previewDiv.innerHTML = previewHTML;
+    previewDiv.style.display = 'block';
+}
+
+/**
+ * Activate selected theme
+ */
+async function activateSelectedTheme() {
+    const themeSelect = document.getElementById('theme-select');
+    const selectedThemeId = themeSelect.value;
+
+    if (!selectedThemeId) return;
+
+    const activateBtn = document.getElementById('activate-theme-btn');
+    activateBtn.disabled = true;
+    activateBtn.textContent = 'Activating...';
+
+    try {
+        const response = await authenticatedFetch(`${AI_API_BASE_URL}/admin/themes/${selectedThemeId}/activate`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to activate theme: ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        showNotification(`Theme activated successfully`, 'success');
+
+        // Refresh all data to reflect changes (clears cache and reloads everything)
+        await refreshData();
+
+    } catch (error) {
+        console.error('❌ Error activating theme:', error);
+        showNotification('Failed to activate theme', 'error');
+    } finally {
+        activateBtn.textContent = 'Activate Theme';
+        handleThemeSelection(); // Re-enable button if needed
+    }
+}
+
+/**
+ * Show modal to save current configuration as a new theme
+ */
+function showSaveCurrentModal() {
+    // Create modal backdrop
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop save-theme-backdrop';
+    backdrop.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: fadeIn 0.3s ease-out;
+    `;
+
+    // Create modal
+    const modal = document.createElement('div');
+    modal.className = 'save-theme-modal';
+    modal.style.cssText = `
+        background: white;
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        max-width: 500px;
+        width: 90%;
+        position: relative;
+        animation: slideIn 0.3s ease-out;
+    `;
+
+    modal.innerHTML = `
+        <div class="save-theme-header">
+            <h2 style="margin: 0 0 8px 0; color: #007cba; font-size: 24px;">Save Current Advisors</h2>
+            <p style="margin: 0 0 25px 0; color: #666; font-size: 14px;">Create a new theme from your current advisor configuration</p>
+            <button class="modal-close-btn" onclick="closeSaveCurrentModal()" style="
+                position: absolute;
+                top: 20px;
+                right: 20px;
+                background: none;
+                border: none;
+                font-size: 24px;
+                color: #999;
+                cursor: pointer;
+                width: 30px;
+                height: 30px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 50%;
+                transition: all 0.2s;
+            " onmouseover="this.style.background='#f0f0f0'; this.style.color='#333'" onmouseout="this.style.background='none'; this.style.color='#999'">×</button>
+        </div>
+
+        <form id="save-theme-form" onsubmit="handleSaveCurrentTheme(event)" style="display: flex; flex-direction: column; gap: 20px;">
+            <div class="form-group">
+                <label for="theme-name" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">Theme Name</label>
+                <input type="text"
+                       id="theme-name"
+                       name="theme-name"
+                       required
+                       placeholder="e.g., My Custom Advisors"
+                       style="
+                           width: 100%;
+                           padding: 12px;
+                           border: 2px solid #e0e0e0;
+                           border-radius: 6px;
+                           font-size: 16px;
+                           transition: border-color 0.2s;
+                           box-sizing: border-box;
+                       "
+                       onfocus="this.style.borderColor='#007cba'"
+                       onblur="this.style.borderColor='#e0e0e0'">
+            </div>
+
+            <div class="form-group">
+                <label for="theme-description" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">Description (Optional)</label>
+                <textarea id="theme-description"
+                          name="theme-description"
+                          rows="3"
+                          placeholder="Describe the purpose or style of this advisor configuration..."
+                          style="
+                              width: 100%;
+                              padding: 12px;
+                              border: 2px solid #e0e0e0;
+                              border-radius: 6px;
+                              font-size: 14px;
+                              resize: vertical;
+                              min-height: 80px;
+                              transition: border-color 0.2s;
+                              box-sizing: border-box;
+                              font-family: inherit;
+                          "
+                          onfocus="this.style.borderColor='#007cba'"
+                          onblur="this.style.borderColor='#e0e0e0'"></textarea>
+            </div>
+
+            <div class="current-config-preview" style="
+                background: #f8f9fa;
+                padding: 15px;
+                border-radius: 6px;
+                border: 1px solid #e0e0e0;
+            ">
+                <h3 style="margin: 0 0 10px 0; font-size: 16px; color: #333;">Current Configuration Preview</h3>
+                <div id="current-config-list" style="font-size: 14px; color: #666;">
+                    Loading current advisors...
+                </div>
+            </div>
+
+            <div class="modal-actions" style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 10px;">
+                <button type="button"
+                        class="cancel-btn"
+                        onclick="closeSaveCurrentModal()"
+                        style="
+                            padding: 12px 24px;
+                            border: 2px solid #ddd;
+                            background: white;
+                            color: #666;
+                            border-radius: 6px;
+                            cursor: pointer;
+                            font-size: 14px;
+                            font-weight: 500;
+                            transition: all 0.2s;
+                        "
+                        onmouseover="this.style.borderColor='#bbb'; this.style.color='#333'"
+                        onmouseout="this.style.borderColor='#ddd'; this.style.color='#666'">
+                    Cancel
+                </button>
+                <button type="submit"
+                        class="save-btn"
+                        style="
+                            padding: 12px 24px;
+                            border: none;
+                            background: #007cba;
+                            color: white;
+                            border-radius: 6px;
+                            cursor: pointer;
+                            font-size: 14px;
+                            font-weight: 500;
+                            transition: all 0.2s;
+                        "
+                        onmouseover="this.style.background='#005a8a'"
+                        onmouseout="this.style.background='#007cba'">
+                    Save Theme
+                </button>
+            </div>
+        </form>
+    `;
+
+    backdrop.appendChild(modal);
+    document.body.appendChild(backdrop);
+
+    // Add CSS animations
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    `;
+    document.head.appendChild(style);
+
+    // Focus on the name input
+    setTimeout(() => {
+        document.getElementById('theme-name').focus();
+    }, 100);
+
+    // Load current configuration preview
+    loadCurrentConfigPreview();
+
+    // Close on backdrop click
+    backdrop.addEventListener('click', (e) => {
+        if (e.target === backdrop) {
+            closeSaveCurrentModal();
+        }
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', handleSaveModalKeydown);
+}
+
+/**
+ * Close the save current theme modal
+ */
+function closeSaveCurrentModal() {
+    const backdrop = document.querySelector('.save-theme-backdrop');
+    if (backdrop) {
+        backdrop.remove();
+    }
+    document.removeEventListener('keydown', handleSaveModalKeydown);
+}
+
+/**
+ * Handle keyboard events for save modal
+ */
+function handleSaveModalKeydown(event) {
+    if (event.key === 'Escape') {
+        closeSaveCurrentModal();
+    }
+}
+
+/**
+ * Load current configuration preview
+ */
+function loadCurrentConfigPreview() {
+    const previewDiv = document.getElementById('current-config-list');
+    if (!previewDiv) return;
+
+    const configItems = [];
+
+    // Define the categories to show in the correct order
+    const categoriesToShow = [
+        'skills',
+        'goals',
+        'board_members',
+        'mentors',
+        'coaches',
+        'sponsors',
+        'connectors',
+        'peers',
+        'overall',
+        'writing'
+    ];
+
+    const categoryNames = {
+        'skills': 'Skills & Superpowers',
+        'goals': 'Goals & Vision',
+        'board_members': 'Board Members (Fallback)',
+        'mentors': 'Mentors',
+        'coaches': 'Coaches',
+        'sponsors': 'Sponsors',
+        'connectors': 'Connectors',
+        'peers': 'Peers',
+        'overall': 'Overall Board',
+        'writing': 'Writing Assistant'
+    };
+
+    // Show active prompts for main categories only
+    categoriesToShow.forEach(category => {
+        const promptId = activeSelections[category];
+        const categoryName = categoryNames[category];
+
+        if (promptId === 'None' || !promptId) {
+            configItems.push(`• <strong>${categoryName}:</strong> <em>Using fallback</em>`);
+        } else {
+            const prompt = currentPrompts[promptId];
+            const promptName = prompt ? prompt.name : promptId;
+            configItems.push(`• <strong>${categoryName}:</strong> ${promptName}`);
+        }
+    });
+
+    if (configItems.length === 0) {
+        previewDiv.innerHTML = '<em>No active advisors found</em>';
+    } else {
+        previewDiv.innerHTML = configItems.join('<br>');
+    }
+}
+
+/**
+ * Delete selected theme
+ */
+async function deleteSelectedTheme() {
+    const themeSelect = document.getElementById('theme-select');
+    const selectedThemeId = themeSelect.value;
+
+    if (!selectedThemeId || selectedThemeId === 'Default') {
+        showNotification('Cannot delete Default theme', 'error');
+        return;
+    }
+
+    const selectedTheme = availableThemes.find(t => t.themeId === selectedThemeId);
+    if (!selectedTheme) {
+        showNotification('Theme not found', 'error');
+        return;
+    }
+
+    // Confirm deletion
+    if (!confirm(`Are you sure you want to delete the theme "${selectedTheme.themeName}"? This action cannot be undone.`)) {
+        return;
+    }
+
+    try {
+        const response = await authenticatedFetch(`${AI_API_BASE_URL}/admin/themes/${selectedThemeId}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to delete theme: ${response.status}`);
+        }
+
+        showNotification(`Theme "${selectedTheme.themeName}" deleted successfully`, 'success');
+
+        // If we deleted the currently active theme, reset to Default
+        if (selectedThemeId === activeThemeId) {
+            activeThemeId = 'Default';
+        }
+
+        // Refresh all data to reflect changes
+        await refreshData();
+
+    } catch (error) {
+        console.error('❌ Error deleting theme:', error);
+        showNotification('Failed to delete theme', 'error');
+    }
+}
+
+/**
+ * Handle save current theme form submission
+ */
+async function handleSaveCurrentTheme(event) {
+    event.preventDefault();
+
+    const form = event.target;
+    const formData = new FormData(form);
+    const themeName = formData.get('theme-name').trim();
+    const description = formData.get('theme-description').trim() || `Custom theme: ${themeName}`;
+
+    if (!themeName) {
+        showNotification('Please enter a theme name', 'error');
+        return;
+    }
+
+    const saveBtn = form.querySelector('.save-btn');
+    const originalText = saveBtn.textContent;
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+
+    try {
+        const response = await authenticatedFetch(`${AI_API_BASE_URL}/admin/themes/advanced/save`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: themeName,
+                description: description
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to save theme: ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        showNotification(`Theme "${themeName}" saved successfully`, 'success');
+        closeSaveCurrentModal();
+
+        // Refresh all data to show new theme
+        await refreshData();
+
+    } catch (error) {
+        console.error('❌ Error saving theme:', error);
+        showNotification('Failed to save theme', 'error');
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = originalText;
+    }
+}
+
 // Global functions for HTML onclick handlers
 window.viewPrompt = viewPrompt;
 window.editPrompt = editPrompt;
@@ -1117,3 +1734,8 @@ window.hideViewPromptModal = hideViewPromptModal;
 window.handleAddPrompt = handleAddPrompt;
 window.exportConfig = exportConfig;
 window.refreshData = refreshData;
+window.activateSelectedTheme = activateSelectedTheme;
+window.deleteSelectedTheme = deleteSelectedTheme;
+window.showSaveCurrentModal = showSaveCurrentModal;
+window.closeSaveCurrentModal = closeSaveCurrentModal;
+window.handleSaveCurrentTheme = handleSaveCurrentTheme;
