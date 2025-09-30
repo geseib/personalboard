@@ -828,6 +828,35 @@ async function createPrompt(promptData) {
 }
 
 /**
+ * Update an existing prompt
+ */
+async function updatePrompt(promptData) {
+    try {
+        const response = await authenticatedFetch(`${AI_API_BASE_URL}/admin/prompts/${promptData.promptId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(promptData)
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        showNotification(`Prompt "${promptData.name}" updated successfully`, 'success');
+        await refreshData();
+        return result;
+
+    } catch (error) {
+        console.error('Error updating prompt:', error);
+        showNotification('Failed to update prompt', 'error');
+        throw error;
+    }
+}
+
+/**
  * Delete a custom prompt
  */
 async function deleteCustomPrompt(promptId) {
@@ -898,6 +927,9 @@ function showNotification(message, type = 'info') {
     }, 5000);
 }
 
+// Global variable to store currently viewing prompt for editing
+let currentViewingPrompt = null;
+
 /**
  * View prompt details
  */
@@ -905,16 +937,27 @@ function viewPrompt(promptId) {
     const prompt = currentPrompts[promptId];
     if (!prompt) return;
 
+    // Store reference for editing
+    currentViewingPrompt = prompt;
+
+    // Update the edit button text based on prompt type
+    const editButton = document.querySelector('#view-prompt-modal .admin-btn-primary');
+    if (editButton) {
+        editButton.textContent = canEditPrompt(prompt) ? 'Edit Prompt' : 'Duplicate Prompt';
+    }
+
     document.getElementById('view-prompt-title').textContent = prompt.name;
     document.getElementById('view-system-prompt').textContent = prompt.systemPrompt;
     document.getElementById('view-user-prompt').textContent = prompt.userPromptTemplate;
     document.getElementById('view-config').innerHTML = `
-        <p><strong>Type:</strong> ${prompt.type}</p>
+        <p><strong>Type:</strong> ${prompt.type || 'Custom'}</p>
         ${prompt.memberType ? `<p><strong>Member Type:</strong> ${prompt.memberType}</p>` : ''}
-        <p><strong>Token Count:</strong> ${prompt.tokenCount}</p>
+        <p><strong>Category:</strong> ${prompt.category || 'N/A'}</p>
+        <p><strong>Token Count:</strong> ${prompt.tokenCount || 'N/A'}</p>
         <p><strong>Status:</strong> ${prompt.status}</p>
         <p><strong>Variables:</strong> ${prompt.variables ? prompt.variables.join(', ') : 'None'}</p>
-        <p><strong>Last Modified:</strong> ${new Date(prompt.lastModified).toLocaleString()}</p>
+        <p><strong>Last Modified:</strong> ${prompt.lastModified ? new Date(prompt.lastModified).toLocaleString() : 'N/A'}</p>
+        <p><strong>Type:</strong> ${canEditPrompt(prompt) ? 'Custom (Editable)' : 'System/Default (Duplicate Only)'}</p>
     `;
 
     document.getElementById('view-prompt-modal').style.display = 'block';
@@ -1013,32 +1056,117 @@ function exportConfig() {
     showNotification('Configuration exported successfully', 'success');
 }
 
+// Global variable to track if we're editing (vs creating new)
+let isEditingPrompt = false;
+
 // Modal functions
-function showAddPromptModal() {
-    document.getElementById('add-prompt-modal').style.display = 'block';
+function showAddPromptModal(promptToEdit = null, isEditing = false) {
+    const modal = document.getElementById('add-prompt-modal');
+    const form = document.getElementById('add-prompt-form');
+    const modalTitle = modal.querySelector('.modal-header h2');
+    const submitButton = modal.querySelector('button[type="submit"]');
+
+    if (promptToEdit) {
+        // Pre-fill form fields with prompt data
+        document.getElementById('prompt-name').value = promptToEdit.name || '';
+        document.getElementById('prompt-category').value = promptToEdit.category || '';
+        document.getElementById('system-prompt').value = promptToEdit.systemPrompt || '';
+        document.getElementById('user-prompt-template').value = promptToEdit.userPromptTemplate || '';
+        document.getElementById('prompt-variables').value = promptToEdit.variables ? promptToEdit.variables.join(', ') : '';
+
+        if (isEditing) {
+            // Editing existing custom prompt
+            isEditingPrompt = true;
+            modalTitle.textContent = 'Edit AI Prompt';
+            submitButton.textContent = 'Update Prompt';
+        } else {
+            // Duplicating (creating new from existing)
+            isEditingPrompt = false;
+            modalTitle.textContent = 'Duplicate AI Prompt';
+            submitButton.textContent = 'Create Prompt';
+        }
+    } else {
+        // Creating new prompt from scratch
+        isEditingPrompt = false;
+        modalTitle.textContent = 'Add New AI Prompt';
+        submitButton.textContent = 'Create Prompt';
+        form.reset();
+    }
+
+    modal.style.display = 'block';
 }
 
 function hideAddPromptModal() {
     document.getElementById('add-prompt-modal').style.display = 'none';
     document.getElementById('add-prompt-form').reset();
+    isEditingPrompt = false;
 }
 
 function hideViewPromptModal() {
     document.getElementById('view-prompt-modal').style.display = 'none';
+    currentViewingPrompt = null; // Clear reference when closing
 }
 
+/**
+ * Check if a prompt can be edited (not system/default)
+ */
+function canEditPrompt(prompt) {
+    // Prevent editing of system prompts or default prompts
+    return prompt &&
+           !prompt.isSystem &&
+           !prompt.isDefault &&
+           prompt.isCustom !== false;
+}
+
+/**
+ * Edit or duplicate current viewing prompt
+ */
 function editPrompt() {
     console.log('✏️ EDIT DEBUG: Edit prompt requested');
 
-    // Get the current prompt data from the view modal
-    const title = document.getElementById('view-prompt-title').textContent;
-    console.log('✏️ EDIT DEBUG: Prompt title:', title);
+    if (!currentViewingPrompt) {
+        showNotification('No prompt selected for editing', 'error');
+        return;
+    }
 
-    // For now, we'll implement a basic version that opens the add modal with current data
-    // TODO: Implement proper edit modal with pre-filled data
-    showNotification('Prompt editing: Please create a new prompt with updated content for now', 'info');
+    const canEdit = canEditPrompt(currentViewingPrompt);
+
+    if (!canEdit) {
+        // For system/default prompts, we duplicate instead of edit
+        console.log('✏️ EDIT DEBUG: System prompt - will duplicate:', currentViewingPrompt.name);
+        duplicatePrompt();
+    } else {
+        // For custom prompts, we can edit directly
+        console.log('✏️ EDIT DEBUG: Custom prompt - editing:', currentViewingPrompt.name);
+        hideViewPromptModal();
+        showAddPromptModal(currentViewingPrompt, true); // true = editing mode
+    }
+}
+
+/**
+ * Duplicate a prompt (for system/default prompts)
+ */
+function duplicatePrompt() {
+    if (!currentViewingPrompt) {
+        showNotification('No prompt selected for duplication', 'error');
+        return;
+    }
+
+    console.log('📋 DUPLICATE: Creating copy of:', currentViewingPrompt.name);
+
+    // Create a copy with modified name
+    const duplicatedPrompt = {
+        ...currentViewingPrompt,
+        name: `${currentViewingPrompt.name} (Copy)`,
+        promptId: null, // Clear ID so it creates a new one
+        isCustom: true, // Mark as custom
+        isDefault: false,
+        isSystem: false
+    };
+
     hideViewPromptModal();
-    showAddPromptModal();
+    showAddPromptModal(duplicatedPrompt, false); // false = create mode (not editing)
+    showNotification('Creating a copy of the prompt. Please modify and save.', 'info');
 }
 
 async function handleAddPrompt(event) {
@@ -1046,18 +1174,9 @@ async function handleAddPrompt(event) {
 
     const formData = new FormData(event.target);
 
-    // CRITICAL DEBUG: Log everything
-    console.log('🔍 ALL FormData entries:');
-    for (let [key, value] of formData.entries()) {
-        console.log(`  ${key}: "${value}"`);
-    }
-
-    // Check form elements directly
-    console.log('📝 Direct element values:');
-    const form = event.target;
-    console.log(`  prompt-name input: "${form.querySelector('#prompt-name')?.value}"`);
-    console.log(`  prompt-category select: "${form.querySelector('#prompt-category')?.value}"`);
-    console.log(`  system-prompt textarea: "${form.querySelector('#system-prompt')?.value?.substring(0, 50)}..."`);
+    // Check if we're editing or creating
+    const isEditing = isEditingPrompt && currentViewingPrompt;
+    console.log(isEditing ? '✏️ EDIT MODE:' : '🆕 CREATE MODE:', 'Processing form data');
 
     const promptData = {
         name: formData.get('prompt-name'),
@@ -1068,13 +1187,24 @@ async function handleAddPrompt(event) {
         tokenCount: Math.floor(Math.random() * 500) + 1000 // Estimate
     };
 
+    // Add original prompt ID and metadata if editing
+    if (isEditing) {
+        promptData.promptId = currentViewingPrompt.promptId;
+        promptData.isCustom = currentViewingPrompt.isCustom;
+        promptData.lastModified = new Date().toISOString();
+    }
+
     console.log('📋 Final promptData object:', JSON.stringify(promptData, null, 2));
 
     try {
-        await createPrompt(promptData);
+        if (isEditing) {
+            await updatePrompt(promptData);
+        } else {
+            await createPrompt(promptData);
+        }
         hideAddPromptModal();
     } catch (error) {
-        // Error already shown in createPrompt
+        // Error already shown in createPrompt/updatePrompt
     }
 }
 
