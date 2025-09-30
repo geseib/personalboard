@@ -93,14 +93,15 @@ export const handler = async (event) => {
     const cmd = new UpdateCommand({
       TableName: TABLE,
       Key: { code },
-      ConditionExpression: "attribute_not_exists(#s) OR #s = :avail",
+      ConditionExpression: "attribute_not_exists(#s) OR #s = :avail OR #s = :assigned",
       UpdateExpression: "SET #s = :claimed, claimedAt = :now, expiresAt = :exp, clientId = :cid, #ttl = :ttl",
-      ExpressionAttributeNames: { 
+      ExpressionAttributeNames: {
         "#s": "status",
         "#ttl": "ttl"
       },
       ExpressionAttributeValues: {
         ":avail": "AVAILABLE",
+        ":assigned": "ASSIGNED",
         ":claimed": "CLAIMED",
         ":now": now,
         ":exp": exp,

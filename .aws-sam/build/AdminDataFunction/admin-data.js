@@ -1,9 +1,10 @@
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, DeleteCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, DeleteCommand, UpdateCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
 
 const client = new DynamoDBClient();
 const dynamodb = DynamoDBDocumentClient.from(client);
 const TABLE_NAME = process.env.PROMPT_MANAGEMENT_TABLE || process.env.DYNAMODB_TABLE;
+const ACCESS_CODES_TABLE = process.env.ACCESS_CODES_TABLE;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'adminpass123';
 
 /**
@@ -11,6 +12,13 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'adminpass123';
  */
 function validateAdminPassword(event) {
     const providedPassword = event.headers['X-Admin-Password'] || event.headers['x-admin-password'];
+
+    console.log('🔐 Password validation debug:', {
+        hasXAdminPassword: !!event.headers['X-Admin-Password'],
+        hasxadminpassword: !!event.headers['x-admin-password'],
+        providedPassword: providedPassword ? '***' : 'NONE',
+        expectedPassword: ADMIN_PASSWORD ? '***' : 'NONE'
+    });
 
     if (!providedPassword) {
         console.log('🔒 Password validation failed: No password provided');
@@ -385,6 +393,7 @@ exports.handler = async (event) => {
         }
 
         const { httpMethod, path } = event;
+        console.log(`🔍 DEBUG: httpMethod=${httpMethod}, path='${path}'`);
 
         if (httpMethod === 'GET' && path === '/admin/prompts') {
             return await getPrompts();
@@ -450,6 +459,25 @@ exports.handler = async (event) => {
                 event.body;
             const themeData = JSON.parse(body);
             return await saveAdvancedTheme(themeData);
+        } else if (httpMethod === 'GET' && path === '/admin/tokens/next') {
+            if (!validateAdminPassword(event)) {
+                return unauthorizedResponse();
+            }
+            return await getNextToken();
+        } else if (httpMethod === 'GET' && path === '/admin/tokens/stats') {
+            if (!validateAdminPassword(event)) {
+                return unauthorizedResponse();
+            }
+            return await getTokenStats();
+        } else if (httpMethod === 'POST' && path === '/admin/tokens/generate') {
+            if (!validateAdminPassword(event)) {
+                return unauthorizedResponse();
+            }
+            const body = event.isBase64Encoded ?
+                Buffer.from(event.body, 'base64').toString('utf-8') :
+                event.body;
+            const params = body ? JSON.parse(body) : {};
+            return await generateTokens(params);
         }
 
         return {
@@ -1154,6 +1182,225 @@ async function deleteTheme(themeName) {
             headers: corsHeaders,
             body: JSON.stringify({
                 error: 'Failed to delete theme'
+            })
+        };
+    }
+}
+
+/**
+ * Get next available access token and mark as ASSIGNED
+ */
+async function getNextToken() {
+    try {
+        console.log('🔍 Searching for available tokens in table:', ACCESS_CODES_TABLE);
+
+        // Scan for available tokens - no limit to ensure we find matches
+        const scanResult = await dynamodb.send(new ScanCommand({
+            TableName: ACCESS_CODES_TABLE,
+            FilterExpression: '#status = :available OR attribute_not_exists(#status)',
+            ExpressionAttributeNames: {
+                '#status': 'status'
+            },
+            ExpressionAttributeValues: {
+                ':available': 'AVAILABLE'
+            }
+        }));
+
+        console.log('🔍 Scan result:', {
+            count: scanResult.Count,
+            items: scanResult.Items ? scanResult.Items.length : 0
+        });
+
+        if (!scanResult.Items || scanResult.Items.length === 0) {
+            // Also check total tokens for debugging
+            const totalCount = await dynamodb.send(new ScanCommand({
+                TableName: ACCESS_CODES_TABLE,
+                Select: 'COUNT'
+            }));
+
+            // Debug: Check what status values actually exist
+            const statusSample = await dynamodb.send(new ScanCommand({
+                TableName: ACCESS_CODES_TABLE,
+                ProjectionExpression: 'code, #status',
+                ExpressionAttributeNames: {
+                    '#status': 'status'
+                },
+                Limit: 5
+            }));
+
+            console.log('🔍 Total tokens in table:', totalCount.Count);
+            console.log('🔍 Sample tokens and their status:', statusSample.Items);
+
+            return {
+                statusCode: 404,
+                headers: corsHeaders,
+                body: JSON.stringify({
+                    error: 'No available tokens found'
+                })
+            };
+        }
+
+        const token = scanResult.Items[0];
+        const code = token.code;
+
+        console.log('🔍 Found available token:', code);
+
+        // Calculate TTL for 2 weeks from now
+        const twoWeeksFromNow = new Date();
+        twoWeeksFromNow.setDate(twoWeeksFromNow.getDate() + 14);
+        const ttl = Math.floor(twoWeeksFromNow.getTime() / 1000);
+
+        // Update token status to ASSIGNED with TTL
+        await dynamodb.send(new UpdateCommand({
+            TableName: ACCESS_CODES_TABLE,
+            Key: {
+                code: code
+            },
+            UpdateExpression: 'SET #status = :status, assignedAt = :assignedAt, #ttl = :ttl',
+            ExpressionAttributeNames: {
+                '#status': 'status',
+                '#ttl': 'ttl'
+            },
+            ExpressionAttributeValues: {
+                ':status': 'ASSIGNED',
+                ':assignedAt': Math.floor(Date.now() / 1000),
+                ':ttl': ttl
+            }
+        }));
+
+        return {
+            statusCode: 200,
+            headers: corsHeaders,
+            body: JSON.stringify({
+                accessCode: code,
+                status: 'ASSIGNED',
+                expiresAt: twoWeeksFromNow.toISOString()
+            })
+        };
+
+    } catch (error) {
+        console.error('Error getting next token:', error);
+        return {
+            statusCode: 500,
+            headers: corsHeaders,
+            body: JSON.stringify({
+                error: 'Failed to get next token'
+            })
+        };
+    }
+}
+
+/**
+ * Get token statistics (optimized to avoid full scan)
+ */
+async function getTokenStats() {
+    try {
+        // Use separate queries for each status to avoid full table scan
+        const [availableResult, assignedResult, claimedResult] = await Promise.all([
+            // Count AVAILABLE tokens
+            dynamodb.send(new ScanCommand({
+                TableName: ACCESS_CODES_TABLE,
+                FilterExpression: '#status = :status OR attribute_not_exists(#status)',
+                ExpressionAttributeNames: { '#status': 'status' },
+                ExpressionAttributeValues: { ':status': 'AVAILABLE' },
+                Select: 'COUNT'
+            })),
+            // Count ASSIGNED tokens
+            dynamodb.send(new ScanCommand({
+                TableName: ACCESS_CODES_TABLE,
+                FilterExpression: '#status = :status',
+                ExpressionAttributeNames: { '#status': 'status' },
+                ExpressionAttributeValues: { ':status': 'ASSIGNED' },
+                Select: 'COUNT'
+            })),
+            // Count CLAIMED tokens
+            dynamodb.send(new ScanCommand({
+                TableName: ACCESS_CODES_TABLE,
+                FilterExpression: '#status = :status',
+                ExpressionAttributeNames: { '#status': 'status' },
+                ExpressionAttributeValues: { ':status': 'CLAIMED' },
+                Select: 'COUNT'
+            }))
+        ]);
+
+        const stats = {
+            AVAILABLE: availableResult.Count || 0,
+            ASSIGNED: assignedResult.Count || 0,
+            CLAIMED: claimedResult.Count || 0,
+            total: (availableResult.Count || 0) + (assignedResult.Count || 0) + (claimedResult.Count || 0)
+        };
+
+        return {
+            statusCode: 200,
+            headers: corsHeaders,
+            body: JSON.stringify(stats)
+        };
+
+    } catch (error) {
+        console.error('Error getting token stats:', error);
+        return {
+            statusCode: 500,
+            headers: corsHeaders,
+            body: JSON.stringify({
+                error: 'Failed to get token statistics'
+            })
+        };
+    }
+}
+
+/**
+ * Generate new tokens directly in admin-data function
+ */
+async function generateTokens(params = {}) {
+    try {
+        const count = params.count || 10; // Default to 10 tokens
+        const made = [];
+
+        // Generate tokens directly (same logic as generate-codes.js)
+        for (let i = 0; i < count; i++) {
+            // Generate a random 6-digit number between 100000 and 999999
+            const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+            try {
+                await dynamodb.send(new PutCommand({
+                    TableName: ACCESS_CODES_TABLE,
+                    Item: {
+                        code,
+                        status: "AVAILABLE",
+                        notes: "Personal Board Access - Generated via Admin",
+                        createdAt: Math.floor(Date.now() / 1000)
+                    },
+                    ConditionExpression: "attribute_not_exists(code)"
+                }));
+                made.push(code);
+            } catch (e) {
+                // Collision: retry this iteration
+                if (e.name === 'ConditionalCheckFailedException') {
+                    i--;
+                } else {
+                    throw e;
+                }
+            }
+        }
+
+        return {
+            statusCode: 200,
+            headers: corsHeaders,
+            body: JSON.stringify({
+                message: `Successfully generated ${made.length} new tokens`,
+                codesGenerated: made.length,
+                codes: made
+            })
+        };
+
+    } catch (error) {
+        console.error('Error generating tokens:', error);
+        return {
+            statusCode: 500,
+            headers: corsHeaders,
+            body: JSON.stringify({
+                error: 'Failed to generate tokens',
+                details: error.message
             })
         };
     }

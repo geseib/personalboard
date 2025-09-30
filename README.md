@@ -57,6 +57,12 @@ Personal Board of Directors is a career development tool that helps professional
 - **GitHub Integration**: Submit bug reports and feature requests directly from the app
 - **Floating Action Button**: Easy access to feedback form without leaving your workflow
 
+### Administrative Features
+- **AI Prompt Management**: Configure and customize AI guidance prompts for different scenarios
+- **Access Token System**: Generate and distribute access codes for AI features
+- **Theme Customization**: Create and manage custom visual themes
+- **Usage Analytics**: Monitor application usage and prompt effectiveness
+
 ## 🚀 Getting Started
 
 ### Prerequisites
@@ -171,6 +177,7 @@ We welcome contributions from the community! Here's how you can help:
 - **Prompt Engineering**: Improve AI response quality and relevance
 - **New AI Capabilities**: Add meeting preparation, email drafts, and networking strategies
 - **Multi-language Support**: Extend AI guidance to support multiple languages
+- **Admin Interface**: Enhance the administrative dashboard for better prompt and user management
 
 #### Documentation
 - **User Guides**: Create comprehensive documentation for end users

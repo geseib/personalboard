@@ -193,6 +193,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         await loadPromptData();
         await loadThemes();
+        await loadTokenStats();
         loadPromptCategories();
         setupSearch();
         setupThemeSelector();
@@ -1721,6 +1722,374 @@ async function handleSaveCurrentTheme(event) {
     }
 }
 
+// =============================================================================
+// Token Management Functions
+// =============================================================================
+
+/**
+ * Create token management UI if it doesn't exist
+ */
+function createTokenManagementUI() {
+    // Check if already exists
+    if (document.querySelector('.token-management-section')) {
+        return;
+    }
+
+    // Find insertion point (before prompt-categories)
+    const promptCategoriesEl = document.getElementById('prompt-categories');
+    if (!promptCategoriesEl) {
+        console.error('Could not find prompt-categories element to insert token management');
+        return;
+    }
+
+    // Create token management section
+    const tokenSection = document.createElement('div');
+    tokenSection.className = 'token-management-section';
+    tokenSection.innerHTML = `
+        <div class="section-header">
+            <h2>Access Token Management</h2>
+            <p class="section-subtitle">Provide access tokens for users to access the application</p>
+        </div>
+
+        <div class="token-stats">
+            <div class="stat-card">
+                <div class="stat-number" id="available-tokens">-</div>
+                <div class="stat-label">Available</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="assigned-tokens">-</div>
+                <div class="stat-label">Assigned</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="claimed-tokens">-</div>
+                <div class="stat-label">Claimed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="total-tokens">-</div>
+                <div class="stat-label">Total</div>
+            </div>
+        </div>
+
+        <div class="token-actions">
+            <button class="admin-btn admin-btn-primary" onclick="getNextToken()">
+                Get Next Token
+            </button>
+            <button class="admin-btn admin-btn-secondary" onclick="showGenerateTokensModal()">
+                Generate New Tokens
+            </button>
+            <button class="admin-btn admin-btn-secondary" onclick="refreshTokenStats()">
+                Refresh Stats
+            </button>
+        </div>
+
+        <div class="token-result" id="token-result" style="display: none;">
+            <div class="token-display">
+                <label>Access Token:</label>
+                <div class="token-code-display">
+                    <span id="token-code"></span>
+                    <button class="copy-btn" onclick="copyTokenToClipboard()" title="Copy to clipboard">📋</button>
+                </div>
+                <p class="token-info">Token has been assigned and copied to clipboard. Expires in 2 weeks.</p>
+            </div>
+        </div>
+    `;
+
+    // Insert before prompt categories
+    promptCategoriesEl.parentNode.insertBefore(tokenSection, promptCategoriesEl);
+
+    // Create modals if they don't exist
+    createTokenModals();
+}
+
+/**
+ * Create token modals if they don't exist
+ */
+function createTokenModals() {
+    // Check if modals already exist
+    if (document.getElementById('generate-tokens-modal')) {
+        return;
+    }
+
+    // Find app container
+    const appContainer = document.querySelector('.app');
+    if (!appContainer) {
+        console.error('Could not find app container to insert modals');
+        return;
+    }
+
+    // Create modals container
+    const modalsContainer = document.createElement('div');
+    modalsContainer.innerHTML = `
+        <!-- Generate Tokens Modal -->
+        <div id="generate-tokens-modal" class="modal" style="display: none;">
+            <div class="modal-content admin-modal-content">
+                <div class="modal-header">
+                    <h2>Generate New Tokens</h2>
+                    <button class="modal-close" onclick="hideGenerateTokensModal()">×</button>
+                </div>
+                <form id="generate-tokens-form" onsubmit="handleGenerateTokens(event)">
+                    <div class="form-group">
+                        <label for="token-count">Number of Tokens</label>
+                        <input type="number" id="token-count" name="token-count" value="10" min="1" max="100" required>
+                        <small>Generate between 1 and 100 new access tokens</small>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="admin-btn admin-btn-secondary" onclick="hideGenerateTokensModal()">
+                            Cancel
+                        </button>
+                        <button type="submit" class="admin-btn admin-btn-primary">
+                            Generate Tokens
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- No Tokens Available Modal -->
+        <div id="no-tokens-modal" class="modal" style="display: none;">
+            <div class="modal-content admin-modal-content">
+                <div class="modal-header">
+                    <h2>No Tokens Available</h2>
+                    <button class="modal-close" onclick="hideNoTokensModal()">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="no-tokens-message">
+                        <p>There are currently no available access tokens.</p>
+                        <p>You can generate new tokens using the "Generate New Tokens" button, or wait for existing assigned tokens to expire.</p>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button class="admin-btn admin-btn-secondary" onclick="hideNoTokensModal()">
+                        Close
+                    </button>
+                    <button class="admin-btn admin-btn-primary" onclick="hideNoTokensModal(); showGenerateTokensModal();">
+                        Generate Tokens
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Append modals to app container
+    appContainer.appendChild(modalsContainer);
+}
+
+/**
+ * Load token statistics
+ */
+async function loadTokenStats() {
+    // Create UI if it doesn't exist
+    createTokenManagementUI();
+
+    // Check if token management elements exist
+    if (!document.getElementById('available-tokens')) {
+        console.log('Token management elements not found, skipping token stats load');
+        return;
+    }
+
+    if (!adminPassword) {
+        adminPassword = await promptForPassword();
+        if (!adminPassword) return;
+    }
+
+    try {
+        const response = await fetch(`${AI_API_BASE_URL}/admin/tokens/stats`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Admin-Password': adminPassword
+            }
+        });
+
+        if (response.ok) {
+            const stats = await response.json();
+            updateTokenStatsDisplay(stats);
+        } else {
+            console.error('Failed to load token stats');
+        }
+    } catch (error) {
+        console.error('Error loading token stats:', error);
+    }
+}
+
+/**
+ * Update token stats display
+ */
+function updateTokenStatsDisplay(stats) {
+    const availableEl = document.getElementById('available-tokens');
+    const assignedEl = document.getElementById('assigned-tokens');
+    const claimedEl = document.getElementById('claimed-tokens');
+    const totalEl = document.getElementById('total-tokens');
+
+    if (availableEl) availableEl.textContent = stats.AVAILABLE || 0;
+    if (assignedEl) assignedEl.textContent = stats.ASSIGNED || 0;
+    if (claimedEl) claimedEl.textContent = stats.CLAIMED || 0;
+    if (totalEl) totalEl.textContent = stats.total || 0;
+}
+
+/**
+ * Get next available token
+ */
+async function getNextToken() {
+    if (!adminPassword) {
+        adminPassword = await promptForPassword();
+        if (!adminPassword) return;
+    }
+
+    try {
+        const response = await fetch(`${AI_API_BASE_URL}/admin/tokens/next`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Admin-Password': adminPassword
+            }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            displayToken(result.accessCode);
+            // Copy to clipboard automatically
+            await copyTokenToClipboard(result.accessCode);
+            // Refresh stats
+            await loadTokenStats();
+        } else if (response.status === 404) {
+            // No tokens available
+            console.log('No tokens available, showing modal');
+            showNoTokensModal();
+        } else {
+            const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+            console.error('Failed to get next token:', errorData);
+            alert(`Failed to get next token: ${errorData.error || 'Unknown error'}`);
+        }
+    } catch (error) {
+        console.error('Error getting next token:', error);
+        alert('Error getting next token. Please check your connection and try again.');
+    }
+}
+
+/**
+ * Display token in the result area
+ */
+function displayToken(token) {
+    const tokenCodeEl = document.getElementById('token-code');
+    const tokenResultEl = document.getElementById('token-result');
+
+    if (tokenCodeEl) tokenCodeEl.textContent = token;
+    if (tokenResultEl) tokenResultEl.style.display = 'block';
+}
+
+/**
+ * Copy token to clipboard
+ */
+async function copyTokenToClipboard(tokenOverride = null) {
+    const tokenCodeEl = document.getElementById('token-code');
+    const token = tokenOverride || (tokenCodeEl ? tokenCodeEl.textContent : '');
+
+    try {
+        await navigator.clipboard.writeText(token);
+
+        // Update copy button to show success
+        const copyBtn = document.querySelector('.copy-btn');
+        const originalText = copyBtn.textContent;
+        copyBtn.textContent = '✓';
+        copyBtn.style.color = 'green';
+
+        setTimeout(() => {
+            copyBtn.textContent = originalText;
+            copyBtn.style.color = '';
+        }, 2000);
+
+    } catch (error) {
+        console.error('Failed to copy to clipboard:', error);
+
+        // Fallback: select the text
+        const tokenElement = document.getElementById('token-code');
+        const range = document.createRange();
+        range.selectNode(tokenElement);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+
+        alert('Token selected. Please copy manually with Ctrl+C (Cmd+C on Mac)');
+    }
+}
+
+/**
+ * Refresh token statistics
+ */
+async function refreshTokenStats() {
+    await loadTokenStats();
+}
+
+/**
+ * Show generate tokens modal
+ */
+function showGenerateTokensModal() {
+    document.getElementById('generate-tokens-modal').style.display = 'flex';
+}
+
+/**
+ * Hide generate tokens modal
+ */
+function hideGenerateTokensModal() {
+    document.getElementById('generate-tokens-modal').style.display = 'none';
+}
+
+/**
+ * Handle generate tokens form submission
+ */
+async function handleGenerateTokens(event) {
+    event.preventDefault();
+
+    if (!adminPassword) {
+        adminPassword = await promptForPassword();
+        if (!adminPassword) return;
+    }
+
+    const formData = new FormData(event.target);
+    const count = parseInt(formData.get('token-count'));
+
+    try {
+        const response = await fetch(`${AI_API_BASE_URL}/admin/tokens/generate`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Admin-Password': adminPassword
+            },
+            body: JSON.stringify({ count: count })
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            alert(`Successfully generated ${count} new tokens!`);
+            hideGenerateTokensModal();
+            // Refresh stats
+            await loadTokenStats();
+        } else {
+            const error = await response.json();
+            console.error('Failed to generate tokens:', error);
+            alert(`Failed to generate tokens: ${error.error || 'Unknown error'}`);
+        }
+    } catch (error) {
+        console.error('Error generating tokens:', error);
+        alert('Error generating tokens. Please check your connection and try again.');
+    }
+}
+
+/**
+ * Show no tokens available modal
+ */
+function showNoTokensModal() {
+    document.getElementById('no-tokens-modal').style.display = 'flex';
+}
+
+/**
+ * Hide no tokens available modal
+ */
+function hideNoTokensModal() {
+    document.getElementById('no-tokens-modal').style.display = 'none';
+}
+
 // Global functions for HTML onclick handlers
 window.viewPrompt = viewPrompt;
 window.editPrompt = editPrompt;
@@ -1739,3 +2108,11 @@ window.deleteSelectedTheme = deleteSelectedTheme;
 window.showSaveCurrentModal = showSaveCurrentModal;
 window.closeSaveCurrentModal = closeSaveCurrentModal;
 window.handleSaveCurrentTheme = handleSaveCurrentTheme;
+window.getNextToken = getNextToken;
+window.refreshTokenStats = refreshTokenStats;
+window.showGenerateTokensModal = showGenerateTokensModal;
+window.hideGenerateTokensModal = hideGenerateTokensModal;
+window.handleGenerateTokens = handleGenerateTokens;
+window.showNoTokensModal = showNoTokensModal;
+window.hideNoTokensModal = hideNoTokensModal;
+window.copyTokenToClipboard = copyTokenToClipboard;
