@@ -182,6 +182,7 @@ function App() {
   const [showSponsorsVideoModal, setShowSponsorsVideoModal] = useState(false);
   const [showPeersVideoModal, setShowPeersVideoModal] = useState(false);
   const [showBoardVideoModal, setShowBoardVideoModal] = useState(false);
+  const [showPodcastModal, setShowPodcastModal] = useState(false);
   const [showAdvisorModal, setShowAdvisorModal] = useState(false);
   const [advisorGuidance, setAdvisorGuidance] = useState(null);
   const [advisorLoading, setAdvisorLoading] = useState(false);
@@ -1850,7 +1851,7 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
         </div>
       )}
       <div className="content">
-        {current === 'intro' ? <Intro onLearnClick={() => setShowIntroLearn(true)} onVideoClick={() => setShowVideoModal(true)} /> : current === 'you' ? <You data={data.you || {superpowers: [], mentees: []}} onEdit={handleEdit} onDelete={handleDelete} onUpdateData={(updatedYouData) => { setData({...data, you: updatedYouData}); localStorage.setItem('boardData', JSON.stringify({...data, you: updatedYouData})); }} /> : current === 'goals' ? <Goals items={data[current] || []} onEdit={handleEdit} /> : current === 'board' ? <Board data={data} boardAdvice={boardAdvice} boardAdviceLoading={boardAdviceLoading} /> : current === 'mentors' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} onChangeRole={handleChangeRoleClick} /> : current === 'coaches' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} onChangeRole={handleChangeRoleClick} /> : <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} onChangeRole={handleChangeRoleClick} />}
+        {current === 'intro' ? <Intro onLearnClick={() => setShowIntroLearn(true)} onVideoClick={() => setShowVideoModal(true)} onPodcastClick={() => setShowPodcastModal(true)} /> : current === 'you' ? <You data={data.you || {superpowers: [], mentees: []}} onEdit={handleEdit} onDelete={handleDelete} onUpdateData={(updatedYouData) => { setData({...data, you: updatedYouData}); localStorage.setItem('boardData', JSON.stringify({...data, you: updatedYouData})); }} /> : current === 'goals' ? <Goals items={data[current] || []} onEdit={handleEdit} /> : current === 'board' ? <Board data={data} boardAdvice={boardAdvice} boardAdviceLoading={boardAdviceLoading} /> : current === 'mentors' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} onChangeRole={handleChangeRoleClick} /> : current === 'coaches' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} onChangeRole={handleChangeRoleClick} /> : <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} onChangeRole={handleChangeRoleClick} />}
       </div>
       <nav className="nav">
         {pages.map(p => {
@@ -1907,6 +1908,7 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
       {showForm && <FormModal type={formType} item={editingItem} onSave={saveEntry} onClose={() => { setShowForm(false); setShowAdvisorModal(false); }} onAdvise={handleAdvise} advisorShowing={showAdvisorModal} onFormUpdate={setEditingItem} onWritingModalUpdate={setWritingResultsModal} writingResultsShowing={writingResultsModal.show} />}
       {showUploadSuccess && <UploadSuccessPopup />}
       {showVideoModal && <VideoModal onClose={() => setShowVideoModal(false)} />}
+      {showPodcastModal && <PodcastModal onClose={() => setShowPodcastModal(false)} />}
       {showMentorVideoModal && <MentorVideoModal onClose={() => setShowMentorVideoModal(false)} />}
       {showCoachVideoModal && <CoachVideoModal onClose={() => setShowCoachVideoModal(false)} />}
       {showGoalsVideoModal && <GoalsVideoModal onClose={() => setShowGoalsVideoModal(false)} />}
@@ -1956,7 +1958,7 @@ function Quote({ text, position = 'center' }) {
   return <div className={`quote quote-${position} ${visible ? 'fade-in' : 'fade-out'}`}>{text}</div>;
 }
 
-function Intro({ onLearnClick, onVideoClick }) {
+function Intro({ onLearnClick, onVideoClick, onPodcastClick }) {
   const introQuotes = [
     "You are not just building your résumé. You're building your support system.",
     "Success is not a solo journey. Build your board.",
@@ -2024,6 +2026,24 @@ function Intro({ onLearnClick, onVideoClick }) {
           onMouseOut={(e) => e.target.style.backgroundColor = '#ef4444'}
         >
           Watch Video
+        </button>
+        <button
+          onClick={onPodcastClick}
+          style={{
+            padding: '12px 24px',
+            backgroundColor: '#8b5cf6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '16px',
+            fontWeight: '500',
+            cursor: 'pointer',
+            transition: 'background-color 0.2s'
+          }}
+          onMouseOver={(e) => e.target.style.backgroundColor = '#7c3aed'}
+          onMouseOut={(e) => e.target.style.backgroundColor = '#8b5cf6'}
+        >
+          🎧 Listen to Podcast
         </button>
       </div>
     </div>
@@ -4087,13 +4107,318 @@ ${getLevelInstructions(enhancementLevel)}`;
   );
 }
 
+function PodcastModal({ onClose }) {
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(100); // Placeholder duration
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [player, setPlayer] = useState(null);
+
+  useEffect(() => {
+    // YouTube API integration
+    const tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    const firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+    window.onYouTubeIframeAPIReady = () => {
+      const ytPlayer = new window.YT.Player('youtube-player', {
+        height: '1',
+        width: '1',
+        videoId: '-q0kkriJVZM',
+        playerVars: {
+          autoplay: 1,
+          loop: 1,
+          playlist: '-q0kkriJVZM'
+        },
+        events: {
+          onReady: (event) => {
+            setPlayer(event.target);
+            setDuration(event.target.getDuration());
+            // Update time every second
+            const interval = setInterval(() => {
+              if (event.target && event.target.getCurrentTime) {
+                setCurrentTime(event.target.getCurrentTime());
+              }
+            }, 1000);
+            return () => clearInterval(interval);
+          }
+        }
+      });
+    };
+
+    return () => {
+      if (player) {
+        player.destroy();
+      }
+    };
+  }, []);
+
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleTimelineClick = (e) => {
+    if (!player) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const width = rect.width;
+    const newTime = (clickX / width) * duration;
+    player.seekTo(newTime);
+    setCurrentTime(newTime);
+  };
+
+  const handleBack15 = () => {
+    if (!player) return;
+    const newTime = Math.max(0, currentTime - 15);
+    player.seekTo(newTime);
+    setCurrentTime(newTime);
+  };
+
+  const handleRestart = () => {
+    if (!player) return;
+    player.seekTo(0);
+    setCurrentTime(0);
+  };
+
+  const handlePlayPause = () => {
+    if (!player) return;
+    if (isPlaying) {
+      player.pauseVideo();
+    } else {
+      player.playVideo();
+    }
+    setIsPlaying(!isPlaying);
+  };
+
+  return (
+    <div className="modal" onClick={handleOverlayClick}>
+      <div className="modal-content" style={{maxWidth: '500px', padding: '30px'}}>
+        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
+          <h2 style={{margin: 0}}>🎧 Personal Board Podcast</h2>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '24px',
+              cursor: 'pointer',
+              color: '#6b7280',
+              padding: '4px'
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        <div style={{
+          textAlign: 'center',
+          padding: '20px',
+          backgroundColor: '#f9fafb',
+          borderRadius: '12px',
+          marginBottom: '20px'
+        }}>
+          <div style={{
+            display: 'inline-block',
+            padding: '20px',
+            backgroundColor: '#8b5cf6',
+            borderRadius: '50%',
+            marginBottom: '16px'
+          }}>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="white">
+              <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+            </svg>
+          </div>
+
+          <h3 style={{marginBottom: '12px', color: '#374151'}}>Now Playing</h3>
+          <p style={{color: '#6b7280', marginBottom: '20px'}}>Listen to the audio version of our Personal Board of Directors overview</p>
+
+          {/* Hidden YouTube player for audio only */}
+          <div id="youtube-player" style={{
+            position: 'absolute',
+            left: '-9999px',
+            top: '-9999px'
+          }}></div>
+
+          {/* Timeline Progress Bar */}
+          <div style={{marginBottom: '20px'}}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontSize: '12px',
+              color: '#6b7280',
+              marginBottom: '8px'
+            }}>
+              <span>{formatTime(currentTime)}</span>
+              <span>{formatTime(duration)}</span>
+            </div>
+            <div
+              onClick={handleTimelineClick}
+              style={{
+                width: '100%',
+                height: '6px',
+                backgroundColor: '#e5e7eb',
+                borderRadius: '3px',
+                cursor: 'pointer',
+                position: 'relative'
+              }}
+            >
+              <div
+                style={{
+                  width: `${(currentTime / duration) * 100}%`,
+                  height: '100%',
+                  backgroundColor: '#8b5cf6',
+                  borderRadius: '3px',
+                  transition: 'width 0.3s ease'
+                }}
+              />
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '-2px',
+                  left: `${(currentTime / duration) * 100}%`,
+                  transform: 'translateX(-50%)',
+                  width: '10px',
+                  height: '10px',
+                  backgroundColor: '#8b5cf6',
+                  borderRadius: '50%',
+                  cursor: 'grab'
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Control Buttons */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '16px',
+            marginBottom: '20px'
+          }}>
+            <button
+              onClick={handleRestart}
+              style={{
+                backgroundColor: '#6b7280',
+                color: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                width: '44px',
+                height: '44px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '16px',
+                fontWeight: 'bold'
+              }}
+              title="Restart"
+            >
+              ↻
+            </button>
+
+            <button
+              onClick={handleBack15}
+              style={{
+                backgroundColor: '#6b7280',
+                color: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                width: '44px',
+                height: '44px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '12px',
+                fontWeight: 'bold'
+              }}
+              title="Back 15 seconds"
+            >
+              -15s
+            </button>
+
+            <button
+              onClick={handlePlayPause}
+              style={{
+                backgroundColor: '#8b5cf6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                width: '44px',
+                height: '44px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '16px',
+                fontWeight: 'bold'
+              }}
+              title={isPlaying ? "Pause" : "Play"}
+            >
+              {isPlaying ? '||' : '▶'}
+            </button>
+          </div>
+
+          {/* Visual audio player representation */}
+          <div style={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            borderRadius: '8px',
+            padding: '16px'
+          }}>
+            <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'}}>
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                <div
+                  key={i}
+                  className="audio-wave-bar"
+                  style={{
+                    width: '3px',
+                    height: `${20 + i * 3}px`,
+                    backgroundColor: 'white',
+                    borderRadius: '3px',
+                    animation: isPlaying ? `wave ${0.8}s ease-in-out infinite` : 'none',
+                    animationDelay: `${i * 0.1}s`,
+                    opacity: isPlaying ? 1 : 0.5
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="modal-buttons">
+          <button onClick={onClose} style={{
+            width: '100%',
+            padding: '12px',
+            backgroundColor: '#ef4444',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '16px',
+            fontWeight: '500',
+            cursor: 'pointer'
+          }}>
+            Stop Listening
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function VideoModal({ onClose }) {
   const handleOverlayClick = (e) => {
     if (e.target === e.currentTarget) {
       onClose();
     }
   };
-  
+
   return (
     <div className="modal" onClick={handleOverlayClick}>
       <div className="modal-content" style={{maxWidth: '800px', padding: '20px'}}>

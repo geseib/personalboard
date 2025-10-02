@@ -687,11 +687,11 @@ function createPromptCard(prompt, categoryKey) {
                     <i class="icon-test"></i> Test
                 </button>
                 ${isCustom ? `
-                    <button class="action-btn duplicate-btn" onclick="duplicatePrompt('${prompt.promptId}')">
+                    <button class="action-btn duplicate-btn" onclick="duplicatePromptFromList('${prompt.promptId}')">
                         <i class="icon-copy"></i> Duplicate
                     </button>
                 ` : `
-                    <button class="action-btn duplicate-btn" onclick="duplicatePrompt('${prompt.promptId}')">
+                    <button class="action-btn duplicate-btn" onclick="duplicatePromptFromList('${prompt.promptId}')">
                         <i class="icon-copy"></i> Duplicate
                     </button>
                 `}
@@ -953,6 +953,7 @@ function viewPrompt(promptId) {
         <p><strong>Type:</strong> ${prompt.type || 'Custom'}</p>
         ${prompt.memberType ? `<p><strong>Member Type:</strong> ${prompt.memberType}</p>` : ''}
         <p><strong>Category:</strong> ${prompt.category || 'N/A'}</p>
+        <p><strong>Theme:</strong> ${prompt.theme || 'None'}</p>
         <p><strong>Token Count:</strong> ${prompt.tokenCount || 'N/A'}</p>
         <p><strong>Status:</strong> ${prompt.status}</p>
         <p><strong>Variables:</strong> ${prompt.variables ? prompt.variables.join(', ') : 'None'}</p>
@@ -973,7 +974,7 @@ function testPrompt(promptId) {
 /**
  * Duplicate prompt
  */
-function duplicatePrompt(promptId) {
+function duplicatePromptFromList(promptId) {
     console.log('🔄 Duplicating prompt:', promptId);
 
     const prompt = currentPrompts[promptId];
@@ -986,7 +987,7 @@ function duplicatePrompt(promptId) {
     console.log('📋 Prompt to duplicate:', prompt);
 
     // Show the modal first
-    showAddPromptModal();
+    showAddNewPromptModal();
 
     // Then fill the fields after a small delay to ensure modal is rendered
     setTimeout(() => {
@@ -1061,6 +1062,13 @@ let isEditingPrompt = false;
 
 // Modal functions
 function showAddPromptModal(promptToEdit = null, isEditing = false) {
+    console.log('📝 MODAL DEBUG: showAddPromptModal called with:', {
+        promptToEdit: promptToEdit ? promptToEdit.name : 'null',
+        isEditing: isEditing,
+        hasCategory: promptToEdit ? !!promptToEdit.category : false,
+        hasSystemPrompt: promptToEdit ? !!promptToEdit.systemPrompt : false
+    });
+
     const modal = document.getElementById('add-prompt-modal');
     const form = document.getElementById('add-prompt-form');
     const modalTitle = modal.querySelector('.modal-header h2');
@@ -1070,6 +1078,7 @@ function showAddPromptModal(promptToEdit = null, isEditing = false) {
         // Pre-fill form fields with prompt data
         document.getElementById('prompt-name').value = promptToEdit.name || '';
         document.getElementById('prompt-category').value = promptToEdit.category || '';
+        document.getElementById('prompt-theme').value = promptToEdit.theme || '';
         document.getElementById('system-prompt').value = promptToEdit.systemPrompt || '';
         document.getElementById('user-prompt-template').value = promptToEdit.userPromptTemplate || '';
         document.getElementById('prompt-variables').value = promptToEdit.variables ? promptToEdit.variables.join(', ') : '';
@@ -1138,8 +1147,9 @@ function editPrompt() {
     } else {
         // For custom prompts, we can edit directly
         console.log('✏️ EDIT DEBUG: Custom prompt - editing:', currentViewingPrompt.name);
+        const promptToEdit = currentViewingPrompt; // Store reference before hiding modal
         hideViewPromptModal();
-        showAddPromptModal(currentViewingPrompt, true); // true = editing mode
+        showAddPromptModal(promptToEdit, true); // true = editing mode
     }
 }
 
@@ -1181,6 +1191,7 @@ async function handleAddPrompt(event) {
     const promptData = {
         name: formData.get('prompt-name'),
         category: formData.get('prompt-category'),
+        theme: formData.get('prompt-theme') || null,
         systemPrompt: formData.get('system-prompt'),
         userPromptTemplate: formData.get('user-prompt-template'),
         variables: formData.get('prompt-variables') ? formData.get('prompt-variables').split(',').map(v => v.trim()) : [],
@@ -1211,13 +1222,22 @@ async function handleAddPrompt(event) {
 /**
  * Show add prompt modal
  */
-function showAddPromptModal() {
+function showAddNewPromptModal() {
+    console.log('🆕 NEW PROMPT: Showing blank form for new prompt');
     const modal = document.getElementById('add-prompt-modal');
+    const form = document.getElementById('add-prompt-form');
+    const modalTitle = modal.querySelector('.modal-header h2');
+    const submitButton = modal.querySelector('button[type="submit"]');
+
     if (modal) {
-        modal.style.display = 'block';
+        // Reset everything for new prompt
+        isEditingPrompt = false;
+        modalTitle.textContent = 'Add New AI Prompt';
+        submitButton.textContent = 'Create Prompt';
+
         // Clear form
-        const form = document.getElementById('add-prompt-form');
         if (form) form.reset();
+        modal.style.display = 'block';
     }
 }
 
@@ -1857,6 +1877,24 @@ async function handleSaveCurrentTheme(event) {
 // =============================================================================
 
 /**
+ * Scroll to the token management section
+ */
+function scrollToTokens() {
+    const tokenSection = document.getElementById('token-management');
+    if (tokenSection) {
+        tokenSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+        // If section doesn't exist yet, wait for it to be created then scroll
+        setTimeout(() => {
+            const section = document.getElementById('token-management');
+            if (section) {
+                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }, 500);
+    }
+}
+
+/**
  * Create token management UI if it doesn't exist
  */
 function createTokenManagementUI() {
@@ -1865,16 +1903,17 @@ function createTokenManagementUI() {
         return;
     }
 
-    // Find insertion point (before prompt-categories)
+    // Find insertion point (after prompt-categories)
     const promptCategoriesEl = document.getElementById('prompt-categories');
     if (!promptCategoriesEl) {
         console.error('Could not find prompt-categories element to insert token management');
         return;
     }
 
-    // Create token management section
+    // Create token management section with ID for scrolling
     const tokenSection = document.createElement('div');
     tokenSection.className = 'token-management-section';
+    tokenSection.id = 'token-management';
     tokenSection.innerHTML = `
         <div class="section-header">
             <h2>Access Token Management</h2>
@@ -1925,7 +1964,8 @@ function createTokenManagementUI() {
     `;
 
     // Insert before prompt categories
-    promptCategoriesEl.parentNode.insertBefore(tokenSection, promptCategoriesEl);
+    // Insert after prompt-categories (at the bottom)
+    promptCategoriesEl.parentNode.insertBefore(tokenSection, promptCategoriesEl.nextSibling);
 
     // Create modals if they don't exist
     createTokenModals();

@@ -637,6 +637,8 @@ async function updatePrompt(promptId, promptData) {
         SK: 'CONFIG',
         promptId,
         name: promptData.name,
+        category: promptData.category || existingResult.Item.category, // Preserve existing category if not provided
+        theme: promptData.theme || existingResult.Item.theme, // Preserve existing theme if not provided
         type: promptData.type,
         memberType: promptData.memberType || null,
         status: existingResult.Item.status, // Preserve existing status

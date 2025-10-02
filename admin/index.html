@@ -19,7 +19,10 @@
                     <button class="admin-btn admin-btn-secondary" onclick="window.location.href='../index.html'">
                         Back to App
                     </button>
-                    <button class="admin-btn admin-btn-primary" onclick="showAddPromptModal()">
+                    <button class="admin-btn admin-btn-secondary" onclick="scrollToTokens()">
+                        Access Tokens ↓
+                    </button>
+                    <button class="admin-btn admin-btn-primary" onclick="showAddNewPromptModal()">
                         Add New Prompt
                     </button>
                 </div>
@@ -105,6 +108,12 @@
                             <option value="writing">Writing Assistant</option>
                         </select>
                         <small>Choose the advisor category this prompt will be used for</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="prompt-theme">Theme (Optional)</label>
+                        <input type="text" id="prompt-theme" name="prompt-theme" placeholder="e.g., Default, Advanced, Custom Theme Name">
+                        <small>Optional theme name for organizing prompts into theme groups</small>
                     </div>
 
                     <div class="form-group">
