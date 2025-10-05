@@ -1,7 +1,23 @@
 import React, { useState, useEffect } from 'react';
 
-// Lambda API configuration - Update this with your deployed Lambda URL
-const LAMBDA_API_URL = 'https://hvr92xfbo6.execute-api.us-east-1.amazonaws.com/production/feedback';
+// Environment-aware API Configuration
+// This detection ONLY affects pbod environment - production remains unchanged
+const getFeedbackApiUrl = () => {
+  const hostname = window.location.hostname;
+
+  // ONLY change behavior for pbod environment
+  if (hostname === 'pbod.seibtribe.us' || hostname.includes('pbod')) {
+    // Using the dedicated pbod environment API
+    return 'https://3unsrrsapf.execute-api.us-east-1.amazonaws.com/pbod/feedback';
+  }
+
+  // DEFAULT: Always use production for any other domain
+  // This ensures board.seibtribe.us and all other domains continue working exactly as before
+  return 'https://hvr92xfbo6.execute-api.us-east-1.amazonaws.com/production/feedback';
+};
+
+// Lambda API configuration - now environment-aware
+const LAMBDA_API_URL = getFeedbackApiUrl();
 
 export function FeedbackButton() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);

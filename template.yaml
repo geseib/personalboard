@@ -19,6 +19,7 @@ Parameters:
     AllowedValues:
       - development
       - production
+      - pbod
     Description: The deployment environment
 
   StackName:

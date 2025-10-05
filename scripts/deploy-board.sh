@@ -12,6 +12,7 @@ NC='\033[0m' # No Color
 # Project configuration
 PROJECT_NAME="Personal Board"
 STACK_NAME="personal-board"
+SAM_CONFIG_ENV="default"
 
 echo -e "${BLUE}🚀 Starting deployment of ${PROJECT_NAME}...${NC}"
 
@@ -50,11 +51,28 @@ npm run build
 
 # Build SAM application
 echo -e "${YELLOW}🏗️  Building SAM application...${NC}"
-sam build
+sam build --config-env $SAM_CONFIG_ENV
 
 # Deploy the infrastructure
 echo -e "${YELLOW}🚀 Deploying infrastructure...${NC}"
-sam deploy
+# Check for required environment variables
+if [ -z "$GITHUB_TOKEN" ]; then
+    echo -e "${RED}❌ GITHUB_TOKEN environment variable is not set${NC}"
+    echo "Please set it with: export GITHUB_TOKEN=your_github_token"
+    exit 1
+fi
+
+if [ -z "$ADMIN_PASSWORD" ]; then
+    echo -e "${RED}❌ ADMIN_PASSWORD environment variable is not set${NC}"
+    echo "Please set it with: export ADMIN_PASSWORD=your_admin_password"
+    exit 1
+fi
+
+# Deploy with parameter overrides for sensitive values
+sam deploy --config-env $SAM_CONFIG_ENV \
+    --parameter-overrides \
+    "GitHubToken=$GITHUB_TOKEN" \
+    "AdminPassword=$ADMIN_PASSWORD"
 
 # Get outputs from CloudFormation stack
 echo -e "${YELLOW}📊 Retrieving stack outputs...${NC}"

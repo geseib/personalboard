@@ -106,19 +106,19 @@ exports.handler = async (event) => {
         const urlObj = new URL(url);
         siteName = urlObj.hostname;
         
-        // Determine environment based on hostname
-        if (urlObj.hostname.includes('.dev.') || urlObj.hostname.includes('dev.')) {
-          environment = 'Development';
-          environmentLabel = 'dev-environment';
-        } else if (urlObj.hostname.includes('.test.') || urlObj.hostname.includes('test.')) {
-          environment = 'Test';
-          environmentLabel = 'test-environment';
-        } else if (urlObj.hostname.includes('.prod.') || urlObj.hostname === 'board.seibtribe.us') {
-          environment = 'Production';
-          environmentLabel = 'prod-environment';
-        } else if (urlObj.hostname.includes('localhost') || urlObj.hostname.includes('127.0.0.1')) {
-          environment = 'Local Development';
+        // Determine environment based on hostname - extract subdomain as environment name
+        if (urlObj.hostname.includes('localhost') || urlObj.hostname.includes('127.0.0.1')) {
+          environment = 'localhost';
           environmentLabel = 'local-dev';
+        } else if (urlObj.hostname === 'board.seibtribe.us') {
+          // Main production site
+          environment = 'production';
+          environmentLabel = 'prod-environment';
+        } else if (urlObj.hostname.endsWith('.seibtribe.us')) {
+          // Extract subdomain as environment name (e.g., pbod.seibtribe.us → pbod, board.dev.seibtribe.us → board.dev)
+          const subdomain = urlObj.hostname.replace('.seibtribe.us', '');
+          environment = subdomain;
+          environmentLabel = `${subdomain}-environment`;
         }
       } catch (e) {
         console.warn('Failed to parse URL:', url);

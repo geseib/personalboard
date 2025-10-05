@@ -27,5 +27,35 @@ image_repositories = []
 parameter_overrides = [
   "HostedZoneId=ZB9TUA073B5SH",
   "DomainName=board.seibtribe.us",
-  "Environment=production"
+  "Environment=production",
+  "StackName=personal-board"
+]
+
+[pbod]
+[pbod.global]
+[pbod.global.parameters]
+stack_name = "personal-board-pbod"
+
+[pbod.build]
+[pbod.build.parameters]
+cached = true
+parallel = true
+
+[pbod.validate]
+[pbod.validate.parameters]
+lint = true
+
+[pbod.deploy]
+[pbod.deploy.parameters]
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = false
+resolve_s3 = true
+s3_prefix = "personal-board-pbod"
+region = "us-east-1"
+image_repositories = []
+parameter_overrides = [
+  "HostedZoneId=ZB9TUA073B5SH",
+  "DomainName=pbod.seibtribe.us",
+  "Environment=pbod",
+  "StackName=personal-board-pbod"
 ]

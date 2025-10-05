@@ -3,8 +3,24 @@
  * Provides frontend interface to the AI guidance API
  */
 
-// API Configuration - update this with your deployed API URL
-const AI_API_BASE_URL = 'https://hvr92xfbo6.execute-api.us-east-1.amazonaws.com/production';
+// Environment-aware API Configuration
+// This detection ONLY affects pbod environment - production remains unchanged
+const getApiBaseUrl = () => {
+  const hostname = window.location.hostname;
+
+  // ONLY change behavior for pbod environment
+  if (hostname === 'pbod.seibtribe.us' || hostname.includes('pbod')) {
+    // Using the dedicated pbod environment API
+    return 'https://3unsrrsapf.execute-api.us-east-1.amazonaws.com/pbod';
+  }
+
+  // DEFAULT: Always use production for any other domain
+  // This ensures board.seibtribe.us and all other domains continue working exactly as before
+  return 'https://hvr92xfbo6.execute-api.us-east-1.amazonaws.com/production';
+};
+
+// API Configuration - now environment-aware
+const AI_API_BASE_URL = getApiBaseUrl();
 
 /**
  * Show styled authentication modal for access code entry

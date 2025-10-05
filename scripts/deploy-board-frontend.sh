@@ -10,7 +10,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Project configuration
-PROJECT_NAME="Personal Board"
+PROJECT_NAME="Personal Board (Board Environment)"
 STACK_NAME="personal-board"
 
 echo -e "${BLUE}🚀 Starting frontend deployment of ${PROJECT_NAME}...${NC}"

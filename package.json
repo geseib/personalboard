@@ -13,8 +13,10 @@
     "build:images": "mkdir -p dist/images && cp -r images/* dist/images/",
     "build:narration": "mkdir -p dist/narration && cp narration/*.mp3 dist/narration/",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
-    "deploy": "./scripts/deploy.sh",
-    "deploy:frontend": "./scripts/deploy-frontend.sh"
+    "deploy:board": "./scripts/deploy-board.sh",
+    "deploy:boardfront": "./scripts/deploy-board-frontend.sh",
+    "deploy:pbod": "./scripts/deploy-pbod.sh",
+    "deploy:pbodfront": "./scripts/deploy-pbod-frontend.sh"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.896.0",
