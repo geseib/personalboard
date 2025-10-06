@@ -20,6 +20,7 @@ Parameters:
       - development
       - production
       - pbod
+      - dev
     Description: The deployment environment
 
   StackName:

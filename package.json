@@ -16,7 +16,9 @@
     "deploy:board": "./scripts/deploy-board.sh",
     "deploy:boardfront": "./scripts/deploy-board-frontend.sh",
     "deploy:pbod": "./scripts/deploy-pbod.sh",
-    "deploy:pbodfront": "./scripts/deploy-pbod-frontend.sh"
+    "deploy:pbodfront": "./scripts/deploy-pbod-frontend.sh",
+    "deploy:boarddev": "./scripts/deploy-boarddev.sh",
+    "deploy:boarddevfront": "./scripts/deploy-boarddev-frontend.sh"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.896.0",

@@ -4,11 +4,17 @@
  */
 
 // Environment-aware API Configuration
-// This detection ONLY affects pbod environment - production remains unchanged
+// This detection affects both pbod and board.dev environments - production remains unchanged
 const getApiBaseUrl = () => {
   const hostname = window.location.hostname;
 
-  // ONLY change behavior for pbod environment
+  // Board.dev environment
+  if (hostname === 'board.dev.seibtribe.us' || hostname.includes('board.dev')) {
+    // Using the dedicated board.dev environment API
+    return 'https://rxbslpk6u9.execute-api.us-east-1.amazonaws.com/dev';
+  }
+
+  // PBOD environment
   if (hostname === 'pbod.seibtribe.us' || hostname.includes('pbod')) {
     // Using the dedicated pbod environment API
     return 'https://3unsrrsapf.execute-api.us-east-1.amazonaws.com/pbod';

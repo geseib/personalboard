@@ -1,12 +1,65 @@
 /**
  * AI Guidance Client for Personal Board of Directors
- * Provides frontend interface to the AI guidance API
+ * Provides frontend interface to the AI guidance API with enhanced mode support
  */
+
+// Enhanced Mode Configuration
+const ENHANCED_MODE_KEY = 'advisorMode';
+
+/**
+ * Check if enhanced advisor mode is enabled
+ * @returns {boolean} True if enhanced mode is active
+ */
+function isEnhancedModeEnabled() {
+  return localStorage.getItem(ENHANCED_MODE_KEY) === 'enhanced';
+}
+
+/**
+ * Enable enhanced advisor mode
+ */
+function enableEnhancedMode() {
+  localStorage.setItem(ENHANCED_MODE_KEY, 'enhanced');
+  // Dispatch event for UI updates
+  window.dispatchEvent(new CustomEvent('advisorModeChanged', {
+    detail: { mode: 'enhanced' }
+  }));
+}
+
+/**
+ * Disable enhanced advisor mode
+ */
+function disableEnhancedMode() {
+  localStorage.setItem(ENHANCED_MODE_KEY, 'standard');
+  // Dispatch event for UI updates
+  window.dispatchEvent(new CustomEvent('advisorModeChanged', {
+    detail: { mode: 'standard' }
+  }));
+}
+
+/**
+ * Toggle enhanced advisor mode
+ * @returns {boolean} New mode state (true = enhanced, false = standard)
+ */
+function toggleEnhancedMode() {
+  const isEnabled = isEnhancedModeEnabled();
+  if (isEnabled) {
+    disableEnhancedMode();
+    return false;
+  } else {
+    enableEnhancedMode();
+    return true;
+  }
+}
 
 // Environment-aware API Configuration
 // This detection ONLY affects pbod environment - production remains unchanged
 const getApiBaseUrl = () => {
   const hostname = window.location.hostname;
+
+  // Board.dev environment
+  if (hostname === 'board.dev.seibtribe.us' || hostname.includes('board.dev')) {
+    return 'https://rxbslpk6u9.execute-api.us-east-1.amazonaws.com/dev';
+  }
 
   // ONLY change behavior for pbod environment
   if (hostname === 'pbod.seibtribe.us' || hostname.includes('pbod')) {
@@ -356,7 +409,7 @@ async function ensureAuthenticated() {
 }
 
 /**
- * Call the AI guidance API
+ * Call the AI guidance API with enhanced mode support
  * @param {string} type - Type of guidance: 'form_completion', 'goal_alignment', 'connection_suggestions', 'board_analysis'
  * @param {Object} data - Data specific to the guidance type
  * @param {Object} context - Additional context for the request
@@ -366,7 +419,14 @@ async function getAIGuidance(type, data, context = {}) {
   try {
     // Ensure user is authenticated
     const token = await ensureAuthenticated();
-    
+
+    // Add enhanced mode context
+    const enhancedContext = {
+      ...context,
+      enhancedMode: isEnhancedModeEnabled(),
+      userData: context.userData || gatherUserData()
+    };
+
     const response = await fetch(`${AI_API_BASE_URL}/ai-guidance`, {
       method: 'POST',
       headers: {
@@ -376,7 +436,7 @@ async function getAIGuidance(type, data, context = {}) {
       body: JSON.stringify({
         type,
         data,
-        context
+        context: enhancedContext
       })
     });
 
@@ -385,7 +445,7 @@ async function getAIGuidance(type, data, context = {}) {
       console.log('🔄 Authentication token expired, requesting new access code...');
       localStorage.removeItem('sessionToken');
       localStorage.removeItem('clientId');
-      
+
       // Recursive call will trigger re-authentication
       return getAIGuidance(type, data, context);
     }
@@ -395,10 +455,38 @@ async function getAIGuidance(type, data, context = {}) {
     }
 
     const result = await response.json();
+
+    // Show enhanced modal if enhanced mode is enabled
+    if (isEnhancedModeEnabled() && window.showEnhancedAdvisorModal) {
+      const userData = enhancedContext.userData;
+      window.showEnhancedAdvisorModal(result, userData, type);
+    }
+
     return result;
   } catch (error) {
     console.error('AI Guidance API Error:', error);
     throw error;
+  }
+}
+
+/**
+ * Gather complete user data for enhanced mode analysis
+ * @returns {Object} Complete user data from localStorage
+ */
+function gatherUserData() {
+  try {
+    return {
+      superpowers: JSON.parse(localStorage.getItem('superpowers') || '[]'),
+      goals: JSON.parse(localStorage.getItem('goals') || '[]'),
+      mentors: JSON.parse(localStorage.getItem('mentors') || '[]'),
+      coaches: JSON.parse(localStorage.getItem('coaches') || '[]'),
+      sponsors: JSON.parse(localStorage.getItem('sponsors') || '[]'),
+      connectors: JSON.parse(localStorage.getItem('connectors') || '[]'),
+      peers: JSON.parse(localStorage.getItem('peers') || '[]')
+    };
+  } catch (error) {
+    console.error('Error gathering user data:', error);
+    return {};
   }
 }
 
@@ -533,7 +621,15 @@ export function setAPIBaseUrl(url) {
   AI_API_BASE_URL = url;
 }
 
-export { isAuthenticated, validateAccessCode, getAIGuidance };
+export {
+  isAuthenticated,
+  validateAccessCode,
+  getAIGuidance,
+  isEnhancedModeEnabled,
+  enableEnhancedMode,
+  disableEnhancedMode,
+  toggleEnhancedMode
+};
 
 /**
  * Example usage for form completion:

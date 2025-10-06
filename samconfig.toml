@@ -59,3 +59,32 @@ parameter_overrides = [
   "Environment=pbod",
   "StackName=personal-board-pbod"
 ]
+
+[boarddev]
+[boarddev.global]
+[boarddev.global.parameters]
+stack_name = "personal-board-boarddev"
+
+[boarddev.build]
+[boarddev.build.parameters]
+cached = true
+parallel = true
+
+[boarddev.validate]
+[boarddev.validate.parameters]
+lint = true
+
+[boarddev.deploy]
+[boarddev.deploy.parameters]
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = false
+resolve_s3 = true
+s3_prefix = "personal-board-boarddev"
+region = "us-east-1"
+image_repositories = []
+parameter_overrides = [
+  "HostedZoneId=ZB9TUA073B5SH",
+  "DomainName=board.dev.seibtribe.us",
+  "Environment=dev",
+  "StackName=personal-board-boarddev"
+]
