@@ -2,6 +2,22 @@
 const { bedrockChat } = require('./bedrock-chat');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, GetCommand } = require('@aws-sdk/lib-dynamodb');
+const {
+  getEnhancedBoardMemberAdvisorSystemPrompt,
+  getEnhancedBoardMemberAdvisorUserPrompt,
+  getEnhancedGoalsAdvisorSystemPrompt,
+  getEnhancedSkillsAdvisorSystemPrompt,
+  getEnhancedBoardAnalysisAdvisorSystemPrompt
+} = require('./enhanced-prompt-templates');
+
+const {
+  calculateCompletionScores,
+  assessAdvisorReadiness,
+  analyzeSkillGoalAlignment,
+  analyzeBoardGaps,
+  determineJourneyStage,
+  getIntelligentInsights
+} = require('./advisor-intelligence');
 
 const client = new DynamoDBClient();
 const dynamodb = DynamoDBDocumentClient.from(client);
@@ -255,6 +271,25 @@ exports.handler = async (event) => {
       };
     }
 
+    // Check if enhanced mode is enabled
+    const isEnhancedMode = context?.enhancedMode === true;
+    const userData = context?.userData || {};
+
+    console.log(`Enhanced mode: ${isEnhancedMode}, User data available: ${!!userData && Object.keys(userData).length > 0}`);
+
+    // Generate intelligent insights if enhanced mode is enabled
+    let insights = null;
+    if (isEnhancedMode && userData && Object.keys(userData).length > 0) {
+      try {
+        console.log('Generating intelligent insights for enhanced mode...');
+        insights = getIntelligentInsights(userData);
+        console.log(`Insights generated: journey stage=${insights.journeyStage}, overall completion=${Math.round((insights.completionScores.overall || 0) * 100)}%`);
+      } catch (error) {
+        console.error('Error generating intelligent insights:', error);
+        // Continue without enhanced features if insights fail
+      }
+    }
+
     // Map guidance types to categories for DynamoDB lookup using new category-based structure
     let category;
     if (type === 'mentor_advisor' || type === 'board_member_advisor') {
@@ -298,42 +333,88 @@ exports.handler = async (event) => {
       let systemPrompt = '';
       let userPrompt = '';
 
-      switch (type) {
-        case 'form_completion':
-          systemPrompt = getFormCompletionSystemPrompt();
-          userPrompt = getFormCompletionUserPrompt(data, context);
-          break;
-        case 'board_member_advisor':
-          systemPrompt = getBoardMemberAdvisorSystemPrompt(data.memberType);
-          userPrompt = getBoardMemberAdvisorUserPrompt(data, context);
-          break;
-        case 'mentor_advisor':
-          systemPrompt = getMentorAdvisorSystemPrompt();
-          userPrompt = getMentorAdvisorUserPrompt(data, context);
-          break;
-        case 'goals_advisor':
-        case 'superpowers_advisor':
-          systemPrompt = getSuperpowersAdvisorSystemPrompt();
-          userPrompt = getSuperpowersAdvisorUserPrompt(data, context);
-          break;
-        case 'board_analysis_advisor':
-          systemPrompt = getBoardAnalysisAdvisorSystemPrompt();
-          userPrompt = getBoardAnalysisAdvisorUserPrompt(data, context);
-          break;
-        default:
-          // Check if it's a generic advisor type (e.g., coaches_advisor, sponsors_advisor, etc.)
-          if (type.endsWith('_advisor')) {
-            const advisorType = type.replace('_advisor', '');
-            // Use generic board member advisor for all specific advisor types
-            systemPrompt = getBoardMemberAdvisorSystemPrompt(advisorType);
+      // Use enhanced prompts if enhanced mode is enabled and insights are available
+      if (isEnhancedMode && insights) {
+        console.log(`Using enhanced prompts for type: ${type}`);
+        switch (type) {
+          case 'form_completion':
+            systemPrompt = getFormCompletionSystemPrompt();
+            userPrompt = getFormCompletionUserPrompt(data, context);
+            break;
+          case 'board_member_advisor':
+            systemPrompt = getEnhancedBoardMemberAdvisorSystemPrompt(data.memberType, insights);
+            userPrompt = getEnhancedBoardMemberAdvisorUserPrompt({...data, userData}, insights);
+            break;
+          case 'mentor_advisor':
+            systemPrompt = getEnhancedBoardMemberAdvisorSystemPrompt('mentors', insights);
+            userPrompt = getEnhancedBoardMemberAdvisorUserPrompt({...data, memberType: 'mentors', userData}, insights);
+            break;
+          case 'goals_advisor':
+            systemPrompt = getEnhancedGoalsAdvisorSystemPrompt(insights);
+            userPrompt = getGoalsAdvisorUserPrompt(data, context); // Use standard user prompt for now
+            break;
+          case 'superpowers_advisor':
+            systemPrompt = getEnhancedSkillsAdvisorSystemPrompt(insights);
+            userPrompt = getSuperpowersAdvisorUserPrompt(data, context); // Use standard user prompt for now
+            break;
+          case 'board_analysis_advisor':
+            systemPrompt = getEnhancedBoardAnalysisAdvisorSystemPrompt(insights);
+            userPrompt = getBoardAnalysisAdvisorUserPrompt(data, context); // Use standard user prompt for now
+            break;
+          default:
+            // Check if it's a generic advisor type (e.g., coaches_advisor, sponsors_advisor, etc.)
+            if (type.endsWith('_advisor')) {
+              const advisorType = type.replace('_advisor', '');
+              // Use enhanced board member advisor for all specific advisor types
+              systemPrompt = getEnhancedBoardMemberAdvisorSystemPrompt(advisorType, insights);
+              userPrompt = getEnhancedBoardMemberAdvisorUserPrompt({...data, memberType: advisorType, userData}, insights);
+            } else {
+              return {
+                statusCode: 400,
+                headers,
+                body: JSON.stringify({ error: `No configuration found for guidance type: ${type}` })
+              };
+            }
+        }
+      } else {
+        console.log(`Using standard prompts for type: ${type}`);
+        switch (type) {
+          case 'form_completion':
+            systemPrompt = getFormCompletionSystemPrompt();
+            userPrompt = getFormCompletionUserPrompt(data, context);
+            break;
+          case 'board_member_advisor':
+            systemPrompt = getBoardMemberAdvisorSystemPrompt(data.memberType);
             userPrompt = getBoardMemberAdvisorUserPrompt(data, context);
-          } else {
-            return {
-              statusCode: 400,
-              headers,
-              body: JSON.stringify({ error: `No configuration found for guidance type: ${type}` })
-            };
-          }
+            break;
+          case 'mentor_advisor':
+            systemPrompt = getMentorAdvisorSystemPrompt();
+            userPrompt = getMentorAdvisorUserPrompt(data, context);
+            break;
+          case 'goals_advisor':
+          case 'superpowers_advisor':
+            systemPrompt = getSuperpowersAdvisorSystemPrompt();
+            userPrompt = getSuperpowersAdvisorUserPrompt(data, context);
+            break;
+          case 'board_analysis_advisor':
+            systemPrompt = getBoardAnalysisAdvisorSystemPrompt();
+            userPrompt = getBoardAnalysisAdvisorUserPrompt(data, context);
+            break;
+          default:
+            // Check if it's a generic advisor type (e.g., coaches_advisor, sponsors_advisor, etc.)
+            if (type.endsWith('_advisor')) {
+              const advisorType = type.replace('_advisor', '');
+              // Use generic board member advisor for all specific advisor types
+              systemPrompt = getBoardMemberAdvisorSystemPrompt(advisorType);
+              userPrompt = getBoardMemberAdvisorUserPrompt(data, context);
+            } else {
+              return {
+                statusCode: 400,
+                headers,
+                body: JSON.stringify({ error: `No configuration found for guidance type: ${type}` })
+              };
+            }
+        }
       }
 
       const response = await bedrockChat({
@@ -343,16 +424,24 @@ exports.handler = async (event) => {
         temperature: 0.3
       });
 
+      const responseBody = {
+        success: true,
+        guidance: response.text,
+        model: response.model,
+        type: type,
+        source: isEnhancedMode ? 'enhanced-fallback' : 'fallback'
+      };
+
+      // Add intelligent insights if enhanced mode
+      if (isEnhancedMode && insights) {
+        responseBody.insights = insights;
+        responseBody.enhancedMode = true;
+      }
+
       return {
         statusCode: 200,
         headers,
-        body: JSON.stringify({
-          success: true,
-          guidance: response.text,
-          model: response.model,
-          type: type,
-          source: 'fallback'
-        })
+        body: JSON.stringify(responseBody)
       };
     }
 
@@ -385,9 +474,15 @@ exports.handler = async (event) => {
       guidance: response.text,
       model: response.model,
       type: type,
-      source: 'dynamodb',
+      source: isEnhancedMode ? 'enhanced-dynamodb' : 'dynamodb',
       promptId: promptConfig.promptId
     };
+
+    // Add intelligent insights if enhanced mode
+    if (isEnhancedMode && insights) {
+      responseBody.insights = insights;
+      responseBody.enhancedMode = true;
+    }
 
     console.log(`Returning response with guidance length: ${responseBody.guidance ? responseBody.guidance.length : 0}`);
 
