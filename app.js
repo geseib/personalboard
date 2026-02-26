@@ -5,6 +5,7 @@ import { connectionLevels } from './utils.js';
 import { getMentorAdvisorGuidance, getBoardMemberAdvisorGuidance, getGoalsAdvisorGuidance, getBoardAnalysisAdvisorGuidance, isAuthenticated, validateAccessCode, getAIGuidance } from './ai-client.js';
 import { FeedbackButton } from './feedback.js';
 import './feedback.css';
+import { getOptimizedImageUrl, prefetchImages } from './image-helpers.js';
 // use direct paths so images resolve without a bundler
 
 
@@ -286,6 +287,22 @@ function App() {
       localStorage.setItem('boardAdvice', JSON.stringify(boardAdvice));
     }
   }, [boardAdvice]);
+
+  // Prefetch adjacent page background images for faster tab switching
+  useEffect(() => {
+    const currentIndex = pages.findIndex(p => p.key === current);
+    if (currentIndex === -1) return;
+
+    const adjacentIndices = [
+      currentIndex - 2, currentIndex - 1,
+      currentIndex + 1, currentIndex + 2
+    ].filter(i => i >= 0 && i < pages.length && i !== currentIndex);
+
+    const urlsToPrefetch = adjacentIndices.map(i =>
+      getOptimizedImageUrl(pages[i].image)
+    );
+    prefetchImages(urlsToPrefetch);
+  }, [current]);
 
   const page = pages.find(p => p.key === current);
 
@@ -1705,7 +1722,7 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
   };
 
   return (
-    <div className="app" style={{ backgroundImage: `url(${page.image})` }}>
+    <div className="app" style={{ backgroundImage: `url(${getOptimizedImageUrl(page.image)})` }}>
       <input type="file" id="upload" accept="application/json" style={{ display: 'none' }} onChange={handleUpload} />
 
       {/* Top bar with centered title and right-side buttons */}

@@ -110,6 +110,15 @@ if [ -d "images" ]; then
         --cache-control "public, max-age=86400"
 fi
 
+# Sync optimized images with long cache (content rarely changes)
+if [ -d "dist/images/optimized" ]; then
+    echo -e "${YELLOW}🖼️  Syncing optimized images with long cache...${NC}"
+    aws s3 sync dist/images/optimized/ s3://$BUCKET_NAME/images/optimized/ \
+        --cache-control "public, max-age=2592000, immutable" \
+        --cli-connect-timeout 600 \
+        --cli-read-timeout 600
+fi
+
 # Apply the bucket policy (in case it's missing)
 echo -e "${YELLOW}🔒 Ensuring bucket policy is applied...${NC}"
 cat > /tmp/bucket-policy.json <<EOF

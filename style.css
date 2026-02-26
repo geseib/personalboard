@@ -120,6 +120,11 @@ html, body, #root, .app {
   color: #fff;
   position: relative;
 }
+@media (max-width: 768px) {
+  .app {
+    background-attachment: scroll;
+  }
+}
 /* Dark overlay removed to fix board page appearance
 .app::before {
   content: '';
