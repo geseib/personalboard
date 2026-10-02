@@ -1,3 +1,5 @@
+import './runtime-config.js';
+
 /**
  * AI Guidance Client for Personal Board of Directors
  * Provides frontend interface to the AI guidance API with enhanced mode support
@@ -51,39 +53,25 @@ function toggleEnhancedMode() {
   }
 }
 
-// Environment-aware API Configuration
-// This detection ONLY affects pbod environment - production remains unchanged
-const getApiBaseUrl = () => {
-  const hostname = window.location.hostname;
-
-  // Board.dev environment
-  if (hostname === 'board.dev.seibtribe.us' || hostname.includes('board.dev')) {
-    return 'https://rxbslpk6u9.execute-api.us-east-1.amazonaws.com/dev';
-  }
-
-  // ONLY change behavior for pbod environment
-  if (hostname === 'pbod.seibtribe.us' || hostname.includes('pbod')) {
-    // Using the dedicated pbod environment API
-    return 'https://3unsrrsapf.execute-api.us-east-1.amazonaws.com/pbod';
-  }
-
-  // DEFAULT: Always use production for any other domain
-  // This ensures board.seibtribe.us and all other domains continue working exactly as before
-  return 'https://hvr92xfbo6.execute-api.us-east-1.amazonaws.com/production';
-};
-
-// API Configuration - now environment-aware
-const AI_API_BASE_URL = getApiBaseUrl();
+// Unknown hosts are deliberately unconfigured, so local previews never call production.
+let AI_API_BASE_URL = globalThis.PersonalBoardConfig.getApiBaseUrl();
+function requireApiBaseUrl() {
+  if (!AI_API_BASE_URL) throw new Error('AI is not configured for this environment. Your draft is safe; ask your administrator to configure the API URL.');
+  return AI_API_BASE_URL;
+}
 
 /**
  * Show styled authentication modal for access code entry
  * @returns {Promise<string|null>} The access code entered by user or null if cancelled
  */
-function showAuthenticationModal() {
+function showAuthenticationModal(signal) {
   return new Promise((resolve) => {
     // Create modal elements
     const modal = document.createElement('div');
     modal.className = 'auth-modal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', 'Activate AI access');
     
     modal.innerHTML = `
       <div class="auth-modal-content">
@@ -139,8 +127,27 @@ function showAuthenticationModal() {
     const errorDiv = modal.querySelector('.auth-error-message');
     const errorText = modal.querySelector('#error-text');
     
-    // Focus on input
-    setTimeout(() => input.focus(), 100);
+    const previousFocus = document.activeElement;
+    let finished = false;
+    const finish = value => {
+      if (finished) return;
+      finished = true;
+      signal?.removeEventListener('abort', onAbort);
+      document.body.removeChild(modal);
+      if (previousFocus?.isConnected) previousFocus.focus();
+      resolve(value);
+    };
+    const onAbort = () => finish(null);
+    signal?.addEventListener('abort', onAbort, {once:true});
+    input.focus();
+    modal.addEventListener('keydown', event => {
+      if (event.key === 'Escape') { event.stopPropagation(); finish(null); }
+      if (event.key === 'Tab') {
+        const last = submitBtn.disabled ? cancelBtn : submitBtn;
+        if (event.shiftKey && document.activeElement === input) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); input.focus(); }
+      }
+    });
     
     // Input validation
     input.addEventListener('input', (e) => {
@@ -166,22 +173,19 @@ function showAuthenticationModal() {
     submitBtn.addEventListener('click', () => {
       const code = input.value;
       if (code.length === 6) {
-        document.body.removeChild(modal);
-        resolve(code);
+        finish(code);
       }
     });
     
     // Cancel button handler
     cancelBtn.addEventListener('click', () => {
-      document.body.removeChild(modal);
-      resolve(null);
+      finish(null);
     });
     
     // Close on backdrop click
     modal.addEventListener('click', (e) => {
       if (e.target === modal) {
-        document.body.removeChild(modal);
-        resolve(null);
+        finish(null);
       }
     });
   });
@@ -210,7 +214,7 @@ async function validateAccessCode(accessCode) {
       localStorage.setItem('clientId', clientId);
     }
 
-    const activateResponse = await fetch(`${AI_API_BASE_URL}/activate`, {
+    const activateResponse = await fetch(`${requireApiBaseUrl()}/activate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -301,7 +305,36 @@ function isAuthenticated() {
  * Ensure user has authenticated with access code
  * @returns {Promise<string>} JWT token for API authentication
  */
-async function ensureAuthenticated() {
+let authentication = null;
+function ensureAuthenticated(signal) {
+  if (signal?.aborted) return Promise.reject(new DOMException('Request cancelled', 'AbortError'));
+  if (!authentication) {
+    const entry = {controller:new AbortController(),waiters:0};
+    entry.promise = authenticateOnce(entry.controller.signal).finally(() => {
+      if (authentication === entry) authentication = null;
+    });
+    authentication = entry;
+  }
+  const entry = authentication;
+  entry.waiters++;
+  return new Promise((resolve,reject) => {
+    let finished = false;
+    const settle = (callback,value) => {
+      if (finished) return;
+      finished = true;
+      signal?.removeEventListener('abort', cancel);
+      entry.waiters--;
+      callback(value);
+    };
+    const cancel = () => {
+      settle(reject,new DOMException('Request cancelled','AbortError'));
+      if (!entry.waiters) entry.controller.abort();
+    };
+    signal?.addEventListener('abort',cancel,{once:true});
+    entry.promise.then(value=>settle(resolve,value),error=>settle(reject,error));
+  });
+}
+async function authenticateOnce(signal) {
   // Check for existing token
   let token = localStorage.getItem('sessionToken');
   
@@ -333,15 +366,17 @@ async function ensureAuthenticated() {
   }
   
   // Show styled authentication modal instead of basic prompt
-  const code = await showAuthenticationModal();
+  const code = await showAuthenticationModal(signal);
+  if (signal.aborted) throw new DOMException('Request cancelled', 'AbortError');
   
   if (!code) {
     throw new Error('Authentication required to use AI features.');
   }
   
   // Activate the code
-  const activateResponse = await fetch(`${AI_API_BASE_URL}/activate`, {
+  const activateResponse = await fetch(`${requireApiBaseUrl()}/activate`, {
     method: 'POST',
+    signal: AbortSignal.any([signal, AbortSignal.timeout(20000)]),
     headers: {
       'Content-Type': 'application/json',
     },
@@ -415,78 +450,76 @@ async function ensureAuthenticated() {
  * @param {Object} context - Additional context for the request
  * @returns {Promise<Object>} AI guidance response
  */
-async function getAIGuidance(type, data, context = {}) {
+async function getAIGuidance(type, data, context = {}, options = {}) {
+  const endpoint = requireApiBaseUrl();
+  if (options.signal?.aborted) throw new DOMException('Request cancelled', 'AbortError');
+  const token = await ensureAuthenticated(options.signal);
+  if (options.signal?.aborted) throw new DOMException('Request cancelled', 'AbortError');
+  const enhancedContext = {
+    ...context,
+    enhancedMode: isEnhancedModeEnabled(),
+    // Short editing tasks need only their explicit field context.
+    userData: type === 'writing_refine' ? {} : (context?.userData || gatherUserData())
+  };
+  const controller = new AbortController();
+  let timedOut = false;
+  const cancel = () => controller.abort();
+  options.signal?.addEventListener('abort', cancel, { once: true });
+  const timeout = setTimeout(() => { timedOut = true; controller.abort(); }, 60000);
   try {
-    // Ensure user is authenticated
-    const token = await ensureAuthenticated();
-
-    // Add enhanced mode context
-    const enhancedContext = {
-      ...context,
-      enhancedMode: isEnhancedModeEnabled(),
-      userData: context.userData || gatherUserData()
-    };
-
-    const response = await fetch(`${AI_API_BASE_URL}/ai-guidance`, {
+    const response = await fetch(`${endpoint}/ai-guidance`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'text/plain',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        type,
-        data,
-        context: enhancedContext
-      })
+      headers: { 'Content-Type': 'text/plain', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ type, data, context: enhancedContext }),
+      signal: controller.signal
     });
-
     if (response.status === 401) {
-      // Token expired or invalid, clear it and retry once
-      console.log('🔄 Authentication token expired, requesting new access code...');
       localStorage.removeItem('sessionToken');
-      localStorage.removeItem('clientId');
-
-      // Recursive call will trigger re-authentication
-      return getAIGuidance(type, data, context);
+      // Keep the client ID: an activated workshop code belongs to this browser.
+      throw new Error('Your AI access expired or was rejected. Activate an access code and try again. Your draft is unchanged.');
     }
-
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+      const messages = {
+        403: 'AI access is unavailable for this session. Please contact your facilitator.',
+        429: 'The AI service is busy. Please wait a moment and try again.',
+        400: 'The AI request could not be processed. Check your text and try again.',
+        503: 'The selected AI model is temporarily unavailable. Please try again.'
+      };
+      throw new Error(messages[response.status] || 'AI could not finish this request. Your draft is unchanged; please try again.');
     }
-
     const result = await response.json();
-
-    // Show enhanced modal if enhanced mode is enabled
-    if (isEnhancedModeEnabled() && window.showEnhancedAdvisorModal) {
-      const userData = enhancedContext.userData;
-      window.showEnhancedAdvisorModal(result, userData, type);
+    if (result.success === false || typeof result.guidance !== 'string' || !result.guidance.trim()) {
+      throw new Error('AI returned no usable suggestion. Your draft is unchanged; please try again.');
     }
-
+    // The calling editor owns presentation: never open a second modal behind it.
     return result;
   } catch (error) {
-    console.error('AI Guidance API Error:', error);
+    if (timedOut) throw new Error('AI took too long to respond. Your draft is unchanged; please try again.');
     throw error;
+  } finally {
+    clearTimeout(timeout);
+    options.signal?.removeEventListener('abort', cancel);
   }
 }
 
-/**
- * Gather complete user data for enhanced mode analysis
- * @returns {Object} Complete user data from localStorage
- */
+/** Canonical board schema; never include authentication data in AI context. */
 function gatherUserData() {
   try {
+    const board = JSON.parse(localStorage.getItem('boardData') || '{}');
+    const array = value => Array.isArray(value) ? value : [];
     return {
-      superpowers: JSON.parse(localStorage.getItem('superpowers') || '[]'),
-      goals: JSON.parse(localStorage.getItem('goals') || '[]'),
-      mentors: JSON.parse(localStorage.getItem('mentors') || '[]'),
-      coaches: JSON.parse(localStorage.getItem('coaches') || '[]'),
-      sponsors: JSON.parse(localStorage.getItem('sponsors') || '[]'),
-      connectors: JSON.parse(localStorage.getItem('connectors') || '[]'),
-      peers: JSON.parse(localStorage.getItem('peers') || '[]')
+      name: typeof board?.you?.name === 'string' ? board.you.name : '',
+      superpowers: array(board?.you?.superpowers),
+      mentees: array(board?.you?.mentees),
+      goals: array(board?.goals),
+      mentors: array(board?.mentors),
+      coaches: array(board?.coaches),
+      sponsors: array(board?.sponsors),
+      connectors: array(board?.connectors),
+      peers: array(board?.peers)
     };
-  } catch (error) {
-    console.error('Error gathering user data:', error);
-    return {};
+  } catch {
+    return { superpowers: [], mentees: [], goals: [], mentors: [], coaches: [], sponsors: [], connectors: [], peers: [] };
   }
 }
 
@@ -618,7 +651,7 @@ export async function getBoardAnalysisAdvisorGuidance(boardData) {
  * @param {string} url - The deployed API Gateway URL
  */
 export function setAPIBaseUrl(url) {
-  AI_API_BASE_URL = url;
+  AI_API_BASE_URL = globalThis.PersonalBoardConfig.validateApiBaseUrl(url);
 }
 
 export {

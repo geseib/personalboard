@@ -5,25 +5,7 @@
 
 // Environment-aware API Configuration
 // This detection affects both pbod and board.dev environments - production remains unchanged
-const getApiBaseUrl = () => {
-  const hostname = window.location.hostname;
-
-  // Board.dev environment
-  if (hostname === 'board.dev.seibtribe.us' || hostname.includes('board.dev')) {
-    // Using the dedicated board.dev environment API
-    return 'https://rxbslpk6u9.execute-api.us-east-1.amazonaws.com/dev';
-  }
-
-  // PBOD environment
-  if (hostname === 'pbod.seibtribe.us' || hostname.includes('pbod')) {
-    // Using the dedicated pbod environment API
-    return 'https://3unsrrsapf.execute-api.us-east-1.amazonaws.com/pbod';
-  }
-
-  // DEFAULT: Always use production for any other domain
-  // This ensures board.seibtribe.us and all other domains continue working exactly as before
-  return 'https://hvr92xfbo6.execute-api.us-east-1.amazonaws.com/production';
-};
+const getApiBaseUrl = () => window.PersonalBoardConfig.getApiBaseUrl();
 
 // Configuration
 const AI_API_BASE_URL = getApiBaseUrl();
@@ -205,6 +187,7 @@ async function promptForPassword(showError = false) {
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', async function() {
     try {
+        if (!AI_API_BASE_URL) { aiStatus('No API is configured for this host. Set PERSONAL_BOARD_CONFIG.apiBaseUrl to connect an environment.', true); return; }
         console.log('🚀 Initializing Admin Interface...');
 
         // Check for stored password or prompt for it
@@ -213,6 +196,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             await promptForPassword();
         }
 
+        await loadAiSettings();
         await loadPromptData();
         await loadThemes();
         await loadTokenStats();
@@ -230,6 +214,7 @@ document.addEventListener('DOMContentLoaded', async function() {
  * Make authenticated API call with automatic password re-prompt on 401
  */
 async function authenticatedFetch(url, options = {}) {
+    if (!AI_API_BASE_URL) throw new Error('No API is configured for this host.');
     // Ensure password header is included
     options.headers = {
         ...options.headers,
@@ -445,8 +430,8 @@ async function loadPromptData(forceRefresh = false) {
             };
         });
 
-        currentStats = data.stats;
-        activeSelections = data.activeSelections;
+        currentStats = data.stats || {};
+        activeSelections = data.activeSelections || {};
 
         // Cache the data
         setCachedData({
@@ -562,7 +547,7 @@ function loadPromptCategories() {
     const validCategories = {
         'skills': 'Skills & Superpowers',
         'goals': 'Goals & Vision',
-        'board_members': 'Board Members (Fallback)',
+        'board_members': 'Board Members (Contextual)',
         'mentors': 'Mentors',
         'coaches': 'Coaches',
         'connectors': 'Connectors',
@@ -635,7 +620,7 @@ function loadPromptCategories() {
         // Handle 'None' as explicit fallback state
         let activeIndicator;
         if (activePromptId === 'None') {
-            activeIndicator = '<span class="fallback-indicator">Using Fallback (board_member_advisor)</span>';
+            activeIndicator = '<span class="fallback-indicator">Using Contextual (board_member_advisor)</span>';
         } else if (activePromptId) {
             // Look up the prompt name from currentPrompts
             const activePrompt = currentPrompts[activePromptId];
@@ -645,12 +630,12 @@ function loadPromptCategories() {
             activeIndicator = '<span class="inactive-indicator">No active prompt</span>';
         }
 
-        // Only show deactivate button for member types that can fallback to board_member_advisor
+        // Only show deactivate button for member types that can use contextual board_member_advisor
         const memberTypes = ['mentors', 'coaches', 'sponsors', 'connectors', 'peers'];
         const showDeactivate = memberTypes.includes(categoryKey) && activePromptId && activePromptId !== 'None';
         const deactivateButton = showDeactivate ?
-            `<button class="category-deactivate-btn" onclick="deactivateCategory('${categoryKey}')" title="Deactivate to use fallback prompt">
-                <i class="icon-x"></i> Use Fallback
+            `<button class="category-deactivate-btn" onclick="deactivateCategory('${categoryKey}')" title="Deactivate to use contextual prompt">
+                <i class="icon-x"></i> Use Contextual
             </button>` : '';
 
         categoryDiv.innerHTML = `
@@ -682,13 +667,19 @@ function createPromptCard(prompt, categoryKey) {
     const isActive = activeSelections[categoryKey] === prompt.promptId;
     const isCustom = prompt.isCustom;
 
+    // Check if this prompt is part of the default theme
+    const defaultTheme = availableThemes.find(theme => theme.themeId === 'default');
+    const isDefaultThemePrompt = defaultTheme && defaultTheme.prompts && defaultTheme.prompts[categoryKey] === prompt.promptId;
+
     return `
         <div class="prompt-card ${isActive ? 'active' : ''}" data-type="${prompt.promptId}">
             <div class="prompt-header">
                 <h4 class="prompt-title">${prompt.name}</h4>
                 <div class="prompt-badges">
-                    ${isActive && !isCustom ? '<span class="default-badge">Active Default</span>' : ''}
+                    ${isActive && isDefaultThemePrompt ? '<span class="default-badge">Active Default</span>' : ''}
+                    ${isActive && !isDefaultThemePrompt && !isCustom ? '<span class="active-badge">Active</span>' : ''}
                     ${isActive && isCustom ? '<span class="active-badge">Active Custom</span>' : ''}
+                    ${!isActive && isDefaultThemePrompt ? '<span class="default-badge">Default</span>' : ''}
                     ${isCustom ? '<span class="custom-badge">Custom</span>' : '<span class="system-badge">System</span>'}
                 </div>
             </div>
@@ -778,7 +769,7 @@ async function activatePrompt(promptId) {
 }
 
 /**
- * Deactivate a category (set to use fallback prompt)
+ * Deactivate a category (set to use contextual prompt)
  * Uses the same activate API but with promptId = "None"
  */
 async function deactivateCategory(categoryKey) {
@@ -811,7 +802,7 @@ async function deactivateCategory(categoryKey) {
         const result = await response.json();
         console.log('🎯 CATEGORY DEACTIVATE: Success response:', result);
 
-        showNotification(`${categoryKey} category deactivated - now using fallback prompt`, 'success');
+        showNotification(`${categoryKey} category deactivated - now using contextual prompt`, 'success');
         await refreshData(); // Refresh to get updated state
 
     } catch (error) {
@@ -2308,3 +2299,121 @@ window.handleGenerateTokens = handleGenerateTokens;
 window.showNoTokensModal = showNoTokensModal;
 window.hideNoTokensModal = hideNoTokensModal;
 window.copyTokenToClipboard = copyTokenToClipboard;
+// AI model settings are fetched fresh; cached prompt data must never determine routing.
+let aiSettingsState = null;
+let aiModelRegistry = [];
+let aiSettingsBusy = false;
+function aiStatus(message, error = false) {
+    const el = document.getElementById('ai-model-status');
+    el.textContent = message;
+    el.classList.toggle('ai-error', error);
+}
+async function aiAdminRequest(path, method = 'GET', body) {
+    const response = await authenticatedFetch(`${AI_API_BASE_URL}/admin/ai/${path}`, {
+        method, headers: {'Content-Type':'application/json'}, ...(body ? {body:JSON.stringify(body)} : {})
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || `Request failed (${response.status})`);
+    return result;
+}
+function fillAiModelSelect(id, value, emptyLabel) {
+    const select = document.getElementById(id);
+    select.replaceChildren();
+    if (emptyLabel) select.add(new Option(emptyLabel, ''));
+    aiModelRegistry.forEach(model => {
+        const rate = typeof model.inputPrice === 'number' && typeof model.outputPrice === 'number' ? ` · $${model.inputPrice}/$${model.outputPrice} per 1M tokens` : '';
+        const option = new Option(`${model.name || model.label || model.id}${rate}${model.configured === false ? ' — setup needed' : ''}`, model.id);
+        option.disabled = model.configured === false;
+        select.add(option);
+    });
+    select.value = value || '';
+}
+async function loadAiSettings() {
+    if (!AI_API_BASE_URL) { aiStatus('No API is configured for this host.', true); return; }
+    if (aiSettingsBusy) return;
+    aiSettingsBusy = true;
+    aiStatus('Loading current model settings…');
+    try {
+        const data = await aiAdminRequest('settings');
+        aiSettingsState = data.settings;
+        aiModelRegistry = data.models;
+        fillAiModelSelect('ai-default-model', data.settings.defaultModel);
+        fillAiModelSelect('ai-writing-model', data.settings.overrides?.writing, 'Use default model');
+        fillAiModelSelect('ai-board-model', data.settings.overrides?.board, 'Use default model');
+        fillAiModelSelect('ai-fallback-model', data.settings.fallbackModel, 'No fallback — report failure');
+        fillAiModelSelect('ai-model-a', data.settings.defaultModel);
+        fillAiModelSelect('ai-model-b', aiModelRegistry.find(m => m.id !== data.settings.defaultModel && m.configured !== false)?.id, 'Test one model');
+        document.getElementById('ai-active-badge').textContent = `Active revision ${data.settings.revision}`;
+        document.getElementById('ai-settings-fields').disabled = false;
+        document.getElementById('ai-compare-fields').disabled = false;
+        aiStatus('Current settings loaded. Model rates show input / output per million tokens. Test a model to verify provider access.');
+        await loadAiHistory();
+    } catch (error) { aiStatus(error.message, true); }
+    finally { aiSettingsBusy = false; }
+}
+async function loadAiHistory() {
+    const target = document.getElementById('ai-settings-history');
+    try {
+        const data = await aiAdminRequest('history');
+        target.replaceChildren();
+        if (!data.history.length) target.textContent = 'History starts with your first activation.';
+        data.history.forEach(item => {
+            const row = document.createElement('div'); row.className = 'ai-history-row';
+            const label = document.createElement('span');
+            label.textContent = `Revision ${item.revision} · ${item.defaultModel} · ${item.updatedAt ? new Date(item.updatedAt).toLocaleString() : 'Initial settings'}`;
+            const button = document.createElement('button'); button.type = 'button'; button.className = 'admin-btn admin-btn-secondary';
+            button.textContent = item.revision === aiSettingsState.revision ? 'Active' : 'Restore';
+            button.disabled = item.revision === aiSettingsState.revision;
+            button.addEventListener('click', () => activateAiSettings('rollback', {revision:item.revision}));
+            row.append(label, button); target.append(row);
+        });
+    } catch (error) { target.textContent = `History unavailable: ${error.message}`; }
+}
+async function activateAiSettings(path, values) {
+    if (aiSettingsBusy || !aiSettingsState) return;
+    aiSettingsBusy = true;
+    document.getElementById('ai-settings-fields').disabled = true;
+    aiStatus('Activating settings…');
+    let saved = false;
+    try {
+        await aiAdminRequest(path, path === 'settings' ? 'PUT' : 'POST', {...values, expectedRevision:aiSettingsState.revision});
+        saved = true;
+    } catch (error) { aiStatus(error.message, true); }
+    finally { aiSettingsBusy = false; document.getElementById('ai-settings-fields').disabled = false; }
+    if (saved) { await loadAiSettings(); aiStatus('Settings activated. New AI requests will use this configuration.'); }
+}
+document.getElementById('ai-settings-form')?.addEventListener('submit', event => {
+    event.preventDefault();
+    const overrides = {};
+    for (const task of ['writing', 'board']) {
+        const value = document.getElementById(`ai-${task}-model`).value;
+        if (value) overrides[task] = value;
+    }
+    activateAiSettings('settings', {defaultModel:document.getElementById('ai-default-model').value, overrides, fallbackModel:document.getElementById('ai-fallback-model').value || null});
+});
+document.getElementById('ai-settings-form')?.addEventListener('change', () => aiStatus('Draft changes — active settings stay unchanged until you activate.'));
+document.getElementById('ai-compare-form')?.addEventListener('submit', async event => {
+    event.preventDefault();
+    const modelIds = [document.getElementById('ai-model-a').value, document.getElementById('ai-model-b').value].filter(Boolean);
+    if (new Set(modelIds).size !== modelIds.length) { aiStatus('Choose two different models to compare.', true); return; }
+    const fields = document.getElementById('ai-compare-fields');
+    const button = document.getElementById('ai-compare-button');
+    const target = document.getElementById('ai-comparison-results');
+    fields.disabled = true; button.textContent = 'Comparing…'; target.textContent = 'Running your sample request. Active settings are unchanged.';
+    try {
+        const data = await aiAdminRequest('compare', 'POST', {modelIds, prompt:document.getElementById('ai-test-prompt').value, task:document.getElementById('ai-test-task').value});
+        target.replaceChildren();
+        data.results.forEach(result => {
+            const card = document.createElement('article'); card.className = 'ai-result-card';
+            const heading = document.createElement('h4'); heading.textContent = aiModelRegistry.find(m => m.id === result.requestedModel)?.name || result.requestedModel;
+            const meta = document.createElement('p'); meta.className = 'ai-result-meta';
+            meta.textContent = result.error ? 'Test failed · no fallback used' : `${(result.latencyMs/1000).toFixed(2)}s · ${result.usage?.inputTokens ?? '—'} in / ${result.usage?.outputTokens ?? '—'} out tokens · ${typeof result.estimatedCostUsd === 'number' ? '$'+result.estimatedCostUsd.toFixed(6) : 'Cost unavailable'}`;
+            const text = document.createElement('div'); text.className = 'ai-result-text'; text.textContent = result.error || result.text;
+            if (result.truncated) { const warning = document.createElement('p'); warning.className = 'ai-error'; warning.textContent = 'Response reached the test output limit and may be incomplete.'; card.append(warning); }
+            const foot = document.createElement('small'); foot.textContent = result.error ? 'Check provider access or try another model.' : `Actual model: ${result.actualModelId || result.actualModel}. Estimated cost${result.pricingDate ? ' using rates dated '+result.pricingDate : ''}; excludes infrastructure.`;
+            card.append(heading, meta, text, foot); target.append(card);
+        });
+    } catch (error) { target.textContent = error.message; }
+    finally { fields.disabled = false; button.textContent = 'Compare responses'; }
+});
+window.loadAiSettings = loadAiSettings;

@@ -110,6 +110,14 @@ aws s3 sync dist/ s3://$BUCKET_NAME/ \
     --include "*.css" \
     --cache-control "public, max-age=31536000, immutable"
 
+# Copied assets keep stable names, so browsers must revalidate them.
+aws s3 cp dist/ s3://$BUCKET_NAME/ --recursive \
+    --exclude "*" \
+    --include "admin.js" --include "admin.css" --include "runtime-config.js" \
+    --include "burger-menu.js" --include "advisor-intelligence.js" \
+    --include "enhanced-advisor-modal.js" --include "slides/*" \
+    --cache-control "no-cache, max-age=0, must-revalidate"
+
 # Sync images with medium cache
 aws s3 sync dist/ s3://$BUCKET_NAME/ \
     --exclude "*" \
@@ -128,10 +136,10 @@ if [ -d "public/images" ]; then
         --cache-control "public, max-age=86400"
 fi
 
-# Copy images from root directory if they exist (for slides)
-if [ -d "images" ]; then
-    echo -e "${YELLOW}🖼️  Syncing images from root directory...${NC}"
-    aws s3 sync images/ s3://$BUCKET_NAME/images/ \
+# Copy filtered web images from the release build (for slides)
+if [ -d "dist/images" ]; then
+    echo -e "${YELLOW}🖼️  Syncing release images...${NC}"
+    aws s3 sync dist/images/ s3://$BUCKET_NAME/images/ \
         --cache-control "public, max-age=86400"
 fi
 

@@ -1,5 +1,6 @@
 // ai-guidance-secure.js - SECURE VERSION with header validation
 const { bedrockChat } = require('./bedrock-chat');
+const { taskFor } = require('./model-router');
 
 /**
  * AWS Lambda handler for AI guidance on Personal Board of Directors
@@ -110,6 +111,7 @@ exports.handler = async (event) => {
     }
 
     const response = await bedrockChat({
+      task: taskFor(type),
       system: systemPrompt,
       user: userPrompt,
       max_tokens: 1500,
@@ -123,6 +125,10 @@ exports.handler = async (event) => {
         success: true,
         guidance: response.text,
         model: response.model,
+        actualModel: response.actualModel,
+        requestedModel: response.requestedModel,
+        fallbackUsed: response.fallbackUsed,
+        truncated: response.truncated,
         type: type
       })
     };

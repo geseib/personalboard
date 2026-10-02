@@ -21,6 +21,7 @@ Parameters:
       - production
       - pbod
       - dev
+      - test
     Description: The deployment environment
 
   StackName:
@@ -33,12 +34,21 @@ Parameters:
     NoEcho: true
     Description: GitHub Personal Access Token for creating issues
 
+  GeminiApiKeyParameter:
+    Type: String
+    Default: ''
+    Description: Optional SSM SecureString parameter name containing the Gemini API key
+    AllowedPattern: '^$|/[a-zA-Z0-9_.\-/]+$'
+
   AdminPassword:
     Type: String
     NoEcho: true
     Description: Password for admin interface access
     MinLength: 8
     MaxLength: 50
+
+Conditions:
+  HasGeminiApiKey: !Not [!Equals [!Ref GeminiApiKeyParameter, '']]
 
 Resources:
   # DynamoDB Table for Access Codes
@@ -134,9 +144,18 @@ Resources:
                 Resource: !GetAtt AuthorizerFunction.Arn
 
   # API Gateway Deployment
-  ApiDeployment:
+  ApiDeploymentAIModels20261001:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
+      - AdminAISettingsGetMethod
+      - AdminAISettingsPutMethod
+      - AdminAISettingsOptionsMethod
+      - AdminAIComparePostMethod
+      - AdminAICompareOptionsMethod
+      - AdminAIHistoryGetMethod
+      - AdminAIHistoryOptionsMethod
+      - AdminAIRollbackPostMethod
+      - AdminAIRollbackOptionsMethod
       - AIGuidanceMethod
       - AIGuidanceOptionsMethod
       - FeedbackMethod
@@ -182,13 +201,14 @@ Resources:
       FunctionName: !Sub '${StackName}-ai-guidance'
       CodeUri: lambda-functions/ai-guidance/
       Handler: ai-guidance.handler
-      Runtime: nodejs18.x
+      Runtime: nodejs22.x
       Timeout: 300
       MemorySize: 512
       Environment:
         Variables:
           NODE_ENV: !Ref Environment
           PROMPT_MANAGEMENT_TABLE: !Ref PromptManagementTable
+          GEMINI_API_KEY_PARAMETER: !Ref GeminiApiKeyParameter
       Policies:
         - Version: '2012-10-17'
           Statement:
@@ -197,14 +217,22 @@ Resources:
                 - bedrock:InvokeModel
                 - bedrock:InvokeModelWithResponseStream
               Resource:
-                - !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.anthropic.claude-3-5-sonnet-20241022-v2:0'
-                - !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.anthropic.claude-3-5-haiku-20241022-v1:0'
-                - 'arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0'
-                - 'arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0'
-                - 'arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0'
-                - 'arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-5-haiku-20241022-v1:0'
-                - 'arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-3-5-haiku-20241022-v1:0'
-                - 'arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-5-haiku-20241022-v1:0'
+                - !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.amazon.nova-micro-v1:0'
+                - 'arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-micro-v1:0'
+                - 'arn:aws:bedrock:us-east-2::foundation-model/amazon.nova-micro-v1:0'
+                - 'arn:aws:bedrock:us-west-2::foundation-model/amazon.nova-micro-v1:0'
+                - !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.amazon.nova-lite-v1:0'
+                - 'arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-lite-v1:0'
+                - 'arn:aws:bedrock:us-east-2::foundation-model/amazon.nova-lite-v1:0'
+                - 'arn:aws:bedrock:us-west-2::foundation-model/amazon.nova-lite-v1:0'
+                - !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.anthropic.claude-haiku-4-5-20251001-v1:0'
+                - 'arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0'
+                - 'arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0'
+                - 'arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0'
+                - !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.anthropic.claude-sonnet-4-6'
+                - 'arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-4-6'
+                - 'arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-sonnet-4-6'
+                - 'arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-sonnet-4-6'
         - Version: '2012-10-17'
           Statement:
             - Effect: Allow
@@ -213,6 +241,14 @@ Resources:
                 - dynamodb:Query
               Resource:
                 - !GetAtt PromptManagementTable.Arn
+        - !If
+          - HasGeminiApiKey
+          - Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ssm:GetParameter
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${GeminiApiKeyParameter}'
+          - !Ref AWS::NoValue
       Tags:
         Environment: !Ref Environment
         StackName: !Ref StackName
@@ -224,13 +260,14 @@ Resources:
       FunctionName: !Sub '${StackName}-admin-data'
       CodeUri: lambda-functions/admin-data/
       Handler: admin-data.handler
-      Runtime: nodejs18.x
+      Runtime: nodejs22.x
       Timeout: 30
       MemorySize: 256
       Environment:
         Variables:
           NODE_ENV: !Ref Environment
           PROMPT_MANAGEMENT_TABLE: !Ref PromptManagementTable
+          AI_GUIDANCE_FUNCTION: !Ref AIGuidanceFunction
           ADMIN_PASSWORD: !Ref AdminPassword
           ACCESS_CODES_TABLE: !Ref AccessCodesTable
       Policies:
@@ -249,6 +286,11 @@ Resources:
               Resource:
                 - !GetAtt PromptManagementTable.Arn
                 - !GetAtt AccessCodesTable.Arn
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action: lambda:InvokeFunction
+              Resource: !GetAtt AIGuidanceFunction.Arn
       Tags:
         Environment: !Ref Environment
         StackName: !Ref StackName
@@ -260,7 +302,7 @@ Resources:
       FunctionName: !Sub '${StackName}-feedback'
       CodeUri: lambda-functions/feedback/
       Handler: feedback.handler
-      Runtime: nodejs18.x
+      Runtime: nodejs22.x
       Timeout: 30
       MemorySize: 256
       Environment:
@@ -493,6 +535,149 @@ Resources:
             method.response.header.Access-Control-Allow-Origin: true
             method.response.header.Access-Control-Allow-Methods: true
             method.response.header.Access-Control-Allow-Headers: true
+
+  AdminAIResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref AdminResource
+      PathPart: ai
+
+  AdminAISettingsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref AdminAIResource
+      PathPart: settings
+
+  AdminAISettingsGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref AdminAISettingsResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AdminDataFunction.Arn}/invocations'
+
+  AdminAISettingsPutMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref AdminAISettingsResource
+      HttpMethod: PUT
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AdminDataFunction.Arn}/invocations'
+
+  AdminAISettingsOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref AdminAISettingsResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AdminDataFunction.Arn}/invocations'
+
+  AdminAICompareResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref AdminAIResource
+      PathPart: compare
+
+  AdminAIComparePostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref AdminAICompareResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AdminDataFunction.Arn}/invocations'
+
+  AdminAICompareOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref AdminAICompareResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AdminDataFunction.Arn}/invocations'
+
+  AdminAIHistoryResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref AdminAIResource
+      PathPart: history
+
+  AdminAIHistoryGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref AdminAIHistoryResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AdminDataFunction.Arn}/invocations'
+
+  AdminAIHistoryOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref AdminAIHistoryResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AdminDataFunction.Arn}/invocations'
+
+  AdminAIRollbackResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref AdminAIResource
+      PathPart: rollback
+
+  AdminAIRollbackPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref AdminAIRollbackResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AdminDataFunction.Arn}/invocations'
+
+  AdminAIRollbackOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref AdminAIRollbackResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AdminDataFunction.Arn}/invocations'
 
   # Admin API Resources
   AdminResource:

@@ -88,3 +88,32 @@ parameter_overrides = [
   "Environment=dev",
   "StackName=personal-board-boarddev"
 ]
+
+[boardtest]
+[boardtest.global]
+[boardtest.global.parameters]
+stack_name = "personal-board-boardtest"
+
+[boardtest.build]
+[boardtest.build.parameters]
+cached = true
+parallel = true
+
+[boardtest.validate]
+[boardtest.validate.parameters]
+lint = true
+
+[boardtest.deploy]
+[boardtest.deploy.parameters]
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = false
+resolve_s3 = true
+s3_prefix = "personal-board-boardtest"
+region = "us-east-1"
+image_repositories = []
+parameter_overrides = [
+  "HostedZoneId=ZB9TUA073B5SH",
+  "DomainName=board.test.seibtribe.us",
+  "Environment=test",
+  "StackName=personal-board-boardtest"
+]

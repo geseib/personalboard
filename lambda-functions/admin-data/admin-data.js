@@ -1,37 +1,42 @@
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, DeleteCommand, UpdateCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, DeleteCommand, UpdateCommand, QueryCommand, TransactWriteCommand } = require('@aws-sdk/lib-dynamodb');
 
 const client = new DynamoDBClient();
 const dynamodb = DynamoDBDocumentClient.from(client);
 const TABLE_NAME = process.env.PROMPT_MANAGEMENT_TABLE || process.env.DYNAMODB_TABLE;
 const ACCESS_CODES_TABLE = process.env.ACCESS_CODES_TABLE;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'adminpass123';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const { timingSafeEqual } = require('node:crypto');
+const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
+const { createAiAdmin } = require('./ai-settings');
+const lambda = new LambdaClient();
+const revisionKey = revision => `REVISION#${String(revision).padStart(10, '0')}`;
+const aiAdmin = createAiAdmin({
+    get: async () => (await dynamodb.send(new GetCommand({TableName: TABLE_NAME, Key: {PK:'CONFIG#AI', SK:'SETTINGS'}, ConsistentRead:true}))).Item,
+    revision: async revision => (await dynamodb.send(new GetCommand({TableName: TABLE_NAME, Key: {PK:'CONFIG#AI', SK:revisionKey(revision)}, ConsistentRead:true}))).Item,
+    history: async () => (await dynamodb.send(new QueryCommand({TableName:TABLE_NAME, KeyConditionExpression:'PK = :pk AND begins_with(SK, :sk)', ExpressionAttributeValues:{':pk':'CONFIG#AI', ':sk':'REVISION#'}, ScanIndexForward:false, Limit:20, ConsistentRead:true}))).Items || [],
+    save: async (next, previous, expected) => dynamodb.send(new TransactWriteCommand({TransactItems:[
+        {Put:{TableName:TABLE_NAME, Item:{...next, PK:'CONFIG#AI', SK:'SETTINGS'}, ConditionExpression:expected === 0 ? 'attribute_not_exists(PK)' : 'revision = :revision', ...(expected === 0 ? {} : {ExpressionAttributeValues:{':revision':expected}})}},
+        {Put:{TableName:TABLE_NAME, Item:{...previous, PK:'CONFIG#AI', SK:revisionKey(previous.revision)}}},
+        {Put:{TableName:TABLE_NAME, Item:{...next, PK:'CONFIG#AI', SK:revisionKey(next.revision)}, ConditionExpression:'attribute_not_exists(PK)'}}
+    ]})),
+    invoke: async payload => {
+        const result = await lambda.send(new InvokeCommand({FunctionName:process.env.AI_GUIDANCE_FUNCTION, Payload:Buffer.from(JSON.stringify(payload))}));
+        if (result.FunctionError) throw new Error('AI service is unavailable. Please try again.');
+        return JSON.parse(Buffer.from(result.Payload).toString());
+    }
+});
 
 /**
  * Validate admin password from request headers
  */
 function validateAdminPassword(event) {
-    const providedPassword = event.headers['X-Admin-Password'] || event.headers['x-admin-password'];
-
-    console.log('🔐 Password validation debug:', {
-        hasXAdminPassword: !!event.headers['X-Admin-Password'],
-        hasxadminpassword: !!event.headers['x-admin-password'],
-        providedPassword: providedPassword ? '***' : 'NONE',
-        expectedPassword: ADMIN_PASSWORD ? '***' : 'NONE'
-    });
-
-    if (!providedPassword) {
-        console.log('🔒 Password validation failed: No password provided');
-        return false;
-    }
-
-    if (providedPassword !== ADMIN_PASSWORD) {
-        console.log('🔒 Password validation failed: Incorrect password');
-        return false;
-    }
-
-    console.log('🔓 Password validation successful');
-    return true;
+    const headers = event.headers || {};
+    const providedPassword = headers['X-Admin-Password'] || headers['x-admin-password'];
+    if (!ADMIN_PASSWORD || typeof providedPassword !== 'string') return false;
+    const actual = Buffer.from(providedPassword);
+    const expected = Buffer.from(ADMIN_PASSWORD);
+    return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
 /**
@@ -89,8 +94,8 @@ const ADVISOR_CATEGORIES = {
         defaultPrompt: 'board_member_advisor'
     },
     'board_members': {
-        name: 'Board Members (Fallback)',
-        description: 'General board member relationship advisor (fallback for member types)',
+        name: 'Board Members (Contextual)',
+        description: 'General board member relationship advisor (contextual for member types)',
         defaultPrompt: 'board_member_advisor'
     },
     'overall': {
@@ -253,7 +258,7 @@ Please structure your response with clear headings and actionable recommendation
         userPromptTemplate: 'Help me develop this peer relationship:\n\nPeer: {memberName}\nRole/Background: {memberRole}\nCurrent Dynamic: {currentRelationship}\n\nMy Profile:\n{currentFields}\n\nMy Objectives:\n{goals}\n\nPlease provide guidance...',
         variables: ['memberName', 'memberRole', 'currentRelationship', 'currentFields', 'goals']
     },
-    // Board Members (Fallback)
+    // Board Members (Contextual)
     {
         promptId: 'board_member_advisor',
         name: 'Board Member Relationship Advisor',
@@ -375,7 +380,7 @@ Focus on making each field more professional, clear, and polished while keeping 
 ];
 
 exports.handler = async (event) => {
-    console.log('Event:', JSON.stringify(event, null, 2));
+    console.log('Admin request:', event.httpMethod, event.path);
 
     try {
         // Handle CORS preflight
@@ -393,6 +398,19 @@ exports.handler = async (event) => {
         }
 
         const { httpMethod, path } = event;
+        if (path.startsWith('/admin/ai/')) {
+            let body = {};
+            try { body = JSON.parse(event.isBase64Encoded ? Buffer.from(event.body || '', 'base64').toString() : event.body || '{}'); }
+            catch { return {statusCode:400, headers:corsHeaders, body:JSON.stringify({error:'Invalid JSON body'})}; }
+            let result;
+            if (path === '/admin/ai/settings' && httpMethod === 'GET') result = await aiAdmin.settings();
+            else if (path === '/admin/ai/settings' && httpMethod === 'PUT') result = {settings:await aiAdmin.activate(body)};
+            else if (path === '/admin/ai/history' && httpMethod === 'GET') result = {history:await aiAdmin.history()};
+            else if (path === '/admin/ai/rollback' && httpMethod === 'POST') result = {settings:await aiAdmin.rollback(body)};
+            else if (path === '/admin/ai/compare' && httpMethod === 'POST') result = await aiAdmin.compare(body);
+            else return {statusCode:404, headers:corsHeaders, body:JSON.stringify({error:'Not found'})};
+            return {statusCode:200, headers:corsHeaders, body:JSON.stringify(result)};
+        }
         console.log(`🔍 DEBUG: httpMethod=${httpMethod}, path='${path}'`);
 
         if (httpMethod === 'GET' && path === '/admin/prompts') {
@@ -489,9 +507,9 @@ exports.handler = async (event) => {
     } catch (error) {
         console.error('Error:', error);
         return {
-            statusCode: 500,
+            statusCode: error.statusCode || 500,
             headers: corsHeaders,
-            body: JSON.stringify({ error: error.message })
+            body: JSON.stringify({ error: error.statusCode ? error.message : "Unable to complete the request. Please try again." })
         };
     }
 };
@@ -561,7 +579,7 @@ async function createPrompt(promptData) {
 
     const item = {
         PK: `PROMPT#${promptId}`,
-        SK: 'CONFIG',
+        SK: 'PROMPT',
         promptId,
         name: promptData.name,
         category: promptData.category,
@@ -606,9 +624,9 @@ async function updatePrompt(promptId, promptData) {
         TableName: TABLE_NAME,
         Key: {
             PK: `PROMPT#${promptId}`,
-            SK: 'CONFIG'
+            SK: 'PROMPT'
         }
-    }));
+    }))
 
     if (!existingResult.Item) {
         console.log('🔄 UPDATE DEBUG: Prompt not found');
@@ -634,7 +652,7 @@ async function updatePrompt(promptId, promptData) {
     // Create updated item, preserving metadata
     const updatedItem = {
         PK: `PROMPT#${promptId}`,
-        SK: 'CONFIG',
+        SK: 'PROMPT',
         promptId,
         name: promptData.name,
         category: promptData.category || existingResult.Item.category, // Preserve existing category if not provided
@@ -687,9 +705,9 @@ async function activatePrompt(promptId, requestData = {}) {
             TableName: TABLE_NAME,
             Key: {
                 PK: `PROMPT#${promptId}`,
-                SK: 'CONFIG'
+                SK: 'PROMPT'
             }
-        }));
+        }))
 
         if (!promptResult.Item) {
             return {
@@ -826,9 +844,9 @@ async function deletePrompt(promptId) {
         TableName: TABLE_NAME,
         Key: {
             PK: `PROMPT#${promptId}`,
-            SK: 'CONFIG'
+            SK: 'PROMPT'
         }
-    }));
+    }))
 
     if (!promptResult.Item) {
         return {
@@ -850,7 +868,7 @@ async function deletePrompt(promptId) {
         TableName: TABLE_NAME,
         Key: {
             PK: `PROMPT#${promptId}`,
-            SK: 'CONFIG'
+            SK: 'PROMPT'
         }
     }));
 
@@ -866,7 +884,7 @@ async function seedDatabase() {
     for (const prompt of INITIAL_PROMPTS) {
         const item = {
             PK: `PROMPT#${prompt.promptId}`,
-            SK: 'CONFIG',
+            SK: 'PROMPT',
             ...prompt,
             createdAt: new Date().toISOString()
         };
@@ -986,14 +1004,25 @@ async function getThemes() {
 async function activateTheme(themeName) {
     console.log('🎨 Activating theme:', themeName);
 
-    // Get theme configuration
-    const themeResult = await dynamodb.send(new GetCommand({
+    // Get theme configuration (try both SK patterns for compatibility)
+    let themeResult = await dynamodb.send(new GetCommand({
         TableName: TABLE_NAME,
         Key: {
             PK: `THEME#${themeName}`,
             SK: 'CONFIG'
         }
     }));
+
+    // If not found with CONFIG, try THEME
+    if (!themeResult.Item) {
+        themeResult = await dynamodb.send(new GetCommand({
+            TableName: TABLE_NAME,
+            Key: {
+                PK: `THEME#${themeName}`,
+                SK: 'THEME'
+            }
+        }));
+    }
 
     if (!themeResult.Item) {
         return {
@@ -1009,28 +1038,62 @@ async function activateTheme(themeName) {
     // Board member categories that support fallback
     const boardMemberCategories = ['mentors', 'coaches', 'sponsors', 'connectors', 'peers'];
 
-    // Apply theme prompts
-    for (const [category, promptId] of Object.entries(theme.prompts)) {
+    // Apply theme prompts with fallback logic
+    for (const [category, requestedPromptId] of Object.entries(theme.prompts)) {
         try {
+            // Check if the requested prompt exists
+            const promptExists = await dynamodb.send(new GetCommand({
+                TableName: TABLE_NAME,
+                Key: {
+                    PK: `PROMPT#${requestedPromptId}`,
+                    SK: 'PROMPT'
+                }
+            }));
+
+            let finalPromptId = requestedPromptId;
+            let status = 'activated';
+
+            // If prompt doesn't exist, fall back to default
+            if (!promptExists.Item) {
+                console.log(`⚠️ Prompt ${requestedPromptId} not found, falling back to default for ${category}`);
+
+                // Get the default prompt for this category
+                const categoryConfig = ADVISOR_CATEGORIES[category];
+                if (categoryConfig && categoryConfig.defaultPrompt) {
+                    finalPromptId = categoryConfig.defaultPrompt;
+                    status = 'fallback_to_default';
+                } else {
+                    // Ultimate fallback for board member categories
+                    if (boardMemberCategories.includes(category)) {
+                        finalPromptId = 'board_member_advisor';
+                        status = 'fallback_to_contextual';
+                    } else {
+                        throw new Error(`No fallback available for category ${category}`);
+                    }
+                }
+            }
+
             await dynamodb.send(new PutCommand({
                 TableName: TABLE_NAME,
                 Item: {
                     PK: `ADVISOR#${category}`,
                     SK: 'PROMPT',
-                    activePromptId: promptId,
+                    activePromptId: finalPromptId,
                     updatedAt: new Date().toISOString()
                 }
             }));
+
             activationResults.push({
                 category,
-                promptId,
-                status: 'activated'
+                promptId: finalPromptId,
+                requestedPromptId: requestedPromptId,
+                status: status
             });
         } catch (error) {
             console.error(`Failed to activate ${category}:`, error);
             activationResults.push({
                 category,
-                promptId,
+                promptId: requestedPromptId,
                 status: 'failed',
                 error: error.message
             });
@@ -1146,7 +1209,7 @@ async function deleteTheme(themeName) {
             TableName: TABLE_NAME,
             Key: {
                 PK: `THEME#${themeName}`,
-                SK: 'CONFIG'
+                SK: 'THEME'
             }
         }));
 
@@ -1165,7 +1228,7 @@ async function deleteTheme(themeName) {
             TableName: TABLE_NAME,
             Key: {
                 PK: `THEME#${themeName}`,
-                SK: 'CONFIG'
+                SK: 'THEME'
             }
         }));
 

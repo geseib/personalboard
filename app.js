@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
-import { jsPDF } from 'jspdf';
+import { REPORT_ROLES, getBoardGroups } from './board-roles.js';
 import { connectionLevels } from './utils.js';
-import { getMentorAdvisorGuidance, getBoardMemberAdvisorGuidance, getGoalsAdvisorGuidance, getBoardAnalysisAdvisorGuidance, isAuthenticated, validateAccessCode, getAIGuidance } from './ai-client.js';
+import { AdvisorWorkspace } from './advisor-workspace.js';
+import { WritingResultsModal, SafeMarkdown } from './editing-workspace.js';
+import { applyWritingEdits, fieldLabel, writingConflicts, undoWritingEdits, recoverWritingDraft, clearWritingDrafts } from './editing-utils.js';
+import { getBoardAnalysisAdvisorGuidance, isAuthenticated, validateAccessCode, getAIGuidance } from './ai-client.js';
 import { FeedbackButton } from './feedback.js';
 import './feedback.css';
 // use direct paths so images resolve without a bundler
@@ -167,6 +170,7 @@ function App() {
     }
     return savedData;
   });
+  const [pdfExporting, setPdfExporting] = useState(false);
   const [showLearn, setShowLearn] = useState(false);
   const [showIntroLearn, setShowIntroLearn] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -183,9 +187,7 @@ function App() {
   const [showPeersVideoModal, setShowPeersVideoModal] = useState(false);
   const [showBoardVideoModal, setShowBoardVideoModal] = useState(false);
   const [showPodcastModal, setShowPodcastModal] = useState(false);
-  const [showAdvisorModal, setShowAdvisorModal] = useState(false);
-  const [advisorGuidance, setAdvisorGuidance] = useState(null);
-  const [advisorLoading, setAdvisorLoading] = useState(false);
+  const [enhancedModeEnabled, setEnhancedModeEnabled] = useState(false); // Temporarily disabled
   const [boardAdvice, setBoardAdvice] = useState(() => {
     const stored = localStorage.getItem('boardAdvice');
     return stored ? JSON.parse(stored) : null;
@@ -456,7 +458,6 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
     setShowForm(false);
     setEditingItem(null);
     setEditingIndex(null);
-    setShowAdvisorModal(false); // Close advisor modal when saving
   };
 
   const handleAuthentication = async () => {
@@ -485,126 +486,38 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
     return callback();
   };
 
-  const handleAdvise = async (currentFormData, modalFormType) => {
-    // Check authentication first
-    if (!isAuthenticated()) {
-      setShowAuthModal(true);
-      return;
-    }
+  // JSON validation functions
+  const validateBoardData = (data) => {
+    const errors = [];
+    const warnings = [];
 
-    // Use the type passed from FormModal to ensure we're using the correct type
-    const typeToUse = modalFormType || formType;
+    // Validate 'you' section structure
+    if (data.you) {
+      if (data.you.superpowers && !Array.isArray(data.you.superpowers)) {
+        errors.push("'you.superpowers' must be an array");
+      }
 
-    setAdvisorLoading(true);
-    setShowAdvisorModal(true);
-
-    try {
-      // Create comprehensive user data like the backup function does
-      let completeUserData = { ...data };
-
-      // Merge in current form data if editing (unsaved changes)
-      if (currentFormData && typeToUse) {
-        if (typeToUse === 'goals') {
-          completeUserData = {
-            ...completeUserData,
-            goals: [
-              ...(data.goals || []).filter((_, index) => index !== editingIndex),
-              currentFormData
-            ]
-          };
-        } else if (typeToUse === 'superpowers') {
-          completeUserData = {
-            ...completeUserData,
-            you: {
-              ...(data.you || {}),
-              superpowers: [
-                ...(data.you?.superpowers || []).filter((_, index) => index !== editingIndex),
-                currentFormData
-              ]
-            }
-          };
-        } else if (typeToUse !== 'board') {
-          // For board member types (mentors, coaches, etc.)
-          completeUserData = {
-            ...completeUserData,
-            [typeToUse]: [
-              ...(data[typeToUse] || []).filter((_, index) => index !== editingIndex),
-              currentFormData
-            ]
-          };
+      // Check for misplaced superpowers at top level (common error)
+      if (data.superpowers && Array.isArray(data.superpowers)) {
+        warnings.push("'superpowers' found at top level - should be under 'you' section");
+        // Auto-fix: move superpowers to correct location
+        if (!data.you.superpowers) {
+          data.you.superpowers = data.superpowers;
+          delete data.superpowers;
+          warnings.push("Auto-fixed: moved 'superpowers' to 'you.superpowers'");
         }
       }
+    }
 
-      console.log('Complete user data being sent to AI:', completeUserData);
-
-      let result;
-
-      if (typeToUse === 'goals') {
-        // Goals advisor
-        result = await getGoalsAdvisorGuidance(
-          currentFormData,
-          completeUserData.goals || [],
-          completeUserData // Pass complete user data
-        );
-      } else if (typeToUse === 'superpowers') {
-        // Skills advisor - use skills_advisor type for active prompt selection
-        result = await getAIGuidance('skills_advisor', {
-          currentFormData,
-          allSkills: completeUserData.superpowers || [],
-          boardData: completeUserData
-        });
-      } else if (typeToUse === 'board') {
-        // Board analysis advisor - show inline instead of modal
-        setShowAdvisorModal(false);
-        setAdvisorLoading(false);
-        await getBoardAdvice();
-        return;
-      } else {
-        // Board member advisor - first check for member-specific prompt, then fallback to board_member_advisor
-        const learnContentMap = {
-          'mentors': "Senior leaders who provide wisdom, guidance, and strategic advice. They help you see the bigger picture, understand industry dynamics, and make important career decisions. Mentors typically meet quarterly and focus on long-term career development rather than day-to-day issues.",
-          'coaches': "Skilled practitioners who help you develop specific competencies and improve performance. They provide hands-on guidance, practical feedback, and help you build concrete skills. Coaches often meet weekly or bi-weekly and focus on immediate skill development and performance improvement.",
-          'sponsors': "Senior leaders with organizational influence who advocate for your advancement behind closed doors. They champion your career, open doors to opportunities, and help position you for promotions. Sponsors use their political capital and networks to advance your career.",
-          'connectors': "Well-networked individuals who excel at making introductions and expanding your professional network. They know people across industries and functions, and are generous with their connections. Connectors help you meet the right people at the right time.",
-          'peers': "Colleagues at similar career levels who provide mutual support, collaboration, and shared learning. They offer different perspectives, help you navigate challenges, and can become long-term professional allies. Peer relationships are typically reciprocal and ongoing."
-        };
-
-        const learnContent = learnContentMap[typeToUse] || learnContentMap['mentors'];
-
-        // Lambda will check for specific advisor type (e.g., 'mentors_advisor') first,
-        // then fallback to 'board_member_advisor' if no active prompt is set
-        result = await getAIGuidance(`${typeToUse}_advisor`, {
-          memberType: typeToUse,
-          currentFormData,
-          goals: completeUserData.goals || [],
-          learnContent,
-          existingMembers: completeUserData
-        });
+    // Validate array sections
+    const arraySections = ['goals', 'mentors', 'coaches', 'sponsors', 'connectors', 'peers'];
+    arraySections.forEach(section => {
+      if (data[section] && !Array.isArray(data[section])) {
+        errors.push(`'${section}' must be an array`);
       }
+    });
 
-      console.log('AI Guidance Result:', result);
-      console.log('Guidance text:', result?.guidance);
-      setAdvisorGuidance(result.guidance);
-    } catch (error) {
-      console.error('Failed to get AI guidance:', error);
-      setAdvisorGuidance('Sorry, I encountered an error while generating guidance. Please try again later.');
-    } finally {
-      setAdvisorLoading(false);
-    }
-  };
-
-  const handleCopyToField = (content, fieldName) => {
-    // This function will be called by the AdvisorModal to copy content to form fields
-    // We need to update the editingItem with the new content appended to the specified field
-    if (editingItem) {
-      const currentValue = editingItem[fieldName] || '';
-      const newValue = currentValue ? `${currentValue}\n\n${content}` : content;
-      
-      setEditingItem({
-        ...editingItem,
-        [fieldName]: newValue
-      });
-    }
+    return { isValid: errors.length === 0, errors, warnings, fixedData: data };
   };
 
   const handleUpload = e => {
@@ -614,69 +527,68 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
     reader.onload = ev => {
       try {
         const backupData = JSON.parse(ev.target.result);
-        
+        let dataToImport;
+        let validationMessages = [];
+
         // Handle both old format (direct data) and new format (comprehensive backup)
         if (backupData.version && backupData.boardData) {
           // New comprehensive backup format
-          setData(backupData.boardData);
-          
-          // Restore board advice if available
-          if (backupData.boardAdvice) {
-            setBoardAdvice(backupData.boardAdvice);
+          dataToImport = backupData.boardData;
+
+
+
+        } else {
+          // Legacy format (just board data)
+          dataToImport = backupData;
+        }
+
+        // Validate the data structure
+        const validation = validateBoardData(dataToImport);
+
+        if (validation.isValid) {
+          clearWritingDrafts(sessionStorage);
+          setBoardAdvice(typeof backupData.boardAdvice === 'string' ? backupData.boardAdvice : '');
+          localStorage.removeItem('boardAdvice');
+          setData(validation.fixedData);
+          let successMessage = 'Backup imported successfully!';
+
+          if (validation.warnings.length > 0) {
+            successMessage += '\n\nNotes:\n' + validation.warnings.map(w => `• ${w}`).join('\n');
+            console.log('Import warnings:', validation.warnings);
           }
-          
-          // Restore authentication tokens if available and valid
-          if (backupData.auth) {
-            if (backupData.auth.sessionToken) {
-              try {
-                // Validate token format and expiration before restoring
-                const payload = JSON.parse(atob(backupData.auth.sessionToken.split('.')[1]));
-                const now = Math.floor(Date.now() / 1000);
-                
-                if (payload.exp && payload.exp > now) {
-                  // Token is still valid, restore it
-                  localStorage.setItem('sessionToken', backupData.auth.sessionToken);
-                  console.log('✅ Authentication token restored successfully');
-                } else {
-                  console.log('⚠️ Authentication token in backup has expired');
-                }
-              } catch (e) {
-                console.log('⚠️ Invalid authentication token in backup');
-              }
-            }
-            
-            if (backupData.auth.clientId) {
-              localStorage.setItem('clientId', backupData.auth.clientId);
-            }
-          }
-          
+
+          alert(successMessage);
           setShowUploadSuccess(true);
           setTimeout(() => setShowUploadSuccess(false), 3000);
         } else {
-          // Legacy format (just board data)
-          setData(backupData);
-          setShowUploadSuccess(true);
-          setTimeout(() => setShowUploadSuccess(false), 3000);
+          // Show detailed error message
+          const errorMessage = [
+            'Import failed due to data structure issues:',
+            '',
+            ...validation.errors.map(e => `• ${e}`),
+            '',
+            'Please fix these issues in the JSON file and try again.'
+          ].join('\n');
+
+          alert(errorMessage);
+          console.error('Import validation errors:', validation.errors);
         }
+
       } catch (err) {
-        alert('Invalid backup file. Please select a valid Personal Board backup (.json) file.');
+        console.error('JSON parse error:', err);
+        alert('Invalid backup file. Please select a valid JSON file.\n\nError: ' + err.message);
       }
     };
     reader.readAsText(file);
   };
 
   const downloadJSON = () => {
-    // Create comprehensive backup with auth tokens and board advice
+    // Back up board content only. Authentication belongs to this browser session.
     const backupData = {
       version: '1.0',
       timestamp: new Date().toISOString(),
       boardData: data,
-      boardAdvice: boardAdvice,
-      // Include auth tokens to maintain session across restore
-      auth: {
-        sessionToken: localStorage.getItem('sessionToken'),
-        clientId: localStorage.getItem('clientId')
-      }
+      boardAdvice: boardAdvice
     };
     
     const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
@@ -687,976 +599,17 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
   };
 
   const downloadPDF = async () => {
-    // Use existing board advice if available, otherwise get it
-    let currentBoardAdvice = boardAdvice;
-    if (!currentBoardAdvice && Object.keys(data).some(key => data[key] && data[key].length > 0 && key !== 'goals')) {
-      console.log('No existing analysis found, generating for PDF...');
-      currentBoardAdvice = await getBoardAdvice();
+    if (pdfExporting) return;
+    setPdfExporting(true);
+    try {
+      // Load the renderer only when exporting. This never invokes AI.
+      const { buildBoardReport } = await import('./board-report.js');
+      await buildBoardReport(data, boardAdvice).save('personal-board.pdf', { returnPromise: true });
+    } catch {
+      alert('The PDF could not be created. Your board is safe. Please try again.');
+    } finally {
+      setPdfExporting(false);
     }
-
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.width;
-    const pageHeight = doc.internal.pageSize.height;
-
-    // Get user's name
-    const userName = data.you?.name || 'Your Name';
-    let currentY = 25;
-    
-    // Add header background
-    doc.setFillColor(37, 99, 235); // Blue header
-    doc.rect(0, 0, pageWidth, 45, 'F');
-    
-    // Title
-    doc.setFontSize(28);
-    doc.setFont(undefined, 'bold');
-    doc.setTextColor(255, 255, 255);
-    const pdfTitle = userName === 'Your Name' ? 'Personal Board of Directors' : `${userName}'s Board of Directors`;
-    doc.text(pdfTitle, pageWidth / 2, currentY, { align: 'center' });
-    currentY += 12;
-    
-    // Date
-    doc.setFontSize(11);
-    doc.setFont(undefined, 'normal');
-    doc.setTextColor(229, 231, 235);
-    doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth / 2, currentY, { align: 'center' });
-    currentY += 25;
-    
-    // Meeting Cadence Grid Section
-    const allMembers = [];
-    Object.keys(data).forEach(type => {
-      if (data[type] && type !== 'goals' && type !== 'you') {
-        data[type].forEach(person => {
-          allMembers.push({ ...person, type });
-        });
-      }
-    });
-    
-    // Define colors for all PDF sections
-    const colors = {
-      mentors: [16, 185, 129],
-      coaches: [59, 130, 246],
-      connectors: [245, 158, 11],
-      sponsors: [139, 92, 246],
-      peers: [239, 68, 68]
-    };
-    
-    if (allMembers.length > 0) {
-      const gridHeight = 25 + (allMembers.length * 12) + 15; // Header + rows + padding
-      
-      // Grid Section Background
-      doc.setFillColor(249, 250, 251);
-      doc.roundedRect(15, currentY - 5, pageWidth - 30, gridHeight, 3, 3, 'F');
-      
-      // Grid Header
-      doc.setFontSize(16);
-      doc.setFont(undefined, 'bold');
-      doc.setTextColor(17, 24, 39);
-      doc.text('Meeting Cadence Overview', 20, currentY + 5);
-      currentY += 20;
-      
-      // Grid column headers
-      const gridStartX = 25;
-      const nameColWidth = 60;
-      const cadenceColWidth = 20;
-      const cadenceColumns = ['Daily', 'Weekly', 'Monthly', 'Quarterly', 'Annually', 'Ad-hoc'];
-      
-      // Header row background
-      doc.setFillColor(37, 99, 235);
-      doc.rect(gridStartX, currentY - 3, nameColWidth + (cadenceColumns.length * cadenceColWidth), 12, 'F');
-      
-      // Header text
-      doc.setFontSize(9);
-      doc.setFont(undefined, 'bold');
-      doc.setTextColor(255, 255, 255);
-      doc.text('Board Member', gridStartX + 2, currentY + 3);
-      
-      cadenceColumns.forEach((col, idx) => {
-        const x = gridStartX + nameColWidth + (idx * cadenceColWidth);
-        doc.text(col, x + cadenceColWidth/2, currentY + 3, { align: 'center' });
-      });
-      
-      currentY += 12;
-      
-      // Grid rows
-      
-      allMembers.forEach((member, idx) => {
-        // Alternating row background
-        if (idx % 2 === 1) {
-          doc.setFillColor(255, 255, 255);
-          doc.rect(gridStartX, currentY - 2, nameColWidth + (cadenceColumns.length * cadenceColWidth), 10, 'F');
-        }
-        
-        // Member name with type indicator
-        doc.setFontSize(8);
-        doc.setFont(undefined, 'normal');
-        doc.setTextColor(17, 24, 39);
-        const memberColor = colors[member.type] || [100, 100, 100];
-        doc.setFillColor(...memberColor);
-        doc.circle(gridStartX + 4, currentY + 2, 1.5, 'F');
-        
-        const memberText = `${member.name || 'Unknown'} (${member.type === 'coaches' ? 'coach' : member.type.slice(0, -1)})`;
-        doc.text(memberText.substring(0, 35), gridStartX + 8, currentY + 3);
-        
-        // Cadence dot in appropriate column
-        cadenceColumns.forEach((cadence, cadIdx) => {
-          const x = gridStartX + nameColWidth + (cadIdx * cadenceColWidth);
-          let showDot = false;
-          
-          if (cadence === 'Daily' && member.cadence === 'Daily') showDot = true;
-          else if (cadence === 'Weekly' && member.cadence === 'Weekly') showDot = true;
-          else if (cadence === 'Monthly' && (member.cadence === 'Monthly' || member.cadence === 'Bi-weekly')) showDot = true;
-          else if (cadence === 'Quarterly' && member.cadence === 'Quarterly') showDot = true;
-          else if (cadence === 'Annually' && member.cadence === 'Annually') showDot = true;
-          else if (cadence === 'Ad-hoc' && member.cadence === 'Ad-hoc') showDot = true;
-          
-          if (showDot) {
-            doc.setFillColor(...memberColor);
-            doc.circle(x + cadenceColWidth/2, currentY + 2, 2, 'F');
-          }
-        });
-        
-        currentY += 10;
-      });
-      
-      currentY += 15;
-    } else {
-      currentY += 10;
-    }
-    
-    // Calculate board section height dynamically
-    const boardSectionHeight = 200; // Header + table + member positions + padding
-
-    // Check if we need a new page for the board section
-    if (currentY + boardSectionHeight > pageHeight - 40) {
-      doc.addPage();
-      currentY = 20;
-    }
-
-    // Board Section Background
-    doc.setFillColor(249, 250, 251);
-    doc.roundedRect(15, currentY - 5, pageWidth - 30, boardSectionHeight, 3, 3, 'F');
-
-    // Visual Board Diagram
-    doc.setFontSize(16);
-    doc.setFont(undefined, 'bold');
-    doc.setTextColor(17, 24, 39);
-    doc.text('Board Visualization', 20, currentY + 5);
-    currentY += 15;
-    
-    // Draw table (vertical rectangle with rounded corners)
-    const tableX = pageWidth / 2;
-    const tableY = currentY + 35;
-    const tableWidth = 50;
-    const tableHeight = 65;
-    
-    // Add shadow effect
-    doc.setFillColor(229, 231, 235);
-    doc.roundedRect(tableX - tableWidth/2 + 1, tableY - tableHeight/2 + 1, tableWidth, tableHeight, 8, 8, 'F');
-    
-    doc.setFillColor(255, 255, 255);
-    doc.setDrawColor(209, 213, 219);
-    doc.setLineWidth(0.5);
-    doc.roundedRect(tableX - tableWidth/2, tableY - tableHeight/2, tableWidth, tableHeight, 8, 8, 'FD');
-    
-    doc.setFontSize(12);
-    doc.setFont(undefined, 'bold');
-    doc.setTextColor(37, 99, 235);
-    doc.text('YOUR BOARD', tableX, tableY, { align: 'center' });
-    
-    // Position board members around table (reuse allMembers from cadence grid)
-    const positions = [
-      { x: 0, y: -45 }, // top center
-      { x: 35, y: -30 }, // top-right
-      { x: 45, y: -10 }, // right-top
-      { x: 45, y: 10 }, // right-bottom
-      { x: 35, y: 30 }, // bottom-right
-      { x: 0, y: 45 }, // bottom center
-      { x: -35, y: 30 }, // bottom-left
-      { x: -45, y: 10 }, // left-bottom
-      { x: -45, y: -10 }, // left-top
-      { x: -35, y: -30 }, // top-left
-      { x: 20, y: -40 }, // top-right extra
-      { x: -20, y: -40 }, // top-left extra
-      { x: 20, y: 40 }, // bottom-right extra
-      { x: -20, y: 40 }, // bottom-left extra
-      { x: 50, y: 25 }, // far right
-    ];
-    
-    allMembers.slice(0, 8).forEach((member, idx) => {
-      const pos = positions[idx % positions.length];
-      const boxX = tableX + pos.x;
-      const boxY = tableY + pos.y;
-      const color = colors[member.type] || [100, 100, 100];
-      
-      // Draw member box with rounded corners
-      doc.setFillColor(255, 255, 255);
-      doc.setDrawColor(...color);
-      doc.setLineWidth(1);
-      doc.roundedRect(boxX - 22, boxY - 10, 44, 20, 2, 2, 'FD');
-      
-      // Member details
-      doc.setFontSize(7);
-      doc.setFont(undefined, 'bold');
-      doc.setTextColor(...color);
-      doc.text((member.type === 'coaches' ? 'COACH' : member.type.slice(0, -1).toUpperCase()), boxX, boxY - 3, { align: 'center' });
-      
-      doc.setFont(undefined, 'bold');
-      doc.setTextColor(17, 24, 39);
-      doc.setFontSize(8);
-      doc.text((member.name || 'Unknown').substring(0, 15), boxX, boxY + 2, { align: 'center' });
-      
-      doc.setFont(undefined, 'normal');
-      doc.setTextColor(107, 114, 128);
-      doc.setFontSize(7);
-      doc.text((member.role || 'Unknown').substring(0, 20), boxX, boxY + 6, { align: 'center' });
-    });
-    
-    // Update currentY to the end of the board section
-    // We need to account for: start position (where we drew background) + section height - top margin
-    currentY = (currentY - 15 - 5) + boardSectionHeight; // Background start + height
-
-    // Check if we need a new page for subsequent content
-    if (currentY > pageHeight - 40) {
-      doc.addPage();
-      currentY = 20;
-    }
-    
-    // Define role descriptions first
-    const roleDescriptions = {
-      mentors: {
-        brief: 'Your Wisdom Guides',
-        detail: 'Mentors are experienced professionals who have walked the path you aspire to take. They provide strategic career advice, share lessons learned from their journeys, and help you navigate complex professional decisions. A mentor opens doors by sharing their network, institutional knowledge, and hard-earned wisdom.'
-      },
-      coaches: {
-        brief: 'Your Skill Developers',
-        detail: 'Coaches focus on helping you develop specific skills and capabilities. Unlike mentors who provide broad wisdom, coaches zero in on particular areas where you need improvement and push you to achieve your potential. They provide targeted feedback, skill development strategies, and accountability for improvement.'
-      },
-      writing: {
-        brief: 'Your Communication Engine',
-        detail: 'Clear, compelling writing amplifies your ideas and creates opportunities. Strong writing skills help you articulate ideas clearly, influence decision-makers, build professional credibility, and advance your career through effective communication across all channels.'
-      },
-      connectors: {
-        brief: 'Your Network Expanders',
-        detail: 'Connectors are the social catalysts in your network – people who know everyone and love making introductions. They have extensive networks across industries and are generous with their connections. Connectors multiply your networking capacity exponentially by expanding your reach far beyond your immediate circle.'
-      },
-      sponsors: {
-        brief: 'Your Advocates',
-        detail: 'Sponsors are influential people who actively advocate for you in rooms where you\'re not present. They go beyond giving advice to actually using their political capital and influence to advance your career. While mentors give advice, sponsors take action on your behalf, recommending you for opportunities and speaking up for your contributions.'
-      },
-      peers: {
-        brief: 'Your Journey Companions',
-        detail: 'Peers are professionals at similar career stages who face comparable challenges and opportunities. They provide mutual support, shared problem-solving, and the camaraderie of people walking similar paths. Peers offer reciprocal relationships where you both give and receive support.'
-      }
-    };
-
-    // Check if there are any board members
-    const hasMembers = Object.keys(data).some(type =>
-      data[type] && data[type].length > 0 && type !== 'goals' && type !== 'you'
-    );
-
-    // Role Descriptions - Always start on new page if there are members
-    if (hasMembers) {
-      doc.addPage();
-      currentY = 20;
-    }
-
-    // Calculate height dynamically for role descriptions section
-    const roleStartY = currentY;
-    let roleHeight = 25; // Base height for title
-    
-    // Calculate total height needed for role descriptions
-    const activeRoles = Object.keys(roleDescriptions).filter(role => data[role] && data[role].length > 0);
-    activeRoles.forEach(role => {
-      const lines = doc.splitTextToSize(roleDescriptions[role].detail, pageWidth - 45);
-      roleHeight += 6 + (lines.length * 4) + 8; // Title height + text lines + spacing
-    });
-    
-    // Draw background with calculated height
-    doc.setFillColor(249, 250, 251);
-    doc.roundedRect(15, roleStartY - 5, pageWidth - 30, Math.min(roleHeight, pageHeight - roleStartY + 5), 3, 3, 'F');
-    
-    // Role Descriptions Title
-    doc.setFontSize(16);
-    doc.setFont(undefined, 'bold');
-    doc.setTextColor(17, 24, 39);
-    doc.text('Role Descriptions', 20, currentY + 5);
-    currentY += 20; // Increased spacing to prevent overlap
-    
-    doc.setFontSize(10);
-    Object.keys(roleDescriptions).forEach(role => {
-      if (data[role] && data[role].length > 0) {
-        // Check if we need a new page
-        if (currentY > pageHeight - 40) {
-          doc.addPage();
-          currentY = 20;
-        }
-        
-        const color = colors[role] || [0, 0, 0];
-        
-        // Add colored bullet
-        doc.setFillColor(...color);
-        doc.circle(22, currentY - 1, 2, 'F');
-        
-        // Role name with brief title
-        doc.setFont(undefined, 'bold');
-        doc.setTextColor(...color);
-        doc.setFontSize(11);
-        const roleTitle = `${role.charAt(0).toUpperCase() + role.slice(1)}: ${roleDescriptions[role].brief}`;
-        doc.text(roleTitle, 27, currentY);
-        currentY += 6;
-        
-        // Detailed description
-        doc.setFont(undefined, 'normal');
-        doc.setTextColor(75, 85, 99);
-        doc.setFontSize(9);
-        const lines = doc.splitTextToSize(roleDescriptions[role].detail, pageWidth - 45);
-        doc.text(lines, 27, currentY);
-        currentY += lines.length * 4 + 8;
-      }
-    });
-    
-    currentY += 10;
-    
-    // Add new page for detailed sections
-    doc.addPage();
-    currentY = 20;
-    
-    // Detailed Member Sections Header
-    doc.setFillColor(37, 99, 235);
-    doc.rect(0, 0, pageWidth, 30, 'F');
-    
-    doc.setFontSize(20);
-    doc.setFont(undefined, 'bold');
-    doc.setTextColor(255, 255, 255);
-    doc.text('Board Member Details', pageWidth / 2, 18, { align: 'center' });
-    currentY = 40;
-    
-    Object.keys(data).forEach(type => {
-      if (data[type] && data[type].length > 0 && type !== 'goals') {
-        // Check if we need a new page
-        if (currentY > pageHeight - 60) {
-          doc.addPage();
-          currentY = 20;
-        }
-        
-        // Section header with background
-        const color = colors[type] || [0, 0, 0];
-        doc.setFillColor(...color.map(c => Math.min(255, c + 200))); // Lighter version
-        doc.roundedRect(15, currentY - 5, pageWidth - 30, 12, 2, 2, 'F');
-        
-        doc.setFontSize(14);
-        doc.setFont(undefined, 'bold');
-        doc.setTextColor(...color);
-        doc.text(type.charAt(0).toUpperCase() + type.slice(1), 20, currentY + 2);
-        currentY += 12;
-        
-        // Member details
-        data[type].forEach(member => {
-          // Calculate content height before checking page break
-          const contentStartY = currentY;
-          let contentHeight = 18; // Base height for name and basic info
-          
-          // Calculate height for additional fields
-          if (member.whatToLearn) {
-            const learnLines = doc.splitTextToSize(member.whatToLearn, pageWidth - 65);
-            contentHeight += 6 + (learnLines.length * 4);
-          }
-          
-          if (member.whatTheyGet) {
-            const getLines = doc.splitTextToSize(member.whatTheyGet, pageWidth - 65);
-            contentHeight += 6 + (getLines.length * 4);
-          }
-          
-          if (member.notes) {
-            const noteLines = doc.splitTextToSize(member.notes, pageWidth - 65);
-            contentHeight += 6 + (noteLines.length * 4);
-          }
-
-          // Check if entire card fits on current page
-          if (currentY + contentHeight > pageHeight - 20) {
-            doc.addPage();
-            currentY = 20;
-          }
-
-          // Member card background with calculated height
-          doc.setFillColor(255, 255, 255);
-          doc.setDrawColor(229, 231, 235);
-          doc.roundedRect(25, currentY - 3, pageWidth - 50, contentHeight, 2, 2, 'FD');
-          
-          // Colored sidebar with calculated height
-          doc.setFillColor(...color);
-          doc.rect(25, currentY - 3, 3, contentHeight, 'F');
-          
-          doc.setFontSize(11);
-          doc.setFont(undefined, 'bold');
-          doc.setTextColor(17, 24, 39);
-          doc.text(member.name || 'Unknown', 32, currentY + 3);
-          currentY += 6;
-          
-          doc.setFontSize(9);
-          doc.setFont(undefined, 'normal');
-          doc.setTextColor(75, 85, 99);
-          doc.text(`Role: ${member.role || 'Unknown'}`, 35, currentY);
-          currentY += 4;
-          doc.text(`Connection: ${member.connection || 'Unknown'}`, 35, currentY);
-          currentY += 4;
-          doc.text(`Cadence: ${member.cadence || 'Unknown'}`, 35, currentY);
-          currentY += 4;
-          
-          if (member.whatToLearn) {
-            doc.setFont(undefined, 'bold');
-            doc.setTextColor(16, 185, 129); // Green color
-            doc.text('What to Learn:', 35, currentY);
-            currentY += 4;
-            doc.setFont(undefined, 'normal');
-            doc.setTextColor(75, 85, 99);
-            const learnLines = doc.splitTextToSize(member.whatToLearn, pageWidth - 65);
-            doc.text(learnLines, 35, currentY);
-            currentY += learnLines.length * 4 + 2;
-          }
-          
-          if (member.whatTheyGet) {
-            doc.setFont(undefined, 'bold');
-            doc.setTextColor(139, 92, 246); // Purple color
-            doc.text('What They Get:', 35, currentY);
-            currentY += 4;
-            doc.setFont(undefined, 'normal');
-            doc.setTextColor(75, 85, 99);
-            const getLines = doc.splitTextToSize(member.whatTheyGet, pageWidth - 65);
-            doc.text(getLines, 35, currentY);
-            currentY += getLines.length * 4 + 2;
-          }
-          
-          if (member.notes) {
-            doc.setFont(undefined, 'bold');
-            doc.setTextColor(75, 85, 99);
-            doc.text('Notes:', 35, currentY);
-            currentY += 4;
-            doc.setFont(undefined, 'italic');
-            doc.setTextColor(107, 114, 128);
-            const noteLines = doc.splitTextToSize(member.notes, pageWidth - 65);
-            doc.text(noteLines, 35, currentY);
-            currentY += noteLines.length * 4;
-          }
-          currentY += 10;
-        });
-        currentY += 5;
-      }
-    });
-    
-    // Goals Section
-    if (data.goals && data.goals.length > 0) {
-      // Always start Goals on a new page
-      doc.addPage();
-      currentY = 20;
-      
-      // Goals Section Header
-      doc.setFillColor(37, 99, 235);
-      doc.rect(0, currentY - 15, pageWidth, 25, 'F');
-      
-      doc.setFontSize(18);
-      doc.setFont(undefined, 'bold');
-      doc.setTextColor(255, 255, 255);
-      doc.text('Your Goals & Vision', pageWidth / 2, currentY - 3, { align: 'center' });
-      currentY += 15;
-      
-      // Goals background section
-      const goalsStartY = currentY;
-      let goalsHeight = 10; // Base height
-      
-      // Calculate height needed for goals
-      data.goals.forEach(goal => {
-        goalsHeight += 35; // Approximate height per goal
-        if (goal.description) {
-          const descLines = doc.splitTextToSize(goal.description, pageWidth - 60);
-          goalsHeight += descLines.length * 4;
-        }
-        if (goal.notes) {
-          const noteLines = doc.splitTextToSize(goal.notes, pageWidth - 60);
-          goalsHeight += noteLines.length * 4;
-        }
-      });
-      
-      // Goals cards
-      data.goals.forEach((goal, index) => {
-        // Check if we need a new page for this goal
-        if (currentY > pageHeight - 40) {
-          doc.addPage();
-          currentY = 20;
-        }
-        
-        // Goal card background with timeline color coding
-        const goalColors = {
-          '3 Months (Immediate Goals)': [34, 197, 94], // Green
-          '1 Year Goals': [59, 130, 246], // Blue
-          '5+ Year Goals (Long-term Vision)': [168, 85, 247], // Purple
-          'Beyond': [249, 115, 22] // Orange
-        };
-        
-        const color = goalColors[goal.timeframe] || [107, 114, 128];
-        
-        // Card background
-        doc.setFillColor(255, 255, 255);
-        doc.setDrawColor(229, 231, 235);
-        
-        const cardStartY = currentY;
-        let cardHeight = 25; // Base height
-        
-        // Calculate card height
-        if (goal.description) {
-          const descLines = doc.splitTextToSize(goal.description, pageWidth - 60);
-          cardHeight += descLines.length * 4 + 8;
-        }
-        if (goal.notes) {
-          const noteLines = doc.splitTextToSize(goal.notes, pageWidth - 60);
-          cardHeight += noteLines.length * 4 + 8;
-        }
-        
-        doc.roundedRect(25, cardStartY - 3, pageWidth - 50, cardHeight, 2, 2, 'FD');
-        
-        // Colored left border
-        doc.setFillColor(...color);
-        doc.rect(25, cardStartY - 3, 4, cardHeight, 'F');
-        
-        // Goal timeframe title
-        doc.setFontSize(13);
-        doc.setFont(undefined, 'bold');
-        doc.setTextColor(...color);
-        doc.text(goal.timeframe, 35, currentY + 4);
-        currentY += 10;
-        
-        // Goal description
-        if (goal.description) {
-          doc.setFontSize(10);
-          doc.setFont(undefined, 'normal');
-          doc.setTextColor(17, 24, 39);
-          doc.text('Description:', 35, currentY);
-          currentY += 5;
-          
-          doc.setTextColor(75, 85, 99);
-          const descLines = doc.splitTextToSize(goal.description, pageWidth - 60);
-          doc.text(descLines, 35, currentY);
-          currentY += descLines.length * 4 + 5;
-        } else {
-          doc.setFontSize(9);
-          doc.setFont(undefined, 'italic');
-          doc.setTextColor(156, 163, 175);
-          doc.text('No description set', 35, currentY);
-          currentY += 8;
-        }
-        
-        // Goal notes
-        if (goal.notes) {
-          doc.setFontSize(10);
-          doc.setFont(undefined, 'normal');
-          doc.setTextColor(17, 24, 39);
-          doc.text('Notes:', 35, currentY);
-          currentY += 5;
-          
-          doc.setTextColor(75, 85, 99);
-          const noteLines = doc.splitTextToSize(goal.notes, pageWidth - 60);
-          doc.text(noteLines, 35, currentY);
-          currentY += noteLines.length * 4 + 8;
-        } else {
-          doc.setFontSize(9);
-          doc.setFont(undefined, 'italic');
-          doc.setTextColor(156, 163, 175);
-          doc.text('No notes added', 35, currentY);
-          currentY += 8;
-        }
-        
-        currentY += 10; // Space between goal cards
-      });
-    }
-    
-    // You Section (Superpowers & Mentees)
-    if (data.you && (data.you.superpowers || data.you.mentees)) {
-      // Always start on a new page for You section
-      doc.addPage();
-      currentY = 20;
-      
-      // You Section Header
-      doc.setFillColor(16, 185, 129); // Green header
-      doc.rect(0, currentY - 15, pageWidth, 25, 'F');
-      
-      doc.setFontSize(18);
-      doc.setFont(undefined, 'bold');
-      doc.setTextColor(255, 255, 255);
-      doc.text('About You', pageWidth / 2, currentY - 3, { align: 'center' });
-      currentY += 15;
-      
-      // Superpowers Section
-      if (data.you.superpowers && data.you.superpowers.length > 0) {
-        // Superpowers subsection header
-        doc.setFontSize(14);
-        doc.setFont(undefined, 'bold');
-        doc.setTextColor(16, 185, 129);
-        doc.text('Your Superpowers', 35, currentY);
-        currentY += 10;
-        
-        data.you.superpowers.forEach((superpower, index) => {
-          // Check if we need a new page for this superpower
-          if (currentY > pageHeight - 40) {
-            doc.addPage();
-            currentY = 20;
-          }
-          
-          // Superpower card background
-          doc.setFillColor(255, 255, 255);
-          doc.setDrawColor(16, 185, 129);
-          doc.setLineWidth(0.5);
-          
-          const cardStartY = currentY;
-          let cardHeight = 20; // Base height
-          
-          // Calculate card height
-          if (superpower.description) {
-            const descLines = doc.splitTextToSize(superpower.description, pageWidth - 65);
-            cardHeight += 6 + (descLines.length * 4);
-          }
-          if (superpower.notes) {
-            const noteLines = doc.splitTextToSize(superpower.notes, pageWidth - 65);
-            cardHeight += 6 + (noteLines.length * 4);
-          }
-          
-          // Draw card
-          doc.rect(25, cardStartY, pageWidth - 50, cardHeight, 'D');
-          
-          // Left border accent
-          doc.setFillColor(16, 185, 129);
-          doc.rect(25, cardStartY, 4, cardHeight, 'F');
-          
-          // Superpower name
-          doc.setFontSize(12);
-          doc.setFont(undefined, 'bold');
-          doc.setTextColor(17, 24, 39);
-          doc.text(superpower.name, 35, currentY + 8);
-          currentY += 12;
-          
-          // Description
-          if (superpower.description) {
-            doc.setFontSize(10);
-            doc.setFont(undefined, 'bold');
-            doc.setTextColor(16, 185, 129);
-            doc.text('Description:', 35, currentY);
-            currentY += 4;
-            
-            doc.setFont(undefined, 'normal');
-            doc.setTextColor(75, 85, 99);
-            const descLines = doc.splitTextToSize(superpower.description, pageWidth - 65);
-            doc.text(descLines, 35, currentY);
-            currentY += descLines.length * 4 + 2;
-          }
-          
-          // Notes
-          if (superpower.notes) {
-            doc.setFontSize(10);
-            doc.setFont(undefined, 'bold');
-            doc.setTextColor(107, 114, 128);
-            doc.text('Examples:', 35, currentY);
-            currentY += 4;
-            
-            doc.setFont(undefined, 'normal');
-            doc.setTextColor(75, 85, 99);
-            const noteLines = doc.splitTextToSize(superpower.notes, pageWidth - 65);
-            doc.text(noteLines, 35, currentY);
-            currentY += noteLines.length * 4 + 2;
-          }
-          
-          currentY += 10; // Space between superpower cards
-        });
-        
-        currentY += 10; // Space between sections
-      }
-      
-      // Mentees Section
-      if (data.you.mentees && data.you.mentees.length > 0) {
-        // Always start mentees on a new page
-        doc.addPage();
-        currentY = 20;
-        
-        // Mentees subsection header
-        doc.setFontSize(14);
-        doc.setFont(undefined, 'bold');
-        doc.setTextColor(139, 92, 246);
-        doc.text('Your Mentees', 35, currentY);
-        currentY += 10;
-        
-        data.you.mentees.forEach((mentee, index) => {
-          // Calculate card height first
-          let cardHeight = 25; // Base height
-
-          // Calculate card height based on content
-          if (mentee.whatYouTeach) {
-            const teachLines = doc.splitTextToSize(mentee.whatYouTeach, pageWidth - 65);
-            cardHeight += 6 + (teachLines.length * 4);
-          }
-          if (mentee.whatYouLearn) {
-            const learnLines = doc.splitTextToSize(mentee.whatYouLearn, pageWidth - 65);
-            cardHeight += 6 + (learnLines.length * 4);
-          }
-          if (mentee.notes) {
-            const noteLines = doc.splitTextToSize(mentee.notes, pageWidth - 65);
-            cardHeight += 6 + (noteLines.length * 4);
-          }
-
-          // Check if entire card fits on current page
-          if (currentY + cardHeight > pageHeight - 20) {
-            doc.addPage();
-            currentY = 20;
-          }
-
-          // Set card starting position
-          const cardStartY = currentY;
-
-          // Mentee card background
-          doc.setFillColor(255, 255, 255);
-          doc.setDrawColor(139, 92, 246);
-          doc.setLineWidth(0.5);
-
-          // Draw card
-          doc.rect(25, cardStartY, pageWidth - 50, cardHeight, 'D');
-          
-          // Left border accent
-          doc.setFillColor(139, 92, 246);
-          doc.rect(25, cardStartY, 4, cardHeight, 'F');
-          
-          // Mentee name and details
-          currentY = cardStartY + 8; // Reset currentY to inside the card
-          doc.setFontSize(12);
-          doc.setFont(undefined, 'bold');
-          doc.setTextColor(17, 24, 39);
-          doc.text(mentee.name, 35, currentY);
-          currentY += 6;
-
-          doc.setFontSize(10);
-          doc.setFont(undefined, 'normal');
-          doc.setTextColor(107, 114, 128);
-          doc.text(`${mentee.role} | ${mentee.connection} | ${mentee.cadence}`, 35, currentY);
-          currentY += 8;
-          
-          // What You Teach
-          if (mentee.whatYouTeach) {
-            doc.setFont(undefined, 'bold');
-            doc.setTextColor(16, 185, 129);
-            doc.text('What You Teach:', 35, currentY);
-            currentY += 4;
-            
-            doc.setFont(undefined, 'normal');
-            doc.setTextColor(75, 85, 99);
-            const teachLines = doc.splitTextToSize(mentee.whatYouTeach, pageWidth - 65);
-            doc.text(teachLines, 35, currentY);
-            currentY += teachLines.length * 4 + 2;
-          }
-          
-          // What You Learn
-          if (mentee.whatYouLearn) {
-            doc.setFont(undefined, 'bold');
-            doc.setTextColor(139, 92, 246);
-            doc.text('What You Learn:', 35, currentY);
-            currentY += 4;
-            
-            doc.setFont(undefined, 'normal');
-            doc.setTextColor(75, 85, 99);
-            const learnLines = doc.splitTextToSize(mentee.whatYouLearn, pageWidth - 65);
-            doc.text(learnLines, 35, currentY);
-            currentY += learnLines.length * 4 + 2;
-          }
-          
-          // Notes
-          if (mentee.notes) {
-            doc.setFont(undefined, 'bold');
-            doc.setTextColor(107, 114, 128);
-            doc.text('Notes:', 35, currentY);
-            currentY += 4;
-            
-            doc.setFont(undefined, 'normal');
-            doc.setTextColor(75, 85, 99);
-            const noteLines = doc.splitTextToSize(mentee.notes, pageWidth - 65);
-            doc.text(noteLines, 35, currentY);
-            currentY += noteLines.length * 4 + 2;
-          }
-          
-          currentY += 10; // Space between mentee cards
-        });
-      }
-    }
-    
-    // Board Analysis Section
-    if (currentBoardAdvice) {
-      // Always start on a new page for AI analysis
-      doc.addPage();
-      currentY = 20;
-      
-      // Board Analysis Section Header
-      doc.setFillColor(16, 185, 129); // Green header
-      doc.rect(0, currentY - 15, pageWidth, 25, 'F');
-      
-      doc.setFontSize(18);
-      doc.setFont(undefined, 'bold');
-      doc.setTextColor(255, 255, 255);
-      doc.text('AI Board Analysis', pageWidth / 2, currentY - 3, { align: 'center' });
-      currentY += 15;
-      
-      // Analysis content background
-      doc.setFillColor(240, 253, 244); // Light green background
-      doc.setDrawColor(187, 247, 208); // Green border
-      doc.rect(20, currentY - 5, pageWidth - 40, 10, 'FD'); // Will adjust height
-      
-      // Analysis content with markdown support
-      const analysisStartY = currentY;
-      const bgStartY = analysisStartY - 5;
-
-      // Process markdown content
-      const lines = currentBoardAdvice.split('\n');
-      const processedContent = [];
-
-      lines.forEach(line => {
-        line = line.trim();
-        if (!line) {
-          processedContent.push({ type: 'space', height: 4 });
-          return;
-        }
-
-        // Headers
-        if (line.startsWith('### ')) {
-          processedContent.push({
-            type: 'header3',
-            text: line.replace('### ', ''),
-            height: 6
-          });
-        } else if (line.startsWith('## ')) {
-          processedContent.push({
-            type: 'header2',
-            text: line.replace('## ', ''),
-            height: 7
-          });
-        } else if (line.startsWith('# ')) {
-          processedContent.push({
-            type: 'header1',
-            text: line.replace('# ', ''),
-            height: 8
-          });
-        } else if (line.startsWith('- ') || line.startsWith('* ')) {
-          // Bullet points - use more width
-          const bulletText = line.replace(/^[*-] /, '');
-          const wrappedBullet = doc.splitTextToSize(bulletText, pageWidth - 40);
-          wrappedBullet.forEach((wrappedLine, index) => {
-            processedContent.push({
-              type: index === 0 ? 'bullet' : 'bullet-cont',
-              text: wrappedLine,
-              height: 4
-            });
-          });
-        } else if (line.match(/^\d+\./)) {
-          // Numbered lists - use more width
-          const wrappedNumber = doc.splitTextToSize(line, pageWidth - 40);
-          wrappedNumber.forEach((wrappedLine, index) => {
-            processedContent.push({
-              type: index === 0 ? 'numbered' : 'numbered-cont',
-              text: wrappedLine,
-              height: 4
-            });
-          });
-        } else {
-          // Regular paragraph - use 75% more width
-          const wrappedLines = doc.splitTextToSize(line, pageWidth - 35);
-          wrappedLines.forEach((wrappedLine, index) => {
-            processedContent.push({
-              type: 'paragraph',
-              text: wrappedLine,
-              height: 4
-            });
-          });
-        }
-      });
-
-      // Calculate total height
-      const totalHeight = processedContent.reduce((sum, item) => sum + item.height + 1, 0) + 10;
-
-      // Draw background
-      doc.setFillColor(240, 253, 244);
-      doc.setDrawColor(187, 247, 208);
-      doc.rect(20, bgStartY, pageWidth - 40, totalHeight, 'FD');
-
-      // Render content
-      processedContent.forEach(item => {
-        // Check if we need a new page
-        if (currentY > pageHeight - 25) {
-          doc.addPage();
-          currentY = 20;
-
-          // Continue green background on new page
-          doc.setFillColor(240, 253, 244);
-          doc.setDrawColor(187, 247, 208);
-          doc.rect(20, 10, pageWidth - 40, pageHeight - 30, 'FD');
-        }
-
-        if (item.type === 'space') {
-          currentY += item.height;
-          return;
-        }
-
-        const x = 25;
-
-        switch (item.type) {
-          case 'header1':
-            doc.setFontSize(14);
-            doc.setFont(undefined, 'bold');
-            doc.setTextColor(37, 99, 235);
-            doc.text(item.text, x, currentY);
-            break;
-          case 'header2':
-            doc.setFontSize(12);
-            doc.setFont(undefined, 'bold');
-            doc.setTextColor(37, 99, 235);
-            doc.text(item.text, x, currentY);
-            break;
-          case 'header3':
-            doc.setFontSize(11);
-            doc.setFont(undefined, 'bold');
-            doc.setTextColor(55, 65, 81);
-            doc.text(item.text, x, currentY);
-            break;
-          case 'bullet':
-            doc.setFontSize(10);
-            doc.setFont(undefined, 'normal');
-            doc.setTextColor(55, 65, 81);
-            doc.text('• ' + item.text, x + 5, currentY);
-            break;
-          case 'bullet-cont':
-            doc.setFontSize(10);
-            doc.setFont(undefined, 'normal');
-            doc.setTextColor(55, 65, 81);
-            doc.text('  ' + item.text, x + 5, currentY);
-            break;
-          case 'numbered':
-            doc.setFontSize(10);
-            doc.setFont(undefined, 'normal');
-            doc.setTextColor(55, 65, 81);
-            doc.text(item.text, x + 5, currentY);
-            break;
-          case 'numbered-cont':
-            doc.setFontSize(10);
-            doc.setFont(undefined, 'normal');
-            doc.setTextColor(55, 65, 81);
-            doc.text('   ' + item.text, x + 5, currentY);
-            break;
-          case 'paragraph':
-            doc.setFontSize(10);
-            doc.setFont(undefined, 'normal');
-            doc.setTextColor(55, 65, 81);
-            doc.text(item.text, x, currentY);
-            break;
-        }
-
-        currentY += item.height + 1;
-      });
-
-      currentY += 10; // Final spacing
-    }
-    
-    doc.save('personal-board.pdf');
   };
   
   // Helper function to calculate meeting months based on cadence
@@ -1700,6 +653,9 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
       ]
     };
     
+    clearWritingDrafts(sessionStorage);
+    setBoardAdvice('');
+    localStorage.removeItem('boardAdvice');
     setData(freshData);
     localStorage.setItem('boardData', JSON.stringify(freshData));
     setCurrent('intro');
@@ -1846,11 +802,11 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
             <button onClick={downloadJSON}>Download Backup</button>
           </BottomTooltip>
           <BottomTooltip text="Generate a PDF report of your board and goals">
-            <button onClick={downloadPDF}>Download PDF</button>
+            <button onClick={downloadPDF} disabled={pdfExporting} aria-busy={pdfExporting}>{pdfExporting ? 'Preparing PDF…' : 'Download PDF'}</button>
           </BottomTooltip>
         </div>
       )}
-      <div className="content">
+      <div className={current === 'board' ? 'content report-content' : 'content'}>
         {current === 'intro' ? <Intro onLearnClick={() => setShowIntroLearn(true)} onVideoClick={() => setShowVideoModal(true)} onPodcastClick={() => setShowPodcastModal(true)} /> : current === 'you' ? <You data={data.you || {superpowers: [], mentees: []}} onEdit={handleEdit} onDelete={handleDelete} onUpdateData={(updatedYouData) => { setData({...data, you: updatedYouData}); localStorage.setItem('boardData', JSON.stringify({...data, you: updatedYouData})); }} /> : current === 'goals' ? <Goals items={data[current] || []} onEdit={handleEdit} /> : current === 'board' ? <Board data={data} boardAdvice={boardAdvice} boardAdviceLoading={boardAdviceLoading} /> : current === 'mentors' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} onChangeRole={handleChangeRoleClick} /> : current === 'coaches' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} onChangeRole={handleChangeRoleClick} /> : <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} onChangeRole={handleChangeRoleClick} />}
       </div>
       <nav className="nav">
@@ -1877,7 +833,6 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
               <button className={p.key === current ? 'active' : ''} onClick={() => {
                 setCurrent(p.key);
                 setShowForm(false);
-                setShowAdvisorModal(false);
                 setFormType(''); // Reset formType when navigating
               }}>
                 <span className="nav-title">{p.title}</span>
@@ -1905,7 +860,7 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
       </nav>
       {showLearn && <LearnModal type={current} onClose={() => setShowLearn(false)} onAddClick={() => { setShowLearn(false); handleAdd(current); }} />}
       {showIntroLearn && <IntroLearnModal onClose={() => setShowIntroLearn(false)} />}
-      {showForm && <FormModal type={formType} item={editingItem} onSave={saveEntry} onClose={() => { setShowForm(false); setShowAdvisorModal(false); }} onAdvise={handleAdvise} advisorShowing={showAdvisorModal} onFormUpdate={setEditingItem} onWritingModalUpdate={setWritingResultsModal} writingResultsShowing={writingResultsModal.show} />}
+      {showForm && <FormModal type={formType} item={editingItem} onSave={saveEntry} onClose={() => setShowForm(false)} boardData={data} onFormUpdate={setEditingItem} onWritingModalUpdate={setWritingResultsModal} entryIndex={editingIndex} writingResultsShowing={writingResultsModal.show} />}
       {showUploadSuccess && <UploadSuccessPopup />}
       {showVideoModal && <VideoModal onClose={() => setShowVideoModal(false)} />}
       {showPodcastModal && <PodcastModal onClose={() => setShowPodcastModal(false)} />}
@@ -1916,8 +871,6 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
       {showSponsorsVideoModal && <SponsorsVideoModal onClose={() => setShowSponsorsVideoModal(false)} />}
       {showPeersVideoModal && <PeersVideoModal onClose={() => setShowPeersVideoModal(false)} />}
       {showBoardVideoModal && <BoardVideoModal onClose={() => setShowBoardVideoModal(false)} />}
-      {showAdvisorModal && <AdvisorModal guidance={advisorGuidance} loading={advisorLoading} onClose={() => setShowAdvisorModal(false)} formType={formType} currentForm={editingItem} onCopyToField={handleCopyToField} />}
-
       {showAuthModal && <AuthModal
         accessCode={accessCode}
         setAccessCode={setAccessCode}
@@ -2343,15 +1296,10 @@ function List({ type, items, onEdit, onDelete, onChangeRole }) {
 }
 
 function Board({ data, boardAdvice, boardAdviceLoading }) {
-  // Flatten all board members with their types (exclude goals and you section)
-  const allMembers = [];
-  Object.keys(data).forEach(type => {
-    if (data[type] && type !== 'goals' && type !== 'you') {
-      data[type].forEach(person => {
-        allMembers.push({ ...person, type });
-      });
-    }
-  });
+  const [viewMode, setViewMode] = useState('table'); // 'table' or 'cards'
+
+  const memberGroups = getBoardGroups(data);
+  const allMembers = memberGroups.flatMap(group => group.members.map(person => ({ ...person, type: group.key })));
 
   // Define positions around the table - closer and within view
   const positions = [
@@ -2419,143 +1367,246 @@ function Board({ data, boardAdvice, boardAdviceLoading }) {
 
   return (
     <div className="board-container">
+      <section className="report-overview" aria-label="Board report overview">
+        <span className="report-kicker">YOUR PERSONAL BOARD OF DIRECTORS</span>
+        <h2>{data.you?.name ? `${data.you.name}'s growth plan` : 'Your people. Your direction.'}</h2>
+        <p>The relationships, strengths, and goals that help you move forward.</p>
+        <div className="report-metrics">
+          <div><strong>{allMembers.length}</strong><span>Board members</span></div>
+          <div><strong>{REPORT_ROLES.filter(role => data[role.key]?.length).length}<small> / 5</small></strong><span>Roles represented</span></div>
+          <div><strong>{(data.goals || []).filter(goal => goal.description?.trim() || goal.notes?.trim()).length}</strong><span>Goals defined</span></div>
+        </div>
+        <div className="report-role-key">{REPORT_ROLES.map(role => <span key={role.key}><i style={{backgroundColor:`rgb(${role.color.join(',')})`}} />{role.name}<b>{data[role.key]?.length || 0}</b></span>)}</div>
+      </section>
+
       {/* Board Analysis Advice */}
       {(boardAdvice || boardAdviceLoading) && (
-        <div className="board-advice-section" style={{
-          marginBottom: '30px',
-          padding: '20px',
-          backgroundColor: '#ffffff',
-          border: '1px solid #e5e7eb',
-          borderRadius: '8px'
-        }}>
-          <h3 style={{ color: '#10b981', margin: '0 0 15px 0' }}>AI Board Analysis</h3>
+        <section className="board-advice-section report-insights">
+          <div className="report-insights-heading">
+            <span className="report-kicker">YOUR BOARD / STRATEGIC REFLECTION</span>
+            <h2>Board insights</h2>
+            <p>A clearer view of your relationships, opportunities, and next steps.</p>
+          </div>
           {boardAdviceLoading ? (
             <div style={{ color: '#6b7280' }}>Generating analysis...</div>
           ) : (
-            <div
-              style={{ lineHeight: '1.6', color: '#374151' }}
-              dangerouslySetInnerHTML={{ __html: renderMarkdown(boardAdvice) }}
-            />
+            <SafeMarkdown text={boardAdvice} />
           )}
-        </div>
+        </section>
       )}
       
-      {/* Meeting Cadence Grid */}
-      <div className="timeline-section">
-        <h3>Meeting Cadence Overview</h3>
-        <div className="cadence-grid">
-          <div className="grid-header">
-            <div className="name-column">Board Member</div>
-            <div className="cadence-column">Daily</div>
-            <div className="cadence-column">Weekly</div>
-            <div className="cadence-column">Monthly</div>
-            <div className="cadence-column">Quarterly</div>
-            <div className="cadence-column">Annually</div>
-            <div className="cadence-column">Ad-hoc</div>
+      <section className="report-cadence" aria-label="Meeting cadence">
+        <span className="report-kicker">KEEP THE CONVERSATION GOING</span>
+        <h2>Your meeting rhythm</h2>
+        {allMembers.length ? <div className="report-table-scroll"><table>
+          <thead><tr><th scope="col">Person</th><th scope="col">Board role</th><th scope="col">Meeting cadence</th></tr></thead>
+          <tbody>{allMembers.map((member,index)=><tr key={`${member.type}-${index}`}><th scope="row">{member.name || 'Unnamed member'}</th><td><span className="report-role-dot" style={{backgroundColor:colors[member.type]}} />{REPORT_ROLES.find(role=>role.key===member.type)?.name}</td><td>{member.cadence || 'Not set'}</td></tr>)}</tbody>
+        </table></div> : <p>Add your first board member to start planning a rhythm for staying connected.</p>}
+      </section>
+      <div className="report-view-controls" aria-label="Board view">
+        <h2>The people in your corner</h2>
+        <div><button aria-pressed={viewMode==='table'} onClick={()=>setViewMode('table')}>Board view</button><button aria-pressed={viewMode==='cards'} onClick={()=>setViewMode('cards')}>Member details</button></div>
+      </div>
+      {/* Board Views - Toggle between table and cards */}
+      {viewMode === 'table' ? (
+        <div
+          className="board-diagram"
+
+        >
+          <div className="board-table">
+            <div className="table-label">{data.you?.name ? `${data.you.name}'s Board` : 'Your Board'}</div>
           </div>
-          
-          {allMembers.map((member, idx) => (
-            <div key={idx} className="grid-row">
-              <div className="name-cell">
-                <span 
-                  className="type-indicator"
-                  style={{ backgroundColor: colors[member.type] }}
-                ></span>
-                <span className="member-name">{member.name}</span>
-                <span className="member-role">({member.type === 'coaches' ? 'coach' : member.type.slice(0, -1)})</span>
-              </div>
-              
-              <div className="cadence-cell">
-                {member.cadence === 'Daily' && (
-                  <div 
-                    className="cadence-dot"
-                    style={{ backgroundColor: colors[member.type] }}
-                  />
-                )}
-              </div>
-              
-              <div className="cadence-cell">
-                {member.cadence === 'Weekly' && (
-                  <div 
-                    className="cadence-dot"
-                    style={{ backgroundColor: colors[member.type] }}
-                  />
-                )}
-              </div>
-              
-              <div className="cadence-cell">
-                {(member.cadence === 'Monthly' || member.cadence === 'Bi-weekly') && (
-                  <div 
-                    className="cadence-dot"
-                    style={{ backgroundColor: colors[member.type] }}
-                  />
-                )}
-              </div>
-              
-              <div className="cadence-cell">
-                {member.cadence === 'Quarterly' && (
-                  <div 
-                    className="cadence-dot"
-                    style={{ backgroundColor: colors[member.type] }}
-                  />
-                )}
-              </div>
-              
-              <div className="cadence-cell">
-                {member.cadence === 'Annually' && (
-                  <div 
-                    className="cadence-dot"
-                    style={{ backgroundColor: colors[member.type] }}
-                  />
-                )}
-              </div>
-              
-              <div className="cadence-cell">
-                {member.cadence === 'Ad-hoc' && (
-                  <div 
-                    className="cadence-dot"
-                    style={{ backgroundColor: colors[member.type] }}
-                  />
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-        
-        <div className="timeline-legend" style={{marginTop: '20px'}}>
-          {Object.keys(colors).map(type => {
-            if (!data[type] || data[type].length === 0) return null;
+          {allMembers.map((member, idx) => {
+            const pos = positions[idx % positions.length];
+            const textAlign = getTextAlignment(member.type);
             return (
-              <div key={type} className="legend-item">
-                <span className="legend-dot" style={{ backgroundColor: colors[type] }}></span>
-                <span className="legend-label">{type}</span>
+              <div
+                key={idx}
+                className={`board-member ${member.type} ${textAlign}`}
+                style={pos}
+              >
+                <div className="member-type">{member.type === 'coaches' ? 'coach' : member.type.slice(0, -1)}</div>
+                <div className="member-name">{member.name}</div>
+                <div className="member-role">{member.role}</div>
               </div>
             );
           })}
         </div>
-      </div>
-      
-      {/* Board Diagram */}
-      <div className="board-diagram">
-        <div className="board-table">
-          <div className="table-label">{data.you?.name ? `${data.you.name}'s Board` : 'Your Board'}</div>
+      ) : (
+        <div
+          className="board-cards-view"
+
+        >
+          <h2 style={{
+            fontSize: '1.5rem',
+            fontWeight: '700',
+            color: '#1f2937',
+            marginBottom: '20px',
+            textAlign: 'center'
+          }}>
+            {data.you?.name ? `${data.you.name}'s Board` : 'Your Board'} - Card View
+          </h2>
+
+          <div className="board-cards-grid" style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+            gap: '20px',
+            marginBottom: '30px'
+          }}>
+            {/* Group members by type */}
+            {['mentors', 'coaches', 'sponsors', 'connectors', 'peers'].map(type => {
+              const typeMembers = allMembers.filter(m => m.type === type);
+              if (typeMembers.length === 0) return null;
+
+              return (
+                <div key={type} className="board-type-section">
+                  <h3 style={{
+                    fontSize: '1.2rem',
+                    fontWeight: '600',
+                    color: colors[type],
+                    marginBottom: '15px',
+                    textTransform: 'capitalize',
+                    borderBottom: `2px solid ${colors[type]}`,
+                    paddingBottom: '5px'
+                  }}>
+                    {type === 'coaches' ? 'Coaches' : type.charAt(0).toUpperCase() + type.slice(1)}
+                  </h3>
+
+                  {typeMembers.map((member, idx) => (
+                    <div
+                      key={`${type}-${idx}`}
+                      className="board-member-card"
+                      style={{
+                        backgroundColor: '#ffffff',
+                        border: `2px solid ${colors[type]}`,
+                        borderRadius: '12px',
+                        padding: '15px',
+                        marginBottom: '15px',
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                        transition: 'transform 0.2s',
+                      }}
+                      onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                      onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                    >
+                      <h4 style={{
+                        fontSize: '1.1rem',
+                        fontWeight: '600',
+                        color: '#1f2937',
+                        marginBottom: '8px'
+                      }}>
+                        {member.name}
+                      </h4>
+
+                      {member.role && (
+                        <p style={{
+                          fontSize: '0.9rem',
+                          color: '#6b7280',
+                          marginBottom: '10px',
+                          fontStyle: 'italic'
+                        }}>
+                          {member.role}
+                        </p>
+                      )}
+
+                      {member.relationship && (
+                        <div style={{ marginBottom: '8px' }}>
+                          <span style={{ fontWeight: '600', color: colors[type], fontSize: '0.85rem' }}>
+                            Relationship:
+                          </span>
+                          <span style={{ fontSize: '0.85rem', color: '#4b5563', marginLeft: '5px' }}>
+                            {member.relationship}
+                          </span>
+                        </div>
+                      )}
+
+                      {member.expertise && (
+                        <div style={{ marginBottom: '8px' }}>
+                          <span style={{ fontWeight: '600', color: colors[type], fontSize: '0.85rem' }}>
+                            Expertise:
+                          </span>
+                          <span style={{ fontSize: '0.85rem', color: '#4b5563', marginLeft: '5px' }}>
+                            {member.expertise}
+                          </span>
+                        </div>
+                      )}
+
+                      {member.value && (
+                        <div style={{ marginBottom: '8px' }}>
+                          <span style={{ fontWeight: '600', color: colors[type], fontSize: '0.85rem' }}>
+                            Value:
+                          </span>
+                          <span style={{ fontSize: '0.85rem', color: '#4b5563', marginLeft: '5px' }}>
+                            {member.value}
+                          </span>
+                        </div>
+                      )}
+
+                      {member.contact && (
+                        <div style={{ marginBottom: '8px' }}>
+                          <span style={{ fontWeight: '600', color: colors[type], fontSize: '0.85rem' }}>
+                            Contact:
+                          </span>
+                          <span style={{ fontSize: '0.85rem', color: '#4b5563', marginLeft: '5px' }}>
+                            {member.contact}
+                          </span>
+                        </div>
+                      )}
+
+                      {member.cadence && (
+                        <div style={{ marginBottom: '8px' }}>
+                          <span style={{ fontWeight: '600', color: colors[type], fontSize: '0.85rem' }}>
+                            Meeting Cadence:
+                          </span>
+                          <span style={{ fontSize: '0.85rem', color: '#4b5563', marginLeft: '5px' }}>
+                            {member.cadence}
+                          </span>
+                        </div>
+                      )}
+
+                      {member.lastContact && (
+                        <div style={{ marginBottom: '8px' }}>
+                          <span style={{ fontWeight: '600', color: colors[type], fontSize: '0.85rem' }}>
+                            Last Contact:
+                          </span>
+                          <span style={{ fontSize: '0.85rem', color: '#4b5563', marginLeft: '5px' }}>
+                            {member.lastContact}
+                          </span>
+                        </div>
+                      )}
+
+                      {member.notes && (
+                        <div style={{
+                          marginTop: '10px',
+                          paddingTop: '10px',
+                          borderTop: `1px solid ${colors[type]}20`
+                        }}>
+                          <span style={{
+                            fontWeight: '600',
+                            color: colors[type],
+                            fontSize: '0.85rem',
+                            display: 'block',
+                            marginBottom: '5px'
+                          }}>
+                            Notes:
+                          </span>
+                          <p style={{
+                            fontSize: '0.85rem',
+                            color: '#4b5563',
+                            lineHeight: '1.4',
+                            marginTop: '5px'
+                          }}>
+                            {member.notes}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
         </div>
-        {allMembers.map((member, idx) => {
-          const pos = positions[idx % positions.length];
-          const textAlign = getTextAlignment(member.type);
-          return (
-            <div 
-              key={idx} 
-              className={`board-member ${member.type} ${textAlign}`}
-              style={pos}
-            >
-              <div className="member-type">{member.type === 'coaches' ? 'coach' : member.type.slice(0, -1)}</div>
-              <div className="member-name">{member.name}</div>
-              <div className="member-role">{member.role}</div>
-            </div>
-          );
-        })}
-      </div>
+      )}
 
       {/* Goals Section - matching PDF style */}
       {data.goals && data.goals.length > 0 && (
@@ -2737,8 +1788,8 @@ function Board({ data, boardAdvice, boardAdviceLoading }) {
           }}>
             Board Member Details
           </h2>
-          {Object.keys(data).map(type => {
-            if (!data[type] || type === 'goals' || type === 'you' || data[type].length === 0) return null;
+          {memberGroups.map(({key: type, members}) => {
+            if (!members.length) return null;
 
             return (
               <div key={type} style={{ marginBottom: '30px' }}>
@@ -2751,7 +1802,7 @@ function Board({ data, boardAdvice, boardAdviceLoading }) {
                 }}>
                   {type}
                 </h3>
-                {data[type].map((member, index) => (
+                {members.map((member, index) => (
                   <div key={index} style={{
                     marginBottom: '25px',
                     paddingLeft: '20px',
@@ -3339,7 +2390,8 @@ function UploadSuccessPopup() {
   );
 }
 
-function FormModal({ type, item, onSave, onClose, onAdvise, advisorShowing, onFormUpdate, onWritingModalUpdate, writingResultsShowing }) {
+function FormModal({ type, item, entryIndex, onSave, onClose, boardData, onFormUpdate, onWritingModalUpdate, writingResultsShowing }) {
+  const [advisorShowing, setAdvisorShowing] = useState(false);
   const handleOverlayClick = (e) => {
     // Close FormModal when clicking on its overlay
     if (e.target === e.currentTarget) {
@@ -3360,20 +2412,47 @@ function FormModal({ type, item, onSave, onClose, onAdvise, advisorShowing, onFo
     return { name: '', role: '', connection: 'Not yet', cadence: 'Monthly', notes: '', whatToLearn: '', whatTheyGet: '' };
   };
   
-  const [form, setForm] = useState(item || getDefaultForm());
-  const [originalForm, setOriginalForm] = useState(null); // For rollback functionality
+  const [form, setForm] = useState({...getDefaultForm(),...item});
+  const activeEditor = React.useRef(true);
+  const writingAbort = React.useRef(null);
+  React.useEffect(() => () => { activeEditor.current = false; writingAbort.current?.abort(); }, []);
+  const formRef = React.useRef(form);
+  formRef.current = form;
+  const [writingTarget, setWritingTarget] = useState(isGoals || isSuperpowers ? 'description' : 'notes');
+  const [writingDirection, setWritingDirection] = useState('');
+  const [selectedPassage, setSelectedPassage] = useState(null);
+  const editorRef = React.useRef(null);
+  React.useEffect(() => {
+    const prior = document.activeElement;
+    editorRef.current?.querySelector('input:not(:disabled),textarea')?.focus();
+    return () => { if(prior?.isConnected) prior.focus(); };
+  }, []);
+  const selectPassage = e => {
+    const el = e.target;
+    if (el.tagName !== 'TEXTAREA' || !el.name || el.selectionStart === el.selectionEnd) return;
+    setWritingTarget(el.name);
+    setSelectedPassage({field:el.name,start:el.selectionStart,end:el.selectionEnd,text:el.value.slice(el.selectionStart,el.selectionEnd)});
+  };
+  const draftBase = React.useRef({...getDefaultForm(),...item}).current;
+  const draftKey = React.useRef(`board-entry-draft:${type}:${entryIndex ?? 'new'}:${item?.id || item?.timeframe || item?.name || ''}`).current;
+  const [recoveredDraft, setRecoveredDraft] = useState(() => {
+    try { return recoverWritingDraft(JSON.parse(sessionStorage.getItem(draftKey)),draftBase); } catch { return null; }
+  });
+  const persistDraft = next => { try { sessionStorage.setItem(draftKey, JSON.stringify({version:1,base:JSON.stringify(draftBase),form:next})); } catch {} };
+  const [originalForm, setOriginalForm] = useState(null); // Last applied fields only, for safe undo
+  const [undoMessage, setUndoMessage] = useState('');
   const [isWritingLoading, setIsWritingLoading] = useState(false);
   const [hasWritingBackup, setHasWritingBackup] = useState(false);
   const [enhancementLevel, setEnhancementLevel] = useState(1); // 1-3 enhancement levels
-  const [enhancementVersions, setEnhancementVersions] = useState([]); // Store all versions
-  const [currentVersionIndex, setCurrentVersionIndex] = useState(0);
+
 
   const [cadenceIndex, setCadenceIndex] = useState(cadenceOptions.indexOf(form.cadence) >= 0 ? cadenceOptions.indexOf(form.cadence) : 3);
   
-  // Sync external item changes to local form state (for AdvisorModal copy functionality)
+  // Keep the draft in sync with parent entry updates.
   React.useEffect(() => {
     if (item) {
-      setForm(item);
+      setForm({...getDefaultForm(),...item});
+      setSelectedPassage(null);
       if (item.cadence) {
         const index = cadenceOptions.indexOf(item.cadence);
         setCadenceIndex(index >= 0 ? index : 3);
@@ -3382,7 +2461,9 @@ function FormModal({ type, item, onSave, onClose, onAdvise, advisorShowing, onFo
   }, [item]);
   
   const handleChange = e => {
+    setSelectedPassage(null);
     const newForm = { ...form, [e.target.name]: e.target.value };
+    persistDraft(newForm);
     setForm(newForm);
     if (onFormUpdate) {
       onFormUpdate(newForm); // Keep parent editingItem in sync
@@ -3393,243 +2474,83 @@ function FormModal({ type, item, onSave, onClose, onAdvise, advisorShowing, onFo
     const index = parseInt(e.target.value);
     setCadenceIndex(index);
     const newForm = { ...form, cadence: cadenceOptions[index] };
+    persistDraft(newForm);
     setForm(newForm);
     if (onFormUpdate) {
       onFormUpdate(newForm); // Keep parent editingItem in sync
     }
   };
-  
+
   const save = () => {
+    try { sessionStorage.removeItem(draftKey); } catch {}
     onSave(form);
   };
 
-  // Writing cleanup functionality
-  const handleWritingCleanup = async (currentForm, formType) => {
+  const suggestForField = async () => {
+    if (!writingDirection.trim() || isWritingLoading) return;
     setIsWritingLoading(true);
-
+    const snapshot = { ...formRef.current };
+    writingAbort.current = new AbortController();
     try {
-      // Always capture the current form state at the time of clicking Polish
-      // This ensures the "before" text in the modal is what the user sees when they click
-      setOriginalForm({ ...currentForm });
-      setHasWritingBackup(true);
+      const response = await getAIGuidance('writing_refine', { text:selectedPassage?.field === writingTarget ? selectedPassage.text : snapshot[writingTarget] || '', instruction:writingDirection, field:writingTarget, originalText:snapshot[writingTarget] || '' }, {}, {signal:writingAbort.current.signal});
+      if (!activeEditor.current) return;
+      if (!response.guidance?.trim()) throw new Error('No suggestion returned. Please try again.');
+      const revised = response.guidance.trim();
+      const source = snapshot[writingTarget] || '';
+      const improvements = { [writingTarget]:selectedPassage?.field === writingTarget ? source.slice(0,selectedPassage.start) + revised + source.slice(selectedPassage.end) : revised };
+      onWritingModalUpdate({show:true,type:'success',requestId:Date.now(),improvements,originalForm:snapshot,updatedForm:{...snapshot,...improvements},onApplyChanges:(edits,modes)=>{
+        const before = {...formRef.current};
+        const conflicts = writingConflicts(before,snapshot,edits,modes);
+        if (conflicts.length) return {conflicts};
+        const next = applyWritingEdits(before,edits,modes);
+        setOriginalForm({before,applied:Object.fromEntries(Object.keys(edits).map(field=>[field,next[field]]))});setUndoMessage('');setHasWritingBackup(true);persistDraft(next);setForm(next);onFormUpdate?.(next);
+      }});
+    } catch(error) { if (!activeEditor.current || error.name === 'AbortError') return; onWritingModalUpdate({show:true,type:'error',message:error.message || 'Could not prepare a suggestion. Your draft is unchanged.'}); }
+    finally { setIsWritingLoading(false); }
+  };
 
-      // Prepare the form fields as a formatted string - ONLY user-specified fields
-      const getPolishableFields = (form, formType) => {
-        const polishableFields = [];
-
-        // Skills (superpowers): description, notes
-        if (formType === 'superpowers') {
-          if (form.description?.trim()) polishableFields.push(['description', form.description]);
-          if (form.notes?.trim()) polishableFields.push(['notes', form.notes]);
+  // Generate plain-text suggestions separately so every supported model uses the same contract.
+  const handleWritingCleanup = async (currentForm, formType) => {
+    const eligible = formType === 'goals' || formType === 'superpowers' ? ['description','notes'] : formType === 'mentees' ? ['notes','whatYouTeach','whatYouLearn'] : ['notes','whatToLearn','whatTheyGet'];
+    const fields = eligible.filter(field => currentForm[field]?.trim());
+    if (!fields.length) { onWritingModalUpdate({show:true,type:'info',message:'Add a little text first, or use the writing instructions to start a draft.'}); return; }
+    setIsWritingLoading(true);
+    writingAbort.current = new AbortController();
+    const instruction = [null, 'Correct spelling and grammar only. Preserve my structure, meaning, facts, and voice.', 'Improve clarity and flow. Preserve my meaning, facts, and voice.', 'Improve clarity, structure, and impact. Preserve all facts and meaning. Do not invent details.'][enhancementLevel];
+    try {
+      const improvements = {};
+      let cursor = 0;
+      await Promise.all(Array.from({length:Math.min(2,fields.length)}, async () => {
+        while(cursor < fields.length) {
+          const field = fields[cursor++];
+          const response = await getAIGuidance('writing_refine', {text:currentForm[field],originalText:currentForm[field],field,instruction}, {}, {signal:writingAbort.current.signal});
+          if (!activeEditor.current) return;
+          improvements[field] = response.guidance.trim();
         }
-        // Goals: description, notes
-        else if (formType === 'goals') {
-          if (form.description?.trim()) polishableFields.push(['description', form.description]);
-          if (form.notes?.trim()) polishableFields.push(['notes', form.notes]);
-        }
-        // Board members (mentors, coaches, connectors, sponsors, peers): notes, whatToLearn, whatTheyGet
-        else if (['mentors', 'coaches', 'connectors', 'sponsors', 'peers'].includes(formType)) {
-          if (form.notes?.trim()) polishableFields.push(['notes', form.notes]);
-          if (form.whatToLearn?.trim()) polishableFields.push(['whatToLearn', form.whatToLearn]);
-          if (form.whatTheyGet?.trim()) polishableFields.push(['whatTheyGet', form.whatTheyGet]);
-        }
-        // Mentees: notes, whatYouTeach, whatYouLearn
-        else if (formType === 'mentees') {
-          if (form.notes?.trim()) polishableFields.push(['notes', form.notes]);
-          if (form.whatYouTeach?.trim()) polishableFields.push(['whatYouTeach', form.whatYouTeach]);
-          if (form.whatYouLearn?.trim()) polishableFields.push(['whatYouLearn', form.whatYouLearn]);
-        }
-
-        return polishableFields;
-      };
-
-      const fieldEntries = getPolishableFields(currentForm, formType)
-        .map(([key, value]) => `**${key}:** ${value}`)
-        .join('\n\n');
-
-      // Get level-specific instructions
-      const getLevelInstructions = (level) => {
-        const baseInstructions = `
-- Only improve the text content provided above
-- Do NOT change timeframe fields (these are fixed categories)
-- Do NOT change skill category names like "Business Skills", "Technical Skills", "Organizational Skills"
-- Do NOT change connection levels or cadence values (these are dropdown/slider selections)
-- Preserve all factual content and meaning exactly`;
-
-        switch (level) {
-          case 1:
-            return `ENHANCEMENT LEVEL 1 - BASIC CORRECTIONS:
-${baseInstructions}
-- Focus ONLY on basic spelling and grammar corrections
-- Fix typos, punctuation, and basic grammatical errors
-- Do NOT change sentence structure, tone, or style
-- Make minimal changes while preserving the original voice`;
-
-          case 2:
-            return `ENHANCEMENT LEVEL 2 - CLARITY IMPROVEMENTS:
-${baseInstructions}
-- Fix spelling, grammar, and punctuation errors
-- Improve clarity and readability while maintaining the original tone
-- Make minor adjustments to sentence structure for better flow
-- Ensure professional yet approachable language`;
-
-          case 3:
-            return `ENHANCEMENT LEVEL 3 - COMPREHENSIVE ENHANCEMENT:
-${baseInstructions}
-- Fix all spelling, grammar, and punctuation errors
-- Significantly improve clarity, flow, and professional impact
-- Enhance sentence structure and word choice for maximum effectiveness
-- Transform into polished, professional communication while preserving meaning
-- Add strategic emphasis and improve overall persuasiveness`;
-
-          default:
-            return baseInstructions;
-        }
-      };
-
-      // Add instruction note for AI
-      const instructionNote = `
-
-IMPORTANT INSTRUCTIONS:
-${getLevelInstructions(enhancementLevel)}`;
-
-      if (!fieldEntries) {
-        alert('No text content found to polish. Please fill in some fields first.');
-        setIsWritingLoading(false);
-        return;
-      }
-
-      // Call the writing assistant AI
-      const { getBoardMemberAdvisorGuidance } = await import('./ai-client.js');
-
-      const response = await getBoardMemberAdvisorGuidance(
-        'writing', // Use writing category
-        { currentFields: fieldEntries + instructionNote }, // Send formatted field data with instructions
-        [], // goals (empty for writing task)
-        '', // learnContent (empty for writing task)
-        [] // existingMembers (empty for writing task)
-      );
-
-      // Parse the response to extract improved field values
-      console.log('AI Writing Response:', response.guidance);
-      const parseResult = parseWritingResponse(response.guidance);
-      const improvements = parseResult.improvements || parseResult; // Handle both old and new format
-      const annotations = parseResult.annotations || {};
-      console.log('Parsed improvements:', improvements);
-      console.log('Parsed annotations:', annotations);
-
-      if (improvements && Object.keys(improvements).length > 0) {
-        // Create the new enhanced version
-        const updatedForm = { ...form };
-        let fieldsUpdated = 0;
-
-        // Only update fields that were originally sent for polishing
-        const originalFields = getPolishableFields(currentForm, formType);
-        const originalFieldNames = originalFields.map(([fieldName]) => fieldName);
-
-        Object.entries(improvements).forEach(([fieldName, improvedText]) => {
-          // Only update if the field was in the original polishable fields AND exists in the form
-          if (originalFieldNames.includes(fieldName) && updatedForm.hasOwnProperty(fieldName)) {
-            console.log(`Updating field ${fieldName}:`, improvedText);
-            updatedForm[fieldName] = improvedText;
-            fieldsUpdated++;
-          } else {
-            console.log(`Skipping field ${fieldName} - not in original polishable fields`);
-          }
-        });
-
-        if (fieldsUpdated > 0) {
-          // Set backup flag if this is the first enhancement
-          if (!hasWritingBackup) {
-            setHasWritingBackup(true);
-          }
-
-          // Create new version with metadata
-          const newVersion = {
-            level: enhancementLevel,
-            form: updatedForm,
-            timestamp: new Date().toISOString(),
-            fieldsUpdated,
-            annotations: annotations
-          };
-
-          // Add to versions array
-          const updatedVersions = [...enhancementVersions, newVersion];
-          setEnhancementVersions(updatedVersions);
-          setCurrentVersionIndex(updatedVersions.length - 1);
-
-          // Don't apply the form immediately - let the user review and approve changes
-          // The form will only be updated when they click "Apply Approved Changes"
-
-          // Show success message with version controls
-          onWritingModalUpdate({
-            show: true,
-            type: 'success',
-            fieldsUpdated,
-            improvements,
-            annotations,
-            originalForm: currentForm, // Always use currentForm - the form state at time of Polish click
-            updatedForm: updatedForm,
-            currentVersion: newVersion,
-            totalVersions: updatedVersions.length,
-            onApplyChanges: (finalForm) => {
-              setForm(finalForm);
-              if (onFormUpdate) {
-                onFormUpdate(finalForm);
-              }
-            }
-          });
-        } else {
-          onWritingModalUpdate({
-            show: true,
-            type: 'info',
-            message: 'No fields were updated. The AI may not have found improvements to suggest.'
-          });
-        }
-      } else {
-        console.log('No improvements found in response');
-        onWritingModalUpdate({
-          show: true,
-          type: 'info',
-          message: 'No improvements suggested by the AI assistant.'
-        });
-      }
-
-    } catch (error) {
-      console.error('Writing cleanup error:', error);
-      onWritingModalUpdate({
-        show: true,
-        type: 'error',
-        message: 'Failed to polish writing. Please try again.'
-      });
-    } finally {
-      setIsWritingLoading(false);
-    }
+      }));
+      if (!activeEditor.current) return;
+      onWritingModalUpdate({show:true,type:'success',requestId:Date.now(),improvements,originalForm:{...currentForm},updatedForm:{...currentForm,...improvements},onApplyChanges:(edits,modes)=>{
+        const before = {...formRef.current};
+        const conflicts = writingConflicts(before,currentForm,edits,modes);
+        if (conflicts.length) return {conflicts};
+        const next = applyWritingEdits(before,edits,modes);
+        setOriginalForm({before,applied:Object.fromEntries(Object.keys(edits).map(field=>[field,next[field]]))});setUndoMessage('');setHasWritingBackup(true);persistDraft(next);setForm(next);onFormUpdate?.(next);
+      }});
+    } catch(error) {
+      writingAbort.current?.abort();
+      if (activeEditor.current && error.name !== 'AbortError') onWritingModalUpdate({show:true,type:'error',message:error.message || 'Could not prepare suggestions. Your draft is unchanged.'});
+    } finally { if (activeEditor.current) setIsWritingLoading(false); }
   };
 
   const handleWritingRollback = () => {
-    if (originalForm) {
-      setForm(originalForm);
-      if (onFormUpdate) {
-        onFormUpdate(originalForm);
-      }
-      setHasWritingBackup(false);
-      setOriginalForm(null);
-      setEnhancementVersions([]);
-      setCurrentVersionIndex(0);
-    }
-  };
-
-  // Navigate between enhancement versions
-  const switchToVersion = (index) => {
-    if (index >= 0 && index < enhancementVersions.length) {
-      const version = enhancementVersions[index];
-      setForm(version.form);
-      if (onFormUpdate) {
-        onFormUpdate(version.form);
-      }
-      setCurrentVersionIndex(index);
-    }
+    if (!originalForm) return;
+    const result = undoWritingEdits(formRef.current, originalForm.before, originalForm.applied);
+    persistDraft(result.form);
+    setForm(result.form);
+    onFormUpdate?.(result.form);
+    setUndoMessage(result.conflicts.length ? `Kept your newer changes to ${result.conflicts.map(fieldLabel).join(', ')}. Other applied writing changes were undone.` : 'Last AI addition or edit undone. Your other edits are still here.');
+    setHasWritingBackup(false);
+    setOriginalForm(null);
   };
 
   // Helper to get level label
@@ -3642,237 +2563,39 @@ ${getLevelInstructions(enhancementLevel)}`;
     }
   };
 
-  // Helper function to extract and remove annotations from improved text
-  const extractAnnotations = (text) => {
-    const annotations = [];
-    let cleanText = text;
-
-    // Extract annotations in brackets like [Added structure and clarity...]
-    const annotationRegex = /\[([^\]]+)\]/g;
-    let match;
-
-    while ((match = annotationRegex.exec(text)) !== null) {
-      annotations.push(match[1]);
-    }
-
-    // Remove all annotations from the text
-    cleanText = cleanText.replace(annotationRegex, '').trim();
-
-    return { cleanText, annotations };
-  };
-
-  // Parse AI response to extract field improvements
-  const parseWritingResponse = (responseText) => {
-    if (!responseText) return {};
-
-    console.log('FULL AI RESPONSE TEXT:');
-    console.log('========================');
-    console.log(responseText);
-    console.log('========================');
-    console.log('Parsing writing response:', responseText);
-    const improvements = {};
-    const fieldAnnotations = {};
-
-    // Try multiple patterns to extract improvements
-    // Pattern 1: **Field Name:** fieldname **Original:** original **Improved:** improved
-    let fieldPattern = /\*\*Field Name:\*\*\s*([^\n*]+?)\s*\*\*Original:\*\*[\s\S]*?\*\*Improved:\*\*\s*([\s\S]*?)(?=\s*\*\*Field Name:|\s*The improved versions|\s*$)/gis;
-    let match;
-
-    while ((match = fieldPattern.exec(responseText)) !== null) {
-      const fieldName = match[1].trim();
-      // Clean up improved text - take only the first paragraph and remove any trailing content
-      let improvedText = match[2].trim();
-      // Split on double newlines and take first part (the actual improved text)
-      improvedText = improvedText.split('\n\n')[0].trim();
-
-      // Extract annotations and clean the text
-      const { cleanText, annotations } = extractAnnotations(improvedText);
-      console.log(`Found field: ${fieldName} -> ${cleanText}`);
-      if (annotations.length > 0) {
-        console.log(`Annotations for ${fieldName}:`, annotations);
-      }
-
-      // Map field display names to actual form field names
-      const fieldMapping = {
-        'name': 'name',
-        'role': 'role',
-        'role/background': 'role',
-        'description': 'description',
-        'notes': 'notes',
-        'whattolearn': 'whatToLearn',
-        'what to learn from them': 'whatToLearn',
-        'whattolearn': 'whatToLearn',
-        'whattheyget': 'whatTheyGet',
-        'what they get from you': 'whatTheyGet',
-        'whattheygetfromyou': 'whatTheyGet',
-        'what you teach': 'whatYouTeach',
-        'whatyouteach': 'whatYouTeach',
-        'what you learn': 'whatYouLearn',
-        'whatyoulearn': 'whatYouLearn',
-        'timeframe': 'timeframe'
-      };
-
-      const fieldNameLower = fieldName.toLowerCase().replace(/[^a-z]/g, '');
-      const actualFieldName = fieldMapping[fieldNameLower] || fieldMapping[fieldName.toLowerCase()] || fieldName;
-
-      if (actualFieldName && cleanText && cleanText !== '[Original text]' && cleanText !== '[Enhanced version]') {
-        improvements[actualFieldName] = cleanText;
-        if (annotations.length > 0) {
-          fieldAnnotations[actualFieldName] = annotations;
-        }
-      }
-    }
-
-    // If no matches found with first pattern, try simpler pattern
-    if (Object.keys(improvements).length === 0) {
-      console.log('Trying alternate pattern...');
-      // Pattern 2: Look for **fieldname:** followed by improved text
-      fieldPattern = /\*\*([^:*]+):\*\*\s*([^\n*]+)/gi;
-
-      while ((match = fieldPattern.exec(responseText)) !== null) {
-        const fieldName = match[1].trim();
-        const fieldValue = match[2].trim();
-
-        // Skip if this looks like a label rather than content
-        if (fieldName.toLowerCase().includes('original') ||
-            fieldName.toLowerCase().includes('field name') ||
-            fieldValue.toLowerCase().includes('original text')) {
-          continue;
-        }
-
-        const fieldNameLower = fieldName.toLowerCase().replace(/[^a-z]/g, '');
-        const fieldMapping = {
-          'name': 'name',
-          'role': 'role',
-          'description': 'description',
-          'notes': 'notes',
-          'whattolearn': 'whatToLearn',
-          'whattheyget': 'whatTheyGet',
-          'whatyouteach': 'whatYouTeach',
-          'whatyoulearn': 'whatYouLearn',
-          'timeframe': 'timeframe'
-        };
-
-        const actualFieldName = fieldMapping[fieldNameLower] || fieldName;
-        if (actualFieldName && fieldValue) {
-          improvements[actualFieldName] = fieldValue;
-        }
-      }
-    }
-
-    // Pattern 3: If still no matches, try extracting any content after "Improved:"
-    if (Object.keys(improvements).length === 0) {
-      console.log('Trying very simple pattern...');
-      // Split by field blocks and extract improved text
-      const fieldBlocks = responseText.split(/\*\*Field Name:\*\*/i);
-      fieldBlocks.forEach(block => {
-        if (!block.trim()) return;
-
-        // Look for field name and improved text
-        const fieldNameMatch = block.match(/^\s*([^\n*]+)/);
-        const improvedMatch = block.match(/\*\*Improved:\*\*\s*([^*\n]+)/i);
-
-        if (fieldNameMatch && improvedMatch) {
-          const fieldName = fieldNameMatch[1].trim();
-          const improvedText = improvedMatch[1].trim();
-
-          console.log(`Simple pattern found: ${fieldName} -> ${improvedText}`);
-
-          // Map to actual field names
-          const fieldMapping = {
-            'name': 'name',
-            'role': 'role',
-            'description': 'description',
-            'notes': 'notes',
-            'whattolearn': 'whatToLearn',
-            'whattheyget': 'whatTheyGet',
-            'whatyouteach': 'whatYouTeach',
-            'whatyoulearn': 'whatYouLearn',
-            'timeframe': 'timeframe'
-          };
-
-          const fieldNameLower = fieldName.toLowerCase().replace(/[^a-z]/g, '');
-          const actualFieldName = fieldMapping[fieldNameLower] || fieldMapping[fieldName.toLowerCase()] || fieldName;
-
-          if (actualFieldName && improvedText) {
-            improvements[actualFieldName] = improvedText;
-          }
-        }
-      });
-    }
-
-    // Pattern 4: Last resort - look for field names from our original data and extract any improved text nearby
-    if (Object.keys(improvements).length === 0) {
-      console.log('Trying last resort pattern - matching original field names...');
-      const expectedFields = ['name', 'role', 'description', 'notes', 'whatToLearn', 'whatTheyGet', 'whatYouTeach', 'whatYouLearn'];
-
-      expectedFields.forEach(fieldName => {
-        // Look for the field name followed by improved content
-        const patterns = [
-          new RegExp(`\\*\\*${fieldName}:\\*\\*[^\\n]*?improved[^\\n]*?([^\\n]+)`, 'gi'),
-          new RegExp(`${fieldName}[^\\n]*?improved[^\\n]*?([^\\n]+)`, 'gi'),
-          new RegExp(`\\*\\*${fieldName}:\\*\\*\\s*([^\\n*]+)`, 'gi')
-        ];
-
-        for (const pattern of patterns) {
-          const match = pattern.exec(responseText);
-          if (match && match[1] && match[1].trim() && !improvements[fieldName]) {
-            const improvedText = match[1].trim();
-            if (improvedText.length > 5 && !improvedText.toLowerCase().includes('original')) {
-              console.log(`Last resort pattern found for ${fieldName}: ${improvedText}`);
-              improvements[fieldName] = improvedText;
-              break;
-            }
-          }
-        }
-      });
-    }
-
-    console.log('Final parsed improvements:', improvements);
-    console.log('Final parsed annotations:', fieldAnnotations);
-    return { improvements, annotations: fieldAnnotations };
-  };
-  
   return (
-    <div className={advisorShowing ? "modal split-screen-modal" : "modal"} onClick={handleOverlayClick} style={{
-      backgroundColor: advisorShowing ? 'transparent' : 'rgba(0, 0, 0, 0.6)',
-      pointerEvents: advisorShowing ? 'none' : 'auto'
-    }}>
-      <div className="modal-content" style={{
-        ...(advisorShowing ? {
-          position: 'fixed',
-          left: '2%',
-          top: '50%',
-          transform: 'translateY(-50%)',
-          width: '45%',
-          maxWidth: 'none',
-          maxHeight: '85vh',
-          zIndex: 1000,
-          pointerEvents: 'auto'
-        } : {
-          maxWidth: isGoals ? '600px' : '900px'
-        })
-      }}>
+    <>
+    <div className="modal entry-editor" onClick={handleOverlayClick} style={{display:advisorShowing?'none':undefined}}>
+      <div ref={editorRef} role="dialog" aria-modal={!advisorShowing} aria-label="Edit board entry" onSelect={selectPassage} onKeyDown={e=>{
+        if (advisorShowing || writingResultsShowing) return;
+        if(e.key==='Escape') { e.stopPropagation(); onClose(); }
+        if(e.key==='Tab') {
+          const controls=[...editorRef.current.querySelectorAll('button:not(:disabled),input:not(:disabled),textarea:not(:disabled),select:not(:disabled)')];
+          if(e.shiftKey && document.activeElement===controls[0]) {e.preventDefault();controls[controls.length-1]?.focus();}
+          else if(!e.shiftKey && document.activeElement===controls[controls.length-1]) {e.preventDefault();controls[0]?.focus();}
+        }
+      }} className="modal-content" style={{maxWidth:isGoals?'600px':'900px'}}>
         <h2>{item ? 'Edit' : 'Add'} {isGoals ? 'Goal' : type === 'coaches' ? 'Coach' : type.slice(0, -1)}</h2>
         
+        {recoveredDraft && <div className="writing-toolbox" role="status"><p>An unfinished draft is available from this browser session.</p><button onClick={()=>{setForm(recoveredDraft);onFormUpdate?.(recoveredDraft);setRecoveredDraft(null);}}>Restore draft</button> <button onClick={()=>{sessionStorage.removeItem(draftKey);setRecoveredDraft(null);}}>Discard recovered draft</button></div>}
         {isGoals ? (
           <>
-            <input name="timeframe" placeholder="Timeframe" value={form.timeframe} onChange={handleChange} disabled={item ? true : false} />
-            <textarea name="description" placeholder="Describe your goals for this timeframe..." value={form.description || ''} onChange={handleChange}></textarea>
-            <textarea name="notes" placeholder="Notes on strategy, progress, or milestones..." value={form.notes || ''} onChange={handleChange}></textarea>
+            <input aria-label={fieldLabel("timeframe")} name="timeframe" placeholder="Timeframe" value={form.timeframe} onChange={handleChange} disabled={item ? true : false} />
+            <textarea aria-label={fieldLabel("description")} name="description" placeholder="Describe your goals for this timeframe..." value={form.description || ''} onChange={handleChange}></textarea>
+            <textarea aria-label={fieldLabel("notes")} name="notes" placeholder="Notes on strategy, progress, or milestones..." value={form.notes || ''} onChange={handleChange}></textarea>
           </>
         ) : isSuperpowers ? (
           <>
-            <input name="name" placeholder="Skill Category" value={form.name} onChange={handleChange} disabled={item ? true : false} />
-            <textarea name="description" placeholder="Describe your expertise in this area..." value={form.description || ''} onChange={handleChange} style={{minHeight: '120px'}}></textarea>
-            <textarea name="notes" placeholder="Specific examples, certifications, achievements..." value={form.notes || ''} onChange={handleChange} style={{minHeight: '80px'}}></textarea>
+            <input aria-label={fieldLabel("name")} name="name" placeholder="Skill Category" value={form.name} onChange={handleChange} disabled={item ? true : false} />
+            <textarea aria-label={fieldLabel("description")} name="description" placeholder="Describe your expertise in this area..." value={form.description || ''} onChange={handleChange} style={{minHeight: '120px'}}></textarea>
+            <textarea aria-label={fieldLabel("notes")} name="notes" placeholder="Specific examples, certifications, achievements..." value={form.notes || ''} onChange={handleChange} style={{minHeight: '80px'}}></textarea>
           </>
         ) : isMentees ? (
           <div style={{display: 'flex', gap: '40px'}}>
             <div style={{flex: 1}}>
               <h3 style={{color: '#2563eb', fontSize: '0.9em', marginBottom: '8px'}}>Basic Information</h3>
-              <input name="name" placeholder="Name" value={form.name} onChange={handleChange} />
-              <input name="role" placeholder="Role" value={form.role} onChange={handleChange} />
+              <input aria-label={fieldLabel("name")} name="name" placeholder="Name" value={form.name} onChange={handleChange} />
+              <input aria-label={fieldLabel("role")} name="role" placeholder="Role" value={form.role} onChange={handleChange} />
               <label style={{display: 'block', color: '#6b7280', fontSize: '14px', marginBottom: '4px', marginTop: '12px'}}>Connection Level</label>
               <select name="connection" value={form.connection} onChange={handleChange}>
                 {connectionLevels.map(level => (
@@ -3897,20 +2620,18 @@ ${getLevelInstructions(enhancementLevel)}`;
                   ))}
                 </div>
               </div>
-              <textarea name="notes" placeholder="Notes" value={form.notes} onChange={handleChange}></textarea>
+              <textarea aria-label={fieldLabel("notes")} name="notes" placeholder="Notes" value={form.notes} onChange={handleChange}></textarea>
             </div>
             <div style={{flex: 1}}>
               <h3 style={{color: '#10b981', fontSize: '0.9em', marginBottom: '8px'}}>What You Teach Them</h3>
-              <textarea 
-                name="whatYouTeach" 
+              <textarea aria-label={fieldLabel("whatYouTeach")} name="whatYouTeach"
                 placeholder="What knowledge, skills, or guidance do you provide to this person?" 
                 value={form.whatYouTeach || ''} 
                 onChange={handleChange}
                 style={{minHeight: '100px'}}
               ></textarea>
               <h3 style={{color: '#8b5cf6', fontSize: '0.9em', marginBottom: '8px', marginTop: '16px'}}>What You Learn From Them</h3>
-              <textarea 
-                name="whatYouLearn" 
+              <textarea aria-label={fieldLabel("whatYouLearn")} name="whatYouLearn"
                 placeholder="What fresh perspectives, skills, or insights do you gain from them?" 
                 value={form.whatYouLearn || ''} 
                 onChange={handleChange}
@@ -3922,8 +2643,8 @@ ${getLevelInstructions(enhancementLevel)}`;
           <div style={{display: 'flex', gap: '40px'}}>
             <div style={{flex: 1}}>
               <h3 style={{color: '#2563eb', fontSize: '0.9em', marginBottom: '8px'}}>Basic Information</h3>
-              <input name="name" placeholder="Name" value={form.name} onChange={handleChange} />
-              <input name="role" placeholder="Role" value={form.role} onChange={handleChange} />
+              <input aria-label={fieldLabel("name")} name="name" placeholder="Name" value={form.name} onChange={handleChange} />
+              <input aria-label={fieldLabel("role")} name="role" placeholder="Role" value={form.role} onChange={handleChange} />
               <label style={{display: 'block', color: '#6b7280', fontSize: '14px', marginBottom: '4px', marginTop: '12px'}}>Connection Level</label>
               <select name="connection" value={form.connection} onChange={handleChange}>
                 {connectionLevels.map(level => (
@@ -3948,20 +2669,18 @@ ${getLevelInstructions(enhancementLevel)}`;
                   ))}
                 </div>
               </div>
-              <textarea name="notes" placeholder="Notes" value={form.notes} onChange={handleChange}></textarea>
+              <textarea aria-label={fieldLabel("notes")} name="notes" placeholder="Notes" value={form.notes} onChange={handleChange}></textarea>
             </div>
             <div style={{flex: 1}}>
               <h3 style={{color: '#10b981', fontSize: '0.9em', marginBottom: '8px'}}>What to Learn From Them</h3>
-              <textarea 
-                name="whatToLearn" 
+              <textarea aria-label={fieldLabel("whatToLearn")} name="whatToLearn"
                 placeholder="What knowledge, skills, or insights do you want to gain from this person?" 
                 value={form.whatToLearn || ''} 
                 onChange={handleChange}
                 style={{minHeight: '100px'}}
               ></textarea>
               <h3 style={{color: '#8b5cf6', fontSize: '0.9em', marginBottom: '8px', marginTop: '16px'}}>What They Get From You</h3>
-              <textarea 
-                name="whatTheyGet" 
+              <textarea aria-label={fieldLabel("whatTheyGet")} name="whatTheyGet"
                 placeholder="What value, perspective, or benefit can you provide to them?" 
                 value={form.whatTheyGet || ''} 
                 onChange={handleChange}
@@ -3971,11 +2690,21 @@ ${getLevelInstructions(enhancementLevel)}`;
           </div>
         )}
 
+        {undoMessage && <p role="status" className="writing-status">{undoMessage}</p>}
+        <section className="writing-toolbox" aria-label="Writing assistance">
+          <h3>A little help finding the words</h3>
+          <p>Choose a field and tell AI what you need. You can edit every suggestion before applying it.</p>
+          <select aria-label="Field to improve" value={writingTarget} onChange={e=>{setWritingTarget(e.target.value);setSelectedPassage(null);}}>
+            {(isGoals || isSuperpowers ? ['description','notes'] : isMentees ? ['notes','whatYouTeach','whatYouLearn'] : ['notes','whatToLearn','whatTheyGet']).map(field=><option key={field} value={field}>{fieldLabel(field)}</option>)}
+          </select>
+          {selectedPassage && <p>Working on selected text: “{selectedPassage.text.length > 90 ? selectedPassage.text.slice(0,90) + '…' : selectedPassage.text}” <button onClick={()=>setSelectedPassage(null)}>Use whole field</button></p>}
+          <div className="writing-direction"><input aria-label="Writing instructions" placeholder="e.g. Make this clearer while keeping my voice" value={writingDirection} onChange={e=>setWritingDirection(e.target.value)} /><button onClick={suggestForField} disabled={isWritingLoading || !writingDirection.trim()}>{isWritingLoading ? 'Preparing…' : 'Suggest an edit'}</button></div>
+        </section>
         <div className="modal-buttons">
           <Tooltip text="Save this board member or goal">
             <button onClick={save}>Save</button>
           </Tooltip>
-          {onAdvise && (
+          {boardData && (
             <>
 
               {/* Removed duplicate Enhanced Versions selector - this was causing the duplicate selector issue */}
@@ -3993,43 +2722,18 @@ ${getLevelInstructions(enhancementLevel)}`;
                   >
                     {isWritingLoading ? (
                       <>
-                        <span style={{ opacity: 0.7 }}>✨ Polishing...</span>
+                        <span style={{ opacity: 0.7 }}>✨ Preparing suggestions...</span>
                       </>
                     ) : (
                       <>
-                        ✨ Polish Writing
-                      {hasWritingBackup && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleWritingRollback();
-                          }}
-                          style={{
-                            position: 'absolute',
-                            right: '-8px',
-                            top: '-8px',
-                            width: '20px',
-                            height: '20px',
-                            borderRadius: '50%',
-                            backgroundColor: '#374151',
-                            color: 'white',
-                            border: 'none',
-                            fontSize: '12px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                          }}
-                          title="Rollback to original text"
-                        >
-                          ↶
-                        </button>
-                      )}
+                        ✨ Improve writing
+
                     </>
                   )}
                 </button>
                 </Tooltip>
 
+                {hasWritingBackup && <button className="writing-text-button" onClick={handleWritingRollback}>Undo last AI addition or edit</button>}
                 {/* Level selector anchored below Polish button */}
                 {!writingResultsShowing && (
                   <Tooltip text={`Level ${enhancementLevel} (${getLevelLabel(enhancementLevel)}): Polish grammar, spelling, and writing style`}>
@@ -4087,13 +2791,13 @@ ${getLevelInstructions(enhancementLevel)}`;
               </div>
               <Tooltip text="Get AI-powered guidance and recommendations for this entry">
                 <button
-                  onClick={() => onAdvise(form, type)}
+                  onClick={() => setAdvisorShowing(true)}
                   style={{
                     backgroundColor: '#10b981',
                     color: 'white'
                   }}
                 >
-                  Advise
+                  Get advice
                 </button>
               </Tooltip>
             </>
@@ -4104,6 +2808,12 @@ ${getLevelInstructions(enhancementLevel)}`;
         </div>
       </div>
     </div>
+    <AdvisorWorkspace open={advisorShowing} onClose={()=>setAdvisorShowing(false)} type={type} form={form} boardData={boardData} entryIndex={entryIndex} onApply={(content,field)=>{
+      const before={...formRef.current};
+      const next=applyWritingEdits(before,{[field]:content},{[field]:'append'});
+      setOriginalForm({before,applied:{[field]:next[field]}});setUndoMessage('');setHasWritingBackup(true);persistDraft(next);setForm(next);onFormUpdate?.(next);
+    }}/>
+    </>
   );
 }
 
@@ -4692,556 +3402,6 @@ function BoardVideoModal({ onClose }) {
   );
 }
 
-function AdvisorModal({ guidance, loading, onClose, formType, currentForm, onCopyToField }) {
-  const [showFieldSelection, setShowFieldSelection] = useState(null);
-  const [selectedContent, setSelectedContent] = useState('');
-
-  const handleOverlayClick = (e) => {
-    // Only close if clicking directly on the overlay, not on other modal content
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
-
-  // Define available fields based on form type
-  const getAvailableFields = () => {
-    if (formType === 'goals') {
-      return [
-        { key: 'description', label: 'Describe Your Goals' },
-        { key: 'notes', label: 'Notes on Strategy' }
-      ];
-    } else if (formType === 'superpowers') {
-      // For skills/superpowers, the actual field names are description and notes
-      return [
-        { key: 'description', label: 'Describe Your Expertise' },
-        { key: 'notes', label: 'Specific Examples' }
-      ];
-    } else if (formType === 'mentees') {
-      // For mentees, use whatYouTeach and whatYouLearn
-      return [
-        { key: 'notes', label: 'Notes' },
-        { key: 'whatYouTeach', label: 'What You Teach Them' },
-        { key: 'whatYouLearn', label: 'What You Learn From Them' }
-      ];
-    } else {
-      // For board members (mentors, coaches, etc.)
-      return [
-        { key: 'notes', label: 'Notes' },
-        { key: 'whatToLearn', label: 'What You Learn From Them' },
-        { key: 'whatTheyGet', label: 'What They Get From You' }
-      ];
-    }
-  };
-
-  // Parse individual items from text (questions or recommendations)
-  const parseItems = (text, type) => {
-    if (!text) return [];
-    
-    // Split by bullet points, numbered lists, or line breaks
-    const items = text
-      .split(/(?:\n|^)(?:[\•\-\*]|\d+[\.\)])\s*/)
-      .filter(item => item.trim().length > 0)
-      .map(item => item.trim());
-    
-    return items;
-  };
-
-  // Parse the guidance into Questions, Recommendations, and Suggested Entries sections
-  const parseGuidance = (text) => {
-    if (!text) return { questions: [], recommendations: [], suggestedEntries: [] };
-
-    // More flexible parsing - try multiple header formats
-    const sections = text.split(/(?=#{1,3}\s*(?:Questions?|Recommendations?|Suggested\s+Entries?|Suggestions?|Key\s+(?:Questions?|Recommendations?|Suggestions?)))|(?:\n|^)(?:Questions?|Recommendations?|Suggested\s+Entries?|Suggestions?):/i);
-    let questionsText = '';
-    let recommendationsText = '';
-    let suggestedEntriesText = '';
-
-    sections.forEach(section => {
-      const lowerSection = section.toLowerCase();
-      if (lowerSection.includes('question')) {
-        questionsText = section.replace(/#{1,3}\s*(?:Questions?|Key\s+Questions?)[:]*\s*/i, '').replace(/^Questions?[:]*\s*/i, '').trim();
-      } else if (lowerSection.includes('recommendation')) {
-        recommendationsText = section.replace(/#{1,3}\s*(?:Recommendations?|Key\s+Recommendations?)[:]*\s*/i, '').replace(/^Recommendations?[:]*\s*/i, '').trim();
-      } else if (lowerSection.includes('suggested') || lowerSection.includes('suggestion')) {
-        suggestedEntriesText = section.replace(/#{1,3}\s*(?:Suggested\s+Entries?|Suggestions?|Key\s+Suggestions?)[:]*\s*/i, '').replace(/^(?:Suggested\s+Entries?|Suggestions?)[:]*\s*/i, '').trim();
-      }
-    });
-
-    // If no structured sections found, try to parse the entire text as recommendations
-    if (!questionsText && !recommendationsText && !suggestedEntriesText) {
-      // Parse entire text as recommendations to show add buttons
-      recommendationsText = text;
-    }
-
-    return {
-      questions: parseItems(questionsText, 'question'),
-      recommendations: parseItems(recommendationsText, 'recommendation'),
-      suggestedEntries: parseItems(suggestedEntriesText, 'suggestion')
-    };
-  };
-
-  const { questions, recommendations, suggestedEntries } = parseGuidance(guidance);
-
-  // Simple markdown renderer for advisor content
-  const renderMarkdown = (text) => {
-    if (!text) return text;
-
-    // Check if this is a header
-    const headerMatch = text.match(/^(#{1,6})\s+(.+)$/);
-    if (headerMatch) {
-      const level = headerMatch[1].length;
-      const content = headerMatch[2];
-
-      const styles = {
-        1: { fontSize: '24px', fontWeight: '700', color: '#1f2937', marginBottom: '16px', marginTop: '24px' },
-        2: { fontSize: '20px', fontWeight: '600', color: '#374151', marginBottom: '12px', marginTop: '20px' },
-        3: { fontSize: '18px', fontWeight: '600', color: '#4b5563', marginBottom: '10px', marginTop: '16px' },
-        4: { fontSize: '16px', fontWeight: '600', color: '#6b7280', marginBottom: '8px', marginTop: '12px' },
-        5: { fontSize: '14px', fontWeight: '600', color: '#6b7280', marginBottom: '6px', marginTop: '10px' },
-        6: { fontSize: '13px', fontWeight: '600', color: '#9ca3af', marginBottom: '4px', marginTop: '8px' }
-      };
-
-      return (
-        <div style={{
-          ...styles[level],
-          borderBottom: level <= 2 ? '1px solid #e5e7eb' : 'none',
-          paddingBottom: level <= 2 ? '8px' : '0'
-        }}>
-          {content}
-        </div>
-      );
-    }
-
-    // Handle bold text
-    let processedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-
-    // Handle italic text
-    processedText = processedText.replace(/\*(.*?)\*/g, '<em>$1</em>');
-
-    // Handle code spans
-    processedText = processedText.replace(/`(.*?)`/g, '<code style="background: #f3f4f6; padding: 2px 4px; border-radius: 3px; font-size: 0.9em;">$1</code>');
-
-    return <span dangerouslySetInnerHTML={{ __html: processedText }} />;
-  };
-
-  // Check if content is a header (shouldn't have Add button)
-  const isHeader = (text) => {
-    return /^#{1,6}\s+/.test(text);
-  };
-
-  const handleAddClick = (content) => {
-    setSelectedContent(content);
-    setShowFieldSelection(true);
-  };
-
-  const handleFieldSelect = (fieldKey) => {
-    onCopyToField(selectedContent, fieldKey);
-    setShowFieldSelection(false);
-    setSelectedContent('');
-  };
-
-  return (
-    <div className="modal advisor-modal" onClick={handleOverlayClick} style={{
-      backgroundColor: 'transparent', // No overlay blur effect
-      pointerEvents: 'none' // Allow clicking through to FormModal
-    }}>
-      <div className="modal-content" style={{
-        position: 'fixed',
-        right: '2%',
-        top: '50%',
-        transform: 'translateY(-50%)',
-        width: '45%',
-        maxWidth: 'none',
-        padding: '24px',
-        maxHeight: '85vh',
-        overflowY: 'auto',
-        zIndex: 1001,
-        pointerEvents: 'auto' // Re-enable clicking on the modal content
-      }}>
-        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
-          <h2 style={{margin: 0, color: '#10b981'}}>AI Career Advisor</h2>
-          <button 
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '24px',
-              cursor: 'pointer',
-              color: '#6b7280',
-              padding: '4px'
-            }}
-          >
-            ×
-          </button>
-        </div>
-
-        {loading ? (
-          <div style={{textAlign: 'center', padding: '40px'}}>
-            <div style={{
-              border: '4px solid #f3f4f6',
-              borderTop: '4px solid #10b981',
-              borderRadius: '50%',
-              width: '40px',
-              height: '40px',
-              margin: '0 auto 16px',
-              animation: 'spin 1s linear infinite'
-            }}></div>
-            <p style={{color: '#6b7280'}}>Analyzing your mentorship situation...</p>
-          </div>
-        ) : guidance ? (
-          <div>
-            {/* Check if we have structured content */}
-            {(questions && questions.length > 0) || (recommendations && recommendations.length > 0) || (suggestedEntries && suggestedEntries.length > 0) ? (
-              <div>
-                {questions && questions.length > 0 && (
-                  <div style={{marginBottom: '32px'}}>
-                    <h3 style={{
-                      color: '#2563eb',
-                      fontSize: '18px',
-                      marginBottom: '16px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}>
-                      ❓ Questions to Consider
-                    </h3>
-                    <div style={{
-                      backgroundColor: '#eff6ff',
-                      padding: '20px',
-                      borderRadius: '8px',
-                      borderLeft: '4px solid #2563eb'
-                    }}>
-                      {questions.map((question, index) => {
-                        const isHeading = isHeader(question);
-                        return (
-                          <div key={index} style={{
-                            display: isHeading ? 'block' : 'flex',
-                            alignItems: isHeading ? 'normal' : 'flex-start',
-                            marginBottom: isHeading ? '0' : '12px',
-                            gap: isHeading ? '0' : '8px'
-                          }}>
-                            <div style={{flex: 1, lineHeight: '1.6'}}>
-                              {renderMarkdown(question)}
-                            </div>
-                            {!isHeading && (
-                              <button
-                                onClick={() => handleAddClick(question)}
-                                style={{
-                                  backgroundColor: '#2563eb',
-                                  color: 'white',
-                                  border: 'none',
-                                  padding: '4px 8px',
-                                  borderRadius: '4px',
-                                  fontSize: '12px',
-                                  cursor: 'pointer',
-                                  flexShrink: 0,
-                                  fontWeight: '500'
-                                }}
-                                title="Add this question to a form field"
-                              >
-                                Add
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {recommendations && recommendations.length > 0 && (
-                  <div>
-                    <h3 style={{
-                      color: '#10b981',
-                      fontSize: '18px',
-                      marginBottom: '16px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}>
-                      💡 Recommendations
-                    </h3>
-                    <div style={{
-                      backgroundColor: '#f0fdf4',
-                      padding: '20px',
-                      borderRadius: '8px',
-                      borderLeft: '4px solid #10b981'
-                    }}>
-                      {recommendations.map((recommendation, index) => {
-                        const isHeading = isHeader(recommendation);
-                        return (
-                          <div key={index} style={{
-                            display: isHeading ? 'block' : 'flex',
-                            alignItems: isHeading ? 'normal' : 'flex-start',
-                            marginBottom: isHeading ? '0' : '12px',
-                            gap: isHeading ? '0' : '8px'
-                          }}>
-                            <div style={{flex: 1, lineHeight: '1.6'}}>
-                              {renderMarkdown(recommendation)}
-                            </div>
-                            {!isHeading && (
-                              <button
-                                onClick={() => handleAddClick(recommendation)}
-                                style={{
-                                  backgroundColor: '#10b981',
-                                  color: 'white',
-                                  border: 'none',
-                                  padding: '4px 8px',
-                                  borderRadius: '4px',
-                                  fontSize: '12px',
-                                  cursor: 'pointer',
-                                  flexShrink: 0,
-                                  fontWeight: '500'
-                                }}
-                                title="Add this recommendation to a form field"
-                              >
-                                Add
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {suggestedEntries && suggestedEntries.length > 0 && (
-                  <div style={{marginTop: '32px'}}>
-                    <h3 style={{
-                      color: '#f59e0b',
-                      fontSize: '18px',
-                      marginBottom: '16px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}>
-                      ✨ Suggested Entries
-                    </h3>
-                    <div style={{
-                      backgroundColor: '#fffbeb',
-                      padding: '20px',
-                      borderRadius: '8px',
-                      borderLeft: '4px solid #f59e0b'
-                    }}>
-                      {suggestedEntries.map((entry, index) => {
-                        const isHeading = isHeader(entry);
-                        return (
-                          <div key={index} style={{
-                            display: isHeading ? 'block' : 'flex',
-                            alignItems: isHeading ? 'normal' : 'flex-start',
-                            marginBottom: isHeading ? '0' : '12px',
-                            gap: isHeading ? '0' : '8px'
-                          }}>
-                            <div style={{flex: 1, lineHeight: '1.6'}}>
-                              {renderMarkdown(entry)}
-                            </div>
-                            {!isHeading && (
-                              <button
-                                onClick={() => handleAddClick(entry)}
-                                style={{
-                                  backgroundColor: '#f59e0b',
-                                  color: 'white',
-                                  border: 'none',
-                                  padding: '4px 8px',
-                                  borderRadius: '4px',
-                                  fontSize: '12px',
-                                  cursor: 'pointer',
-                                  flexShrink: 0,
-                                  fontWeight: '500'
-                                }}
-                                title="Add this suggested entry to a form field"
-                              >
-                                Add
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              /* Fallback: Display raw guidance text when no structured sections found */
-              <div>
-                <h3 style={{
-                  color: '#10b981',
-                  fontSize: '18px',
-                  marginBottom: '16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}>
-                  💡 AI Guidance
-                </h3>
-                <div style={{
-                  backgroundColor: '#f0fdf4',
-                  padding: '20px',
-                  borderRadius: '8px',
-                  borderLeft: '4px solid #10b981',
-                  lineHeight: '1.6'
-                }}>
-                  {/* Split guidance by lines and render each with markdown */}
-                  {guidance.split('\n').map((line, index) => {
-                    const isHeading = isHeader(line);
-                    return (
-                      <div key={index} style={{
-                        marginBottom: isHeading ? '0' : '8px'
-                      }}>
-                        {renderMarkdown(line) || <br />}
-                      </div>
-                    );
-                  })}
-                </div>
-                {/* Only show Add button if the guidance doesn't contain headers */}
-                {!guidance.split('\n').some(line => isHeader(line)) && (
-                  <button
-                    onClick={() => handleAddClick(guidance)}
-                    style={{
-                      backgroundColor: '#10b981',
-                      color: 'white',
-                      border: 'none',
-                      padding: '8px 16px',
-                      borderRadius: '6px',
-                      fontSize: '14px',
-                      cursor: 'pointer',
-                      marginTop: '16px',
-                      fontWeight: '500'
-                    }}
-                    title="Add this guidance to a form field"
-                  >
-                    Add to Form
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div style={{textAlign: 'center', padding: '40px', color: '#6b7280'}}>
-            <p>No guidance available at the moment.</p>
-          </div>
-        )}
-
-        <div className="modal-buttons" style={{marginTop: '24px'}}>
-          <button onClick={onClose}>Close</button>
-        </div>
-
-        {/* Field Selection Modal - positioned at higher z-index and centered */}
-        {showFieldSelection && (
-          <>
-            {/* Backdrop - positioned outside and behind modal */}
-            <div style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              zIndex: 9999
-            }} onClick={() => setShowFieldSelection(false)} />
-            {/* Modal content - positioned on top of backdrop */}
-            <div style={{
-              position: 'fixed',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              backgroundColor: 'white',
-              padding: '24px',
-              borderRadius: '8px',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-              maxWidth: '500px',
-              width: '90%',
-              maxHeight: '80vh',
-              overflowY: 'auto',
-              zIndex: 10000 // Much higher z-index to ensure it appears on top
-            }}
-            onClick={(e) => e.stopPropagation()} // Prevent clicks from bubbling
-            >
-              <div style={{
-                position: 'relative'
-              }}>
-              {/* Content preview */}
-              <div style={{
-                marginBottom: '20px',
-                padding: '12px',
-                backgroundColor: '#f9fafb',
-                borderRadius: '6px',
-                border: '1px solid #e5e7eb'
-              }}>
-                <p style={{margin: '0 0 8px 0', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase'}}>Content to Add:</p>
-                <p style={{margin: 0, fontSize: '14px', color: '#374151', lineHeight: '1.5'}}>
-                  {selectedContent}
-                </p>
-              </div>
-              <h3 style={{margin: '0 0 16px 0', color: '#374151'}}>Select Field:</h3>
-              <div style={{marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '8px'}}>
-                {getAvailableFields().map(field => (
-                  <button
-                    key={field.key}
-                    onClick={() => handleFieldSelect(field.key)}
-                    style={{
-                      padding: '12px 16px',
-                      backgroundColor: field.key === 'whatToLearn' ? '#10b981' :
-                                     field.key === 'whatTheyGet' ? '#8b5cf6' :
-                                     field.key === 'description' ? '#2563eb' :
-                                     '#6b7280',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: '500',
-                      textAlign: 'center',
-                      transition: 'all 0.2s'
-                    }}
-                    onMouseOver={(e) => {
-                      e.target.style.transform = 'translateY(-1px)';
-                      e.target.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
-                    }}
-                    onMouseOut={(e) => {
-                      e.target.style.transform = 'translateY(0)';
-                      e.target.style.boxShadow = 'none';
-                    }}
-                  >
-                    Add to "{field.label}"
-                  </button>
-                ))}
-              </div>
-              <div style={{display: 'flex', justifyContent: 'center', marginTop: '16px'}}>
-                <button
-                  onClick={() => {
-                    setShowFieldSelection(false);
-                    setSelectedContent('');
-                  }}
-                  style={{
-                    padding: '10px 24px',
-                    backgroundColor: '#ef4444',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: '500'
-                  }}
-                  onMouseOver={(e) => {
-                    e.target.style.backgroundColor = '#dc2626';
-                  }}
-                  onMouseOut={(e) => {
-                    e.target.style.backgroundColor = '#ef4444';
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function AuthModal({ accessCode, setAccessCode, onAuthenticate, onClose, error, loading }) {
   const handleOverlayClick = (e) => {
     if (e.target === e.currentTarget) {
@@ -5496,374 +3656,6 @@ function PeersVideoModal({ onClose }) {
         
         <div className="modal-buttons" style={{marginTop: '20px'}}>
           <button onClick={onClose}>Close</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function WritingResultsModal({ modal, onClose }) {
-  if (!modal.show) return null;
-
-  const [fieldApprovals, setFieldApprovals] = useState({});
-
-  // Custom field name mapping based on user specifications
-  const getFieldDisplayName = (fieldName) => {
-    const fieldMappings = {
-      // Skills section (superpowers)
-      'description': 'Skills description/details',
-      'notes': 'Specific examples, certifications, achievements',
-
-      // Board members section (mentors, coaches, connectors, sponsors, peers)
-      'whatToLearn': 'What you want to learn from them',
-      'whatTheyGet': 'What they get from you',
-
-      // Mentees section
-      'whatYouTeach': 'What you teach them',
-      'whatYouLearn': 'What you learn from them'
-    };
-
-    // Context-aware mapping for fields that appear in multiple sections
-    if (fieldName === 'description') {
-      return fieldMappings[fieldName] || 'Goal description/details'; // Default for goals
-    }
-    if (fieldName === 'notes') {
-      return fieldMappings[fieldName] || 'Notes'; // Generic since it appears in all sections
-    }
-
-    return fieldMappings[fieldName] || fieldName.replace(/([A-Z])/g, ' $1').trim();
-  };
-
-  const handleOverlayClick = (e) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
-
-  const handleApprove = (fieldName) => {
-    setFieldApprovals(prev => ({ ...prev, [fieldName]: 'approved' }));
-  };
-
-  const handleReject = (fieldName) => {
-    setFieldApprovals(prev => ({ ...prev, [fieldName]: 'rejected' }));
-  };
-
-  const handleApplyChanges = () => {
-    // Apply only approved changes
-    const finalForm = { ...modal.originalForm };
-
-    // Apply only approved fields
-    Object.keys(fieldApprovals).forEach(fieldName => {
-      if (fieldApprovals[fieldName] === 'approved') {
-        finalForm[fieldName] = modal.updatedForm[fieldName];
-      }
-    });
-
-    // Pass the final form back to the parent (need to add a callback prop)
-    if (modal.onApplyChanges) {
-      modal.onApplyChanges(finalForm);
-    }
-
-    onClose();
-  };
-
-  const handleCancelPolish = () => {
-    // Just close the modal - no changes were applied yet
-    onClose();
-  };
-
-  const getIcon = () => {
-    switch (modal.type) {
-      case 'success': return '✨';
-      case 'error': return '❌';
-      case 'info': default: return 'ℹ️';
-    }
-  };
-
-  const getColor = () => {
-    switch (modal.type) {
-      case 'success': return '#10b981';
-      case 'error': return '#ef4444';
-      case 'info': default: return '#3b82f6';
-    }
-  };
-
-  const getBgColor = () => {
-    switch (modal.type) {
-      case 'success': return '#f0fdf4';
-      case 'error': return '#fef2f2';
-      case 'info': default: return '#eff6ff';
-    }
-  };
-
-  return (
-    <div className="modal" onClick={handleOverlayClick} style={{
-      background: 'rgba(0, 0, 0, 0.5)',
-      backdropFilter: 'blur(8px)',
-      zIndex: 2000  // Higher than regular modal (1000) to appear on top
-    }}>
-      <div className="modal-content" style={{
-        maxWidth: '800px',
-        maxHeight: '90vh',
-        background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
-        borderRadius: '20px',
-        border: `2px solid ${getColor()}`,
-        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
-        animation: 'modalSlideIn 0.3s ease',
-        overflow: 'hidden'
-      }}>
-        <div style={{
-          background: `linear-gradient(135deg, ${getColor()} 0%, ${getColor()}dd 100%)`,
-          color: 'white',
-          padding: '24px 30px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px'
-        }}>
-          <span style={{ fontSize: '32px' }}>{getIcon()}</span>
-          <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '600' }}>
-            {modal.type === 'success' && 'Writing Enhanced!'}
-            {modal.type === 'error' && 'Enhancement Failed'}
-            {modal.type === 'info' && 'Writing Assistant'}
-          </h2>
-        </div>
-
-        <div style={{ padding: '30px', maxHeight: '60vh', overflowY: 'auto' }}>
-          {modal.type === 'success' ? (
-            <div>
-              <div style={{
-                marginBottom: '20px',
-                textAlign: 'center'
-              }}>
-                <p style={{
-                  margin: '0 0 16px 0',
-                  fontSize: '18px',
-                  fontWeight: '600',
-                  color: getColor()
-                }}>
-                  Review Changes for {modal.fieldsUpdated} field{modal.fieldsUpdated > 1 ? 's' : ''}
-                </p>
-                <p style={{ margin: 0, color: '#6b7280', fontSize: '14px' }}>
-                  Approve or reject changes for each field individually
-                </p>
-              </div>
-
-              {modal.improvements && Object.keys(modal.improvements).length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                  {Object.keys(modal.improvements).map(fieldName => {
-                    const originalText = modal.originalForm?.[fieldName] || '';
-                    const updatedText = modal.updatedForm?.[fieldName] || '';
-                    const approval = fieldApprovals[fieldName];
-
-                    return (
-                      <div key={fieldName} style={{
-                        border: `2px solid ${approval === 'approved' ? '#10b981' : approval === 'rejected' ? '#ef4444' : '#e5e7eb'}`,
-                        borderRadius: '12px',
-                        padding: '20px',
-                        background: approval === 'approved' ? '#f0fdf4' : approval === 'rejected' ? '#fef2f2' : '#ffffff'
-                      }}>
-                        <div style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          marginBottom: '16px'
-                        }}>
-                          <h3 style={{
-                            margin: 0,
-                            fontSize: '16px',
-                            fontWeight: '600',
-                            color: '#374151',
-                            textTransform: 'capitalize'
-                          }}>
-                            {getFieldDisplayName(fieldName)}
-                          </h3>
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <button
-                              onClick={() => handleApprove(fieldName)}
-                              style={{
-                                background: approval === 'approved' ? '#10b981' : '#ffffff',
-                                color: approval === 'approved' ? '#ffffff' : '#10b981',
-                                border: '2px solid #10b981',
-                                borderRadius: '6px',
-                                padding: '8px 16px',
-                                fontSize: '14px',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s ease'
-                              }}
-                            >
-                              ✓ Approve
-                            </button>
-                            <button
-                              onClick={() => handleReject(fieldName)}
-                              style={{
-                                background: approval === 'rejected' ? '#ef4444' : '#ffffff',
-                                color: approval === 'rejected' ? '#ffffff' : '#ef4444',
-                                border: '2px solid #ef4444',
-                                borderRadius: '6px',
-                                padding: '8px 16px',
-                                fontSize: '14px',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s ease'
-                              }}
-                            >
-                              ✗ Reject
-                            </button>
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                          <div>
-                            <h4 style={{
-                              margin: '0 0 8px 0',
-                              fontSize: '14px',
-                              fontWeight: '600',
-                              color: '#ef4444',
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.5px'
-                            }}>
-                              Before
-                            </h4>
-                            <div style={{
-                              background: '#fef2f2',
-                              border: '1px solid #fecaca',
-                              borderRadius: '8px',
-                              padding: '12px',
-                              fontSize: '14px',
-                              color: '#374151',
-                              lineHeight: '1.5',
-                              minHeight: '60px',
-                              whiteSpace: 'pre-wrap'
-                            }}>
-                              {originalText || '(empty)'}
-                            </div>
-                          </div>
-
-                          <div>
-                            <h4 style={{
-                              margin: '0 0 8px 0',
-                              fontSize: '14px',
-                              fontWeight: '600',
-                              color: '#10b981',
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.5px'
-                            }}>
-                              After
-                            </h4>
-                            <div style={{
-                              background: '#f0fdf4',
-                              border: '1px solid #bbf7d0',
-                              borderRadius: '8px',
-                              padding: '12px',
-                              fontSize: '14px',
-                              color: '#374151',
-                              lineHeight: '1.5',
-                              minHeight: '60px',
-                              whiteSpace: 'pre-wrap'
-                            }}>
-                              {updatedText}
-                            </div>
-                          </div>
-                        </div>
-
-                        {modal.annotations && modal.annotations[fieldName] && modal.annotations[fieldName].length > 0 && (
-                          <div style={{
-                            marginTop: '12px',
-                            padding: '12px',
-                            background: '#fffbeb',
-                            border: '1px solid #fed7aa',
-                            borderRadius: '8px'
-                          }}>
-                            <p style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: '600', color: '#92400e' }}>
-                              AI Improvements:
-                            </p>
-                            <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '12px', color: '#92400e' }}>
-                              {modal.annotations[fieldName].map((annotation, idx) => (
-                                <li key={idx}>{annotation}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              <div style={{
-                marginTop: '24px',
-                padding: '16px',
-                background: '#eff6ff',
-                border: '1px solid #bfdbfe',
-                borderRadius: '8px',
-                textAlign: 'center'
-              }}>
-                <button
-                  onClick={handleApplyChanges}
-                  style={{
-                    background: '#2563eb',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '12px 24px',
-                    fontSize: '16px',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    transition: 'background-color 0.2s ease'
-                  }}
-                  onMouseOver={(e) => e.target.style.backgroundColor = '#1d4ed8'}
-                  onMouseOut={(e) => e.target.style.backgroundColor = '#2563eb'}
-                >
-                  Apply Approved Changes
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div style={{
-              background: getBgColor(),
-              border: `1px solid ${getColor()}33`,
-              borderRadius: '12px',
-              padding: '20px',
-              textAlign: 'center'
-            }}>
-              <p style={{
-                margin: 0,
-                fontSize: '16px',
-                color: '#374151',
-                lineHeight: '1.6'
-              }}>
-                {modal.message}
-              </p>
-            </div>
-          )}
-        </div>
-
-        <div style={{
-          padding: '20px 30px',
-          borderTop: `1px solid ${getColor()}22`,
-          display: 'flex',
-          justifyContent: 'center'
-        }}>
-          <button
-            onClick={modal.type === 'success' && modal.improvements ? handleCancelPolish : onClose}
-            style={{
-              background: `linear-gradient(135deg, ${getColor()} 0%, ${getColor()}dd 100%)`,
-              color: 'white',
-              border: 'none',
-              padding: '12px 24px',
-              borderRadius: '8px',
-              fontSize: '16px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              transition: 'transform 0.2s ease',
-              boxShadow: `0 4px 12px ${getColor()}44`
-            }}
-            onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
-            onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-          >
-            {modal.type === 'success' && modal.improvements ? 'Cancel' : 'Got it!'}
-          </button>
         </div>
       </div>
     </div>

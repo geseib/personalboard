@@ -31,6 +31,32 @@
 
         <!-- Main Content -->
         <div class="admin-content">
+            <section class="ai-model-panel" id="ai-model-panel" aria-labelledby="ai-model-heading">
+                <div class="ai-panel-heading"><div><span class="ai-eyebrow">AI CONTROL ROOM</span><h2 id="ai-model-heading">Better answers. Your choice of model.</h2><p>Compare quality, speed, and estimated cost before changing the experience for everyone.</p></div><span id="ai-active-badge" class="ai-revision">Loading settings…</span></div>
+                <p id="ai-model-status" role="status" aria-live="polite"></p>
+                <button type="button" class="admin-btn admin-btn-secondary" onclick="loadAiSettings()">Reload settings</button>
+                <form id="ai-settings-form">
+                    <fieldset id="ai-settings-fields" disabled><legend>Active model routing</legend>
+                    <div class="ai-setting-grid">
+                        <label>Default model<select id="ai-default-model" required></select></label>
+                        <label>Writing assistance<select id="ai-writing-model"></select></label>
+                        <label>Board analysis<select id="ai-board-model"></select></label>
+                        <label>Fallback if unavailable<select id="ai-fallback-model"></select></label>
+                    </div>
+                    <div class="ai-activation-row"><p id="ai-routing-note">Changes remain a draft until activated. Overrides use the default when left blank.</p><button class="admin-btn admin-btn-primary" type="submit">Activate these settings</button></div>
+                    </fieldset>
+                </form>
+                <div class="ai-lab">
+                    <div><h3>Try the same request on two models</h3><p>Tests use your prompt below. They never change active settings and never fall back to another model.</p></div>
+                    <form id="ai-compare-form"><fieldset id="ai-compare-fields" disabled><legend class="ai-visually-hidden">Model comparison</legend>
+                    <div class="ai-setting-grid ai-compare-controls"><label>Model A<select id="ai-model-a" required></select></label><label>Model B<select id="ai-model-b"></select></label><label>Task<select id="ai-test-task"><option value="writing">Writing assistance</option><option value="board">Board analysis</option></select></label></div>
+                    <label for="ai-test-prompt">Sample request</label><textarea id="ai-test-prompt" rows="4" maxlength="12000" required>Make this career goal clearer while keeping my voice: I want to get better at leading projects and have more confidence speaking with senior leaders.</textarea>
+                    <div class="ai-activation-row"><small>Only this sample is sent. Use fictional details for experiments.</small><button class="admin-btn admin-btn-primary" type="submit" id="ai-compare-button">Compare responses</button></div>
+                    </fieldset></form>
+                    <div id="ai-comparison-results" class="ai-comparison-grid" aria-live="polite"></div>
+                </div>
+                <details class="ai-history"><summary>Settings history &amp; restore</summary><p>Restoring a revision creates a new active revision. Your history stays available.</p><div id="ai-settings-history"></div></details>
+            </section>
             <!-- Stats Overview -->
             <div class="admin-stats">
                 <div class="stat-card">
@@ -185,6 +211,7 @@
         </div>
     </div>
 
+    <script src="../runtime-config.js"></script>
     <script src="../admin.js"></script>
     <script src="../burger-menu.js"></script>
 </body>

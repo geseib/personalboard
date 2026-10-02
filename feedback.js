@@ -1,23 +1,8 @@
 import React, { useState, useEffect } from 'react';
 
-// Environment-aware API Configuration
-// This detection ONLY affects pbod environment - production remains unchanged
-const getFeedbackApiUrl = () => {
-  const hostname = window.location.hostname;
-
-  // ONLY change behavior for pbod environment
-  if (hostname === 'pbod.seibtribe.us' || hostname.includes('pbod')) {
-    // Using the dedicated pbod environment API
-    return 'https://3unsrrsapf.execute-api.us-east-1.amazonaws.com/pbod/feedback';
-  }
-
-  // DEFAULT: Always use production for any other domain
-  // This ensures board.seibtribe.us and all other domains continue working exactly as before
-  return 'https://hvr92xfbo6.execute-api.us-east-1.amazonaws.com/production/feedback';
-};
-
-// Lambda API configuration - now environment-aware
-const LAMBDA_API_URL = getFeedbackApiUrl();
+import './runtime-config.js';
+const apiBaseUrl = globalThis.PersonalBoardConfig.getApiBaseUrl();
+const LAMBDA_API_URL = apiBaseUrl ? `${apiBaseUrl}/feedback` : '';
 
 export function FeedbackButton() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -146,6 +131,7 @@ export function FeedbackForm({ type, onClose }) {
       };
 
       // Submit to Lambda API - use text/plain to avoid preflight
+      if (!LAMBDA_API_URL) throw new Error('Feedback is not configured for this environment.');
       const response = await fetch(LAMBDA_API_URL, {
         method: 'POST',
         headers: {

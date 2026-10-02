@@ -1,61 +1,44 @@
-// bedrock-chat.js
-const { BedrockRuntimeClient, InvokeModelCommand } = require('@aws-sdk/client-bedrock-runtime');
-
-const bedrock = new BedrockRuntimeClient({ region: 'us-east-1' });
-
-/**
- * Call Bedrock Claude with system + user messages and get a text reply.
- * Includes fallback from Sonnet to Haiku for cost optimization.
- *
- * @param {Object} params
- * @param {string} [params.system] - Optional system instruction
- * @param {string} params.user     - Required user prompt
- * @param {number} [params.max_tokens=2000]
- * @param {number} [params.temperature=0.7]
- * @returns {Promise<{model:string,text:string,raw:any,error?:string}>}
- */
-async function bedrockChat({ system, user, max_tokens = 2000, temperature = 0.7 }) {
-  if (!user) throw new Error('`user` prompt is required');
-
-  const payload = {
-    anthropic_version: 'bedrock-2023-05-31',
-    max_tokens,
-    temperature,
-    ...(system ? { system } : {}),
-    messages: [
-      {
-        role: 'user',
-        content: [{ type: 'text', text: user }]
-      }
-    ]
-  };
-
-  try {
-    // Try Sonnet first
-    const res = await bedrock.send(new InvokeModelCommand({
-      modelId: 'arn:aws:bedrock:us-east-1:239601476690:inference-profile/us.anthropic.claude-3-5-sonnet-20241022-v2:0',
-      body: JSON.stringify(payload)
-    }));
-    const body = JSON.parse(new TextDecoder().decode(res.body));
-    const text = body?.content?.[0]?.text?.trim() ?? '';
-    return { model: 'claude-3.5-sonnet', text, raw: body };
-  } catch (err) {
-    console.warn('Sonnet failed, falling back to Haiku:', err.message);
-    
-    // Fallback to Haiku
-    try {
-      const res2 = await bedrock.send(new InvokeModelCommand({
-        modelId: 'arn:aws:bedrock:us-east-1:239601476690:inference-profile/us.anthropic.claude-3-5-haiku-20241022-v1:0',
-        body: JSON.stringify(payload)
-      }));
-      const body2 = JSON.parse(new TextDecoder().decode(res2.body));
-      const text2 = body2?.content?.[0]?.text?.trim() ?? '';
-      return { model: 'claude-3.5-haiku', text: text2, raw: body2, error: err?.message };
-    } catch (err2) {
-      console.error('Both models failed:', err2.message);
-      throw new Error(`Both Sonnet and Haiku failed: ${err.message} | ${err2.message}`);
-    }
-  }
+const {BedrockRuntimeClient,ConverseCommand}=require('@aws-sdk/client-bedrock-runtime');
+const {DynamoDBClient}=require('@aws-sdk/client-dynamodb');
+const {DynamoDBDocumentClient,GetCommand}=require('@aws-sdk/lib-dynamodb');
+const {SSMClient,GetParameterCommand}=require('@aws-sdk/client-ssm');
+const {MODELS,DEFAULT_SETTINGS,validateSettings,createRouter}=require('./model-router');
+const region=process.env.AWS_REGION||'us-east-1';
+const bedrock=new BedrockRuntimeClient({region,maxAttempts:1});
+const db=DynamoDBDocumentClient.from(new DynamoDBClient({region,maxAttempts:1}));
+const ssm=new SSMClient({region,maxAttempts:1});
+async function loadSettings({signal}){
+ const TableName=process.env.PROMPT_MANAGEMENT_TABLE||process.env.DYNAMODB_TABLE;
+ if(!TableName)throw Error('AI settings table is not configured');
+ const {Item}=await db.send(new GetCommand({TableName,Key:{PK:'CONFIG#AI',SK:'SETTINGS'},ConsistentRead:true}),{abortSignal:signal});
+ return Item||DEFAULT_SETTINGS;
 }
-
-module.exports = { bedrockChat };
+async function invoke(model,{system,user,max_tokens=1200,temperature=0.3,signal}){
+ const maxTokens=Math.min(2500,Math.max(64,max_tokens));
+ if(model.provider==='bedrock'){
+  const result=await bedrock.send(new ConverseCommand({modelId:model.modelId,...(system?{system:[{text:system}]}:{}),messages:[{role:'user',content:[{text:user}]}],inferenceConfig:{maxTokens,temperature}}),{abortSignal:signal});
+  return {stopReason:result.stopReason,text:(result.output?.message?.content||[]).map(c=>c.text||'').join('\n'),usage:{inputTokens:result.usage?.inputTokens,outputTokens:result.usage?.outputTokens}};
+ }
+ const parameter=process.env.GEMINI_API_KEY_PARAMETER;
+ if(!parameter)throw Error('Gemini API key parameter is not configured');
+ const secret=await ssm.send(new GetParameterCommand({Name:parameter,WithDecryption:true}),{abortSignal:signal});
+ if(!secret.Parameter?.Value)throw Error('Gemini API key is unavailable');
+ const response=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model.modelId}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':secret.Parameter.Value},signal,body:JSON.stringify({...(system?{systemInstruction:{parts:[{text:system}]}}:{}),contents:[{role:'user',parts:[{text:user}]}],generationConfig:{maxOutputTokens:maxTokens,temperature,thinkingConfig:{thinkingBudget:0}}})});
+ if(!response.ok)throw Object.assign(Error(`Gemini request failed (${response.status})`),{status:response.status});
+ const result=await response.json();
+ return {stopReason:result.candidates?.[0]?.finishReason,text:(result.candidates?.[0]?.content?.parts||[]).filter(p=>!p.thought).map(p=>p.text||'').join('\n'),usage:{inputTokens:result.usageMetadata?.promptTokenCount,outputTokens:result.usageMetadata?.candidatesTokenCount}};
+}
+const router=createRouter({loadSettings,invoke});
+async function internalAction(event){
+ switch(event.internalAction){
+  case 'modelRegistry':return {models:MODELS.map(m=>({...m,configured:m.provider!=='gemini'||Boolean(process.env.GEMINI_API_KEY_PARAMETER)})),defaults:DEFAULT_SETTINGS};
+  case 'validateSettings': {
+   const settings=validateSettings(event.settings);
+   if([settings.defaultModel,settings.fallbackModel,...Object.values(settings.overrides)].includes('gemini-flash-lite')&&!process.env.GEMINI_API_KEY_PARAMETER)throw Error('Configure the server Gemini API key parameter before activating Gemini.');
+   return {settings};
+  }
+  case 'compareModels':return router.compare(event);
+  default:throw Error('Unsupported internal AI action');
+ }
+}
+module.exports={bedrockChat:router.generate,internalAction};
