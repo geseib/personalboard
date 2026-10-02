@@ -35,12 +35,13 @@ if ! command -v npm &> /dev/null; then
     exit 1
 fi
 
-# Check if HOSTED_ZONE_ID is set
-if [ -z "$HOSTED_ZONE_ID" ]; then
-    echo -e "${RED}❌ HOSTED_ZONE_ID environment variable is not set.${NC}"
-    echo "Please set it with: export HOSTED_ZONE_ID=your-hosted-zone-id"
+if ! aws sts get-caller-identity &> /dev/null; then
+    echo -e "${RED}❌ AWS credentials are not available. Run: aws sso login (profile: adminaccess)${NC}"
     exit 1
 fi
+
+# Hosted zone, GitHub token and admin password (reused from the deployed stack when not exported)
+source "$(dirname "$0")/deploy-env.sh"
 
 echo -e "${GREEN}✅ All prerequisites met!${NC}"
 
@@ -55,24 +56,16 @@ sam build --config-env $SAM_CONFIG_ENV
 
 # Deploy the infrastructure
 echo -e "${YELLOW}🚀 Deploying infrastructure...${NC}"
-# Check for required environment variables
-if [ -z "$GITHUB_TOKEN" ]; then
-    echo -e "${RED}❌ GITHUB_TOKEN environment variable is not set${NC}"
-    echo "Please set it with: export GITHUB_TOKEN=your_github_token"
-    exit 1
-fi
-
-if [ -z "$ADMIN_PASSWORD" ]; then
-    echo -e "${RED}❌ ADMIN_PASSWORD environment variable is not set${NC}"
-    echo "Please set it with: export ADMIN_PASSWORD=your_admin_password"
-    exit 1
-fi
-
-# Deploy with parameter overrides for sensitive values
+# Command-line overrides replace samconfig.toml's list, so pass every parameter explicitly.
 sam deploy --config-env $SAM_CONFIG_ENV \
     --parameter-overrides \
     "GitHubToken=$GITHUB_TOKEN" \
-    "AdminPassword=$ADMIN_PASSWORD"
+    "AdminPassword=$ADMIN_PASSWORD" \
+    "HostedZoneId=$HOSTED_ZONE_ID" \
+    "DomainName=pbod.seibtribe.us" \
+    "Environment=pbod" \
+    "StackName=$STACK_NAME" \
+    ${GEMINI_API_KEY_PARAMETER:+"GeminiApiKeyParameter=$GEMINI_API_KEY_PARAMETER"}
 
 # Get outputs from CloudFormation stack
 echo -e "${YELLOW}📊 Retrieving stack outputs...${NC}"

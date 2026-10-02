@@ -8,7 +8,7 @@ Deployments are run by hand (see `CLAUDE.md`). Work through this list for each e
 - [ ] `npm run build` succeeds on a clean clone. The lockfile must list native packages for every platform (`@parcel/rust-*`, `lightningcss-*`); if a build fails with `Cannot find module '@parcel/rust-…'`, regenerate the lockfile from a clean install.
 - [ ] `sam validate --lint --template-file template.yaml` (or `cfn-lint template.yaml`) is clean.
 - [ ] `node scripts/preview-review.cjs` → check http://127.0.0.1:8898/ at desktop and phone widths: the bottom tab bar shows full labels (scrolls sideways on narrow screens), and the admin **AI models** tab loads (password `preview`).
-- [ ] `aws sso login` and `export AWS_PROFILE=adminaccess`.
+- [ ] `aws sso login` and `export AWS_PROFILE=adminaccess`. The deploy scripts fill in the hosted zone and reuse the GitHub token and admin password already deployed to that stack; export `GITHUB_TOKEN` / `ADMIN_PASSWORD` only for a first deploy or to change them.
 
 ## Deploy to dev
 
