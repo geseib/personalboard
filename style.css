@@ -1840,3 +1840,36 @@ button:active {
  .advice-footer > span { font-size:11px; }
 }
 @media(prefers-reduced-motion:reduce) { .advice-pulse { animation:none; } }
+
+/* Bottom navigation: roomy targets on desktop; on narrow screens the bar scrolls sideways so labels never clip. */
+.nav { align-items: stretch; min-height: 66px; padding: 0 92px env(safe-area-inset-bottom) 12px; box-sizing: border-box; }
+.nav > .tooltip-container { flex: 1 1 0; display: flex; min-width: 0; }
+.nav button { width: 100%; min-height: 66px; padding: 12px 10px; font-size: 15px; white-space: nowrap; }
+.nav-title { font-size: 15px; letter-spacing: .1px; }
+.nav-count { box-sizing: border-box; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; font-size: 11px; }
+.nav button.active { background: rgba(37,99,235,.06); }
+.nav button.active::after { left: 18%; right: 18%; height: 4px; }
+.nav button:focus-visible { outline: 3px solid #93c5fd; outline-offset: -3px; }
+.content { padding-bottom: 112px; }
+@media (max-width: 1180px) {
+  .nav { justify-content: flex-start; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x proximity; scrollbar-width: none; padding: 0 112px env(safe-area-inset-bottom) 4px; min-height: 60px;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 110px), transparent calc(100% - 70px)); mask-image: linear-gradient(to right, #000 calc(100% - 110px), transparent calc(100% - 70px)); }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav > .tooltip-container { flex: 0 0 auto; scroll-snap-align: center; }
+  .nav button { min-height: 60px; padding: 10px 16px; font-size: 14px; }
+  .nav-title { font-size: 14px; }
+  .nav .tooltip, .nav .start-here-arrow { display: none; }
+  .nav button.next-step:not(.active)::before { content: 'Next'; order: -1; background: #2563eb; color: #fff; font-size: 10px; font-weight: 700; letter-spacing: .4px; padding: 3px 7px; border-radius: 10px; }
+  .content { padding-bottom: 100px; }
+}
+
+/* Small screens: title sits beside the menu button instead of under the top-right actions. */
+@media (max-width: 600px) {
+  .app-topbar { top: 18px !important; padding: 0 12px 0 72px !important; }
+  .app-topbar > div:first-child { display: none; }
+  .app-topbar .page-title { position: static !important; transform: none !important; font-size: 1.6rem !important; line-height: 1.2; white-space: nowrap; }
+  .topbar-actions { gap: 8px !important; margin-left: auto; }
+  .topbar-actions button { padding: 8px 12px; font-size: 13px; white-space: nowrap; }
+  .actions, .board-actions { top: 72px; max-width: calc(100vw - 24px); gap: 8px; }
+  .actions button, .board-actions button { padding: 8px 14px !important; font-size: 13px !important; white-space: nowrap; }
+}

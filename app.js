@@ -110,6 +110,14 @@ function App() {
   const initialSection = urlParams.get('section') || 'intro';
 
   const [current, setCurrent] = useState(initialSection);
+  // On small screens the tab bar scrolls; keep the active tab visible.
+  useEffect(() => {
+    const nav = document.querySelector('.nav');
+    const active = nav?.querySelector('button.active');
+    if (!nav || !active || nav.scrollWidth <= nav.clientWidth) return;
+    const navBox = nav.getBoundingClientRect(), box = active.getBoundingClientRect();
+    nav.scrollLeft += box.left - navBox.left - (navBox.width - box.width) / 2;
+  }, [current]);
 
   // Handle URL parameter changes
   useEffect(() => {
@@ -666,7 +674,7 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
       <input type="file" id="upload" accept="application/json" style={{ display: 'none' }} onChange={handleUpload} />
 
       {/* Top bar with centered title and right-side buttons */}
-      <div style={{
+      <div className="app-topbar" style={{
         position: 'fixed',
         top: '20px',
         left: '0',
@@ -682,7 +690,7 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
 
         {/* Centered page title */}
         {current !== 'intro' && (
-          <h1 style={{
+          <h1 className="page-title" style={{
             fontSize: '2.5rem',
             fontWeight: 'bold',
             color: (current === 'coaches' || current === 'sponsors') ? '#ffffff' : '#4A90E2',
@@ -705,7 +713,7 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
         )}
 
         {/* Right side buttons */}
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div className="topbar-actions" style={{ display: 'flex', gap: '12px' }}>
           <BottomTooltip text="Import a backup *.json file to restore previously saved board data">
             <button onClick={() => document.getElementById('upload').click()}>Upload</button>
           </BottomTooltip>
@@ -809,7 +817,7 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
       <div className={current === 'board' ? 'content report-content' : 'content'}>
         {current === 'intro' ? <Intro onLearnClick={() => setShowIntroLearn(true)} onVideoClick={() => setShowVideoModal(true)} onPodcastClick={() => setShowPodcastModal(true)} /> : current === 'you' ? <You data={data.you || {superpowers: [], mentees: []}} onEdit={handleEdit} onDelete={handleDelete} onUpdateData={(updatedYouData) => { setData({...data, you: updatedYouData}); localStorage.setItem('boardData', JSON.stringify({...data, you: updatedYouData})); }} /> : current === 'goals' ? <Goals items={data[current] || []} onEdit={handleEdit} /> : current === 'board' ? <Board data={data} boardAdvice={boardAdvice} boardAdviceLoading={boardAdviceLoading} /> : current === 'mentors' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} onChangeRole={handleChangeRoleClick} /> : current === 'coaches' ? <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} onChangeRole={handleChangeRoleClick} /> : <List type={current} items={data[current] || []} onEdit={handleEdit} onDelete={handleDelete} onChangeRole={handleChangeRoleClick} />}
       </div>
-      <nav className="nav">
+      <nav className="nav" aria-label="Board sections">
         {pages.map(p => {
           const count = p.key === 'intro' || p.key === 'board' || p.key === 'goals' || p.key === 'you' ? 0 : (data[p.key] || []).length;
           const showCount = p.key !== 'intro' && p.key !== 'board' && p.key !== 'goals' && p.key !== 'you';
@@ -830,7 +838,7 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
             
           return (
             <Tooltip key={p.key} text={tooltipText}>
-              <button className={p.key === current ? 'active' : ''} onClick={() => {
+              <button className={[p.key === current ? 'active' : '', p.key === startHereSection ? 'next-step' : ''].filter(Boolean).join(' ')} aria-current={p.key === current ? 'page' : undefined} onClick={() => {
                 setCurrent(p.key);
                 setShowForm(false);
                 setFormType(''); // Reset formType when navigating
