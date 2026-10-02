@@ -23,7 +23,8 @@
     "deploy:boardtestfront": "./scripts/deploy-boardtest-frontend.sh",
     "test:unit": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
     "test:backend": "node --test tests/*.test.cjs lambda-functions/ai-guidance/*.test.cjs",
-    "prebuild": "node scripts/prepare-build.cjs"
+    "prebuild": "node scripts/prepare-build.cjs",
+    "smoke:models": "node scripts/smoke-models.cjs"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.896.0",
