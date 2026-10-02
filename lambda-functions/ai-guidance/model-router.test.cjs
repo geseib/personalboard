@@ -1,6 +1,6 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
-const {createRouter,validateSettings,DEFAULT_SETTINGS}=require('./model-router');
+const {createRouter,validateSettings,publicGeneration,DEFAULT_SETTINGS}=require('./model-router');
 test('rejects unknown models and task overrides',()=>{
  assert.throws(()=>validateSettings({defaultModel:'arbitrary-url'}));
  assert.throws(()=>validateSettings({...DEFAULT_SETTINGS,overrides:{other:'nova-lite'}}));
@@ -55,4 +55,14 @@ test('settings timeout fails closed before any inference',async(t)=>{
  const router=createRouter({loadSettings:async(options)=>{signal=options.signal;return new Promise(()=>{});},invoke:async()=>{called=true;}});
  const rejected=assert.rejects(router.generate({user:'Hello'}),{name:'TimeoutError'});
  await Promise.resolve();t.mock.timers.tick(2000);await rejected;assert.equal(signal.aborted,true);assert.equal(called,false);
+});
+
+test('model identity and cost are hidden from site users unless the admin enables it',async()=>{
+ assert.throws(()=>validateSettings({...DEFAULT_SETTINGS,showModelToUsers:'yes'}));
+ for(const show of [false,true]){
+  const router=createRouter({loadSettings:async()=>({...DEFAULT_SETTINGS,showModelToUsers:show}),invoke:async()=>({text:'ok',usage:{inputTokens:10,outputTokens:5}})});
+  const visible=publicGeneration(await router.generate({user:'hello'}));
+  assert.equal('actualModel' in visible,show);assert.equal('estimatedCostUsd' in visible,show);assert.equal(visible.truncated,false);
+ }
+ assert.equal(validateSettings({defaultModel:'nova-micro'}).showModelToUsers,false);
 });

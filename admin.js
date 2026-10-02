@@ -1893,6 +1893,7 @@ async function handleSaveCurrentTheme(event) {
  * Scroll to the token management section
  */
 function scrollToTokens() {
+    showAdminTab('prompts');
     const tokenSection = document.getElementById('token-management');
     if (tokenSection) {
         tokenSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -2321,8 +2322,9 @@ function fillAiModelSelect(id, value, emptyLabel) {
     select.replaceChildren();
     if (emptyLabel) select.add(new Option(emptyLabel, ''));
     aiModelRegistry.forEach(model => {
-        const rate = typeof model.inputPrice === 'number' && typeof model.outputPrice === 'number' ? ` · $${model.inputPrice}/$${model.outputPrice} per 1M tokens` : '';
-        const option = new Option(`${model.name || model.label || model.id}${rate}${model.configured === false ? ' — setup needed' : ''}`, model.id);
+        const rate = typeof model.inputPrice === 'number' && typeof model.outputPrice === 'number' ? ` · ${model.priceVerified === false ? '≈' : ''}$${model.inputPrice}/$${model.outputPrice} per 1M tokens` : '';
+        const tier = model.tier === 'premium' ? ' · premium' : '';
+        const option = new Option(`${model.name || model.label || model.id}${tier}${rate}${model.configured === false ? ' — setup needed' : ''}`, model.id);
         option.disabled = model.configured === false;
         select.add(option);
     });
@@ -2341,6 +2343,7 @@ async function loadAiSettings() {
         fillAiModelSelect('ai-writing-model', data.settings.overrides?.writing, 'Use default model');
         fillAiModelSelect('ai-board-model', data.settings.overrides?.board, 'Use default model');
         fillAiModelSelect('ai-fallback-model', data.settings.fallbackModel, 'No fallback — report failure');
+        document.getElementById('ai-show-model').checked = data.settings.showModelToUsers === true;
         fillAiModelSelect('ai-model-a', data.settings.defaultModel);
         fillAiModelSelect('ai-model-b', aiModelRegistry.find(m => m.id !== data.settings.defaultModel && m.configured !== false)?.id, 'Test one model');
         document.getElementById('ai-active-badge').textContent = `Active revision ${data.settings.revision}`;
@@ -2360,7 +2363,7 @@ async function loadAiHistory() {
         data.history.forEach(item => {
             const row = document.createElement('div'); row.className = 'ai-history-row';
             const label = document.createElement('span');
-            label.textContent = `Revision ${item.revision} · ${item.defaultModel} · ${item.updatedAt ? new Date(item.updatedAt).toLocaleString() : 'Initial settings'}`;
+            label.textContent = `Revision ${item.revision} · ${item.defaultModel}${item.showModelToUsers ? ' · model shown to users' : ''} · ${item.updatedAt ? new Date(item.updatedAt).toLocaleString() : 'Initial settings'}`;
             const button = document.createElement('button'); button.type = 'button'; button.className = 'admin-btn admin-btn-secondary';
             button.textContent = item.revision === aiSettingsState.revision ? 'Active' : 'Restore';
             button.disabled = item.revision === aiSettingsState.revision;
@@ -2389,7 +2392,7 @@ document.getElementById('ai-settings-form')?.addEventListener('submit', event =>
         const value = document.getElementById(`ai-${task}-model`).value;
         if (value) overrides[task] = value;
     }
-    activateAiSettings('settings', {defaultModel:document.getElementById('ai-default-model').value, overrides, fallbackModel:document.getElementById('ai-fallback-model').value || null});
+    activateAiSettings('settings', {defaultModel:document.getElementById('ai-default-model').value, overrides, fallbackModel:document.getElementById('ai-fallback-model').value || null, showModelToUsers:document.getElementById('ai-show-model').checked});
 });
 document.getElementById('ai-settings-form')?.addEventListener('change', () => aiStatus('Draft changes — active settings stay unchanged until you activate.'));
 document.getElementById('ai-compare-form')?.addEventListener('submit', async event => {
@@ -2417,3 +2420,30 @@ document.getElementById('ai-compare-form')?.addEventListener('submit', async eve
     finally { fields.disabled = false; button.textContent = 'Compare responses'; }
 });
 window.loadAiSettings = loadAiSettings;
+
+// Prompts and model settings live on separate tabs; #models deep-links to the model tab.
+function showAdminTab(name, focus = false) {
+    const tabs = document.querySelectorAll('[data-admin-tab]');
+    if (!tabs.length) return;
+    tabs.forEach(tab => {
+        const selected = tab.dataset.adminTab === name;
+        tab.setAttribute('aria-selected', String(selected));
+        tab.tabIndex = selected ? 0 : -1;
+        document.getElementById(tab.getAttribute('aria-controls')).hidden = !selected;
+        if (selected && focus) tab.focus();
+    });
+    try { history.replaceState(null, '', name === 'models' ? '#models' : location.pathname + location.search); } catch (error) { /* ignore */ }
+}
+document.querySelectorAll('[data-admin-tab]').forEach(tab => {
+    tab.addEventListener('click', () => showAdminTab(tab.dataset.adminTab));
+    tab.addEventListener('keydown', event => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        const names = [...document.querySelectorAll('[data-admin-tab]')].map(t => t.dataset.adminTab);
+        const index = names.indexOf(tab.dataset.adminTab);
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? names.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + names.length) % names.length;
+        showAdminTab(names[next], true);
+    });
+});
+showAdminTab(location.hash === '#models' ? 'models' : 'prompts');
+window.showAdminTab = showAdminTab;

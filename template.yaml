@@ -233,6 +233,19 @@ Resources:
                 - 'arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-4-6'
                 - 'arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-sonnet-4-6'
                 - 'arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-sonnet-4-6'
+                - !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.amazon.nova-2-lite-v1:0'
+                - 'arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-2-lite-v1:0'
+                - 'arn:aws:bedrock:us-east-2::foundation-model/amazon.nova-2-lite-v1:0'
+                - 'arn:aws:bedrock:us-west-2::foundation-model/amazon.nova-2-lite-v1:0'
+                - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/qwen.qwen3-next-80b-a3b'
+                - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/openai.gpt-oss-120b-1:0'
+                - !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.anthropic.claude-sonnet-5-5'
+                - 'arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-5-5'
+                - 'arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-sonnet-5-5'
+                - 'arn:aws:bedrock:us-west-1::foundation-model/anthropic.claude-sonnet-5-5'
+                - 'arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-sonnet-5-5'
+                - 'arn:aws:bedrock:ca-central-1::foundation-model/anthropic.claude-sonnet-5-5'
+                - 'arn:aws:bedrock:ca-west-1::foundation-model/anthropic.claude-sonnet-5-5'
         - Version: '2012-10-17'
           Statement:
             - Effect: Allow
@@ -321,7 +334,7 @@ Resources:
       FunctionName: !Sub '${StackName}-jwt-authorizer'
       CodeUri: lambda-functions/auth/
       Handler: authorizer.handler
-      Runtime: nodejs20.x
+      Runtime: nodejs22.x
       Timeout: 10
       MemorySize: 256
       Policies:
@@ -341,7 +354,7 @@ Resources:
       FunctionName: !Sub '${StackName}-activate'
       CodeUri: lambda-functions/auth/
       Handler: activate.handler
-      Runtime: nodejs20.x
+      Runtime: nodejs22.x
       Timeout: 10
       MemorySize: 256
       Environment:
@@ -366,7 +379,7 @@ Resources:
       FunctionName: !Sub '${StackName}-generate-codes'
       CodeUri: lambda-functions/auth/
       Handler: generate-codes.handler
-      Runtime: nodejs20.x
+      Runtime: nodejs22.x
       Timeout: 30
       MemorySize: 256
       Environment:

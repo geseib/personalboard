@@ -18,3 +18,4 @@ test('admin routes require configured password and never log credentials',async(
  assert.equal(apiCalls.length,1);
  assert.equal(JSON.stringify(logs).includes('secret'),false);
 });
+test('model visibility for site users is an explicit admin choice that defaults off',async()=>{const {service,calls}=setup();await service.activate({defaultModel:'nova-micro',expectedRevision:0});assert.equal(calls.at(-1).settings.showModelToUsers,false);await service.activate({defaultModel:'nova-micro',showModelToUsers:true,expectedRevision:1});assert.equal(calls.at(-1).settings.showModelToUsers,true);await service.activate({defaultModel:'nova-micro',showModelToUsers:'yes',expectedRevision:2});assert.equal(calls.at(-1).settings.showModelToUsers,false);});

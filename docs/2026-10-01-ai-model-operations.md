@@ -6,19 +6,31 @@ The prompt-management table stores the active record under `PK=CONFIG#AI`, `SK=S
 
 ## Supported models
 
-| Registry ID | Provider model ID | Input / output USD per million text tokens |
-|---|---|---|
-| nova-micro | us.amazon.nova-micro-v1:0 | 0.035 / 0.14 |
-| nova-lite | us.amazon.nova-lite-v1:0 | 0.06 / 0.24 |
-| claude-haiku | us.anthropic.claude-haiku-4-5-20251001-v1:0 | 1.10 / 5.50 |
-| claude-sonnet | us.anthropic.claude-sonnet-4-6 | 3.30 / 16.50 |
-| gemini-flash-lite | gemini-2.5-flash-lite | 0.10 / 0.40 |
+Updated October 2, 2026. `budget` models are candidates for everyday writing help; `premium` models for whole-board analysis. Opus-class models are intentionally excluded.
 
-Price snapshot: October 1, 2026. Estimates use standard text rates and the Claude US geographic inference premium, not global pricing. Actual billing may vary by region, provider changes, retries, discounts, or other charges. Missing provider usage yields an unavailable estimate rather than zero. Sources: [AWS pricing](https://aws.amazon.com/bedrock/pricing/), [Anthropic published price schedule](https://www-cdn.anthropic.com/files/4zrzovbb/website/3684c2faafb97418665782cea0001f439f74b1d2.pdf), [Google pricing](https://ai.google.dev/gemini-api/docs/pricing).
+| Registry ID | Provider model ID | Tier | Input / output USD per million tokens | Notes |
+|---|---|---|---|---|
+| nova-micro | us.amazon.nova-micro-v1:0 | budget | 0.035 / 0.14 | Default when no settings exist |
+| nova-lite | us.amazon.nova-lite-v1:0 | budget | 0.06 / 0.24 | |
+| nova-2-lite | us.amazon.nova-2-lite-v1:0 | budget | ≈0.30 / 2.50 | Price not confirmed on the AWS pricing page; shown with ≈ in admin |
+| qwen3-next-80b | qwen.qwen3-next-80b-a3b | budget | 0.15 / 1.20 | In-region only (no `us.` profile) |
+| gpt-oss-120b | openai.gpt-oss-120b-1:0 | budget | 0.15 / 0.60 | In-region only; sends `reasoning_effort: low`; +1,500 output tokens for reasoning |
+| gemini-flash-lite | gemini-2.5-flash-lite | budget | 0.10 / 0.40 | Needs the Gemini SSM parameter |
+| claude-haiku | us.anthropic.claude-haiku-4-5-20251001-v1:0 | premium | 1.10 / 5.50 | |
+| claude-sonnet-5-5 | us.anthropic.claude-sonnet-5-5 | premium | 2.20 / 11.00 | No temperature (non-default sampling is rejected); sends `output_config.effort: low`; +2,000 output tokens for adaptive thinking |
+| claude-sonnet | us.anthropic.claude-sonnet-4-6 | premium | 3.30 / 16.50 | Kept so existing saved settings stay valid |
+
+Prices are standard on-demand US rates; Claude rates include the US geographic-profile premium (first-party Sonnet 5.5 is $2 / $10). Reasoning tokens count as output and are billed; only visible text blocks are returned to users. Missing provider usage yields an unavailable estimate rather than zero. Sources: [AWS Bedrock model cards](https://docs.aws.amazon.com/bedrock/latest/userguide/model-cards.html), [AWS pricing](https://aws.amazon.com/bedrock/pricing/), [Google pricing](https://ai.google.dev/gemini-api/docs/pricing).
+
+Per-model request differences live in each registry entry's `request` field (`omitTemperature`, `extraOutputTokens`, `fields` → Converse `additionalModelRequestFields`). If a comparison returns a validation error for one of these models, adjust that field rather than the shared adapter.
+
+## Model visibility for site users
+
+`showModelToUsers` (default `false`) is stored with the routing settings and toggled on the admin **AI models** tab. When it is off, `/ai-guidance` responses carry only the suggestion plus `truncated` and `fallbackUsed`; model IDs, token usage, latency and cost are returned only to the admin comparison. This is enforced server-side in `publicGeneration()`.
 
 ## Deployment configuration
 
-The SAM template grants only the listed Bedrock inference profiles and corresponding US foundation-model resources. Model access and regional quotas still need to be available in the deploying account; a registry entry is not proof of access. Use the admin comparison to verify each model before activation.
+The SAM template grants only the listed Bedrock inference profiles and corresponding foundation-model resources (US regions, plus Canada for the Sonnet 5.5 US profile). Third-party models (Anthropic, Qwen, OpenAI) are sold through AWS Marketplace: the first invocation in an account may need someone with Marketplace subscribe permission to enable the model once in the Bedrock console. Model access and regional quotas still need to be available in the deploying account; a registry entry is not proof of access. Use the admin comparison to verify each model before activation.
 
 Gemini requires an existing SSM SecureString parameter. Supply its absolute parameter name through the optional `GeminiApiKeyParameter` SAM parameter. The API key is read server-side and sent only in the Google request header. No API key is exposed through the admin registry or browser. The provided IAM policy supports the default SSM KMS key; a customer-managed KMS key also requires an explicitly scoped decrypt grant. An empty parameter name disables Gemini activation. A nonempty parameter name means configured, not verified; comparison detects missing secrets or provider access failures. Keep this parameter out of frontend configuration and backups.
 

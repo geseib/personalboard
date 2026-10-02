@@ -16,8 +16,10 @@ async function loadSettings({signal}){
 async function invoke(model,{system,user,max_tokens=1200,temperature=0.3,signal}){
  const maxTokens=Math.min(2500,Math.max(64,max_tokens));
  if(model.provider==='bedrock'){
-  const result=await bedrock.send(new ConverseCommand({modelId:model.modelId,...(system?{system:[{text:system}]}:{}),messages:[{role:'user',content:[{text:user}]}],inferenceConfig:{maxTokens,temperature}}),{abortSignal:signal});
-  return {stopReason:result.stopReason,text:(result.output?.message?.content||[]).map(c=>c.text||'').join('\n'),usage:{inputTokens:result.usage?.inputTokens,outputTokens:result.usage?.outputTokens}};
+  const {omitTemperature,extraOutputTokens=0,fields}=model.request||{};
+  const result=await bedrock.send(new ConverseCommand({modelId:model.modelId,...(system?{system:[{text:system}]}:{}),messages:[{role:'user',content:[{text:user}]}],inferenceConfig:{maxTokens:maxTokens+extraOutputTokens,...(omitTemperature?{}:{temperature})},...(fields?{additionalModelRequestFields:fields}:{})}),{abortSignal:signal});
+  // Reasoning models return reasoningContent blocks; only visible text blocks are kept.
+  return {stopReason:result.stopReason,text:(result.output?.message?.content||[]).filter(c=>typeof c.text==='string').map(c=>c.text).join('\n'),usage:{inputTokens:result.usage?.inputTokens,outputTokens:result.usage?.outputTokens}};
  }
  const parameter=process.env.GEMINI_API_KEY_PARAMETER;
  if(!parameter)throw Error('Gemini API key parameter is not configured');
@@ -31,7 +33,7 @@ async function invoke(model,{system,user,max_tokens=1200,temperature=0.3,signal}
 const router=createRouter({loadSettings,invoke});
 async function internalAction(event){
  switch(event.internalAction){
-  case 'modelRegistry':return {models:MODELS.map(m=>({...m,configured:m.provider!=='gemini'||Boolean(process.env.GEMINI_API_KEY_PARAMETER)})),defaults:DEFAULT_SETTINGS};
+  case 'modelRegistry':return {models:MODELS.map(({request,...m})=>({...m,configured:m.provider!=='gemini'||Boolean(process.env.GEMINI_API_KEY_PARAMETER)})),defaults:DEFAULT_SETTINGS};
   case 'validateSettings': {
    const settings=validateSettings(event.settings);
    if([settings.defaultModel,settings.fallbackModel,...Object.values(settings.overrides)].includes('gemini-flash-lite')&&!process.env.GEMINI_API_KEY_PARAMETER)throw Error('Configure the server Gemini API key parameter before activating Gemini.');

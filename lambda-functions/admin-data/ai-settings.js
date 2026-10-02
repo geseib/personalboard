@@ -11,7 +11,8 @@ function createAiAdmin(store) {
             throw Object.assign(new Error('Settings changed. Reload before activating your selection.'), {statusCode: 409});
         }
         const validated = await store.invoke({internalAction: 'validateSettings', settings: {
-            defaultModel: input.defaultModel, overrides: input.overrides || {}, fallbackModel: input.fallbackModel || null
+            defaultModel: input.defaultModel, overrides: input.overrides || {}, fallbackModel: input.fallbackModel || null,
+            showModelToUsers: input.showModelToUsers === true
         }});
         if (validated.error) throw Object.assign(new Error(validated.error), {statusCode: 400});
         const next = {...validated.settings, revision: previous.revision + 1, updatedAt: new Date().toISOString()};
