@@ -238,13 +238,7 @@ Resources:
                 - 'arn:aws:bedrock:us-west-2::foundation-model/amazon.nova-2-lite-v1:0'
                 - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/qwen.qwen3-next-80b-a3b'
                 - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/openai.gpt-oss-120b-1:0'
-                - !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.anthropic.claude-sonnet-5-5'
-                - 'arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-5-5'
-                - 'arn:aws:bedrock:us-east-2::foundation-model/anthropic.claude-sonnet-5-5'
-                - 'arn:aws:bedrock:us-west-1::foundation-model/anthropic.claude-sonnet-5-5'
-                - 'arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-sonnet-5-5'
-                - 'arn:aws:bedrock:ca-central-1::foundation-model/anthropic.claude-sonnet-5-5'
-                - 'arn:aws:bedrock:ca-west-1::foundation-model/anthropic.claude-sonnet-5-5'
+                - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/moonshotai.kimi-k2.5'
         - Version: '2012-10-17'
           Statement:
             - Effect: Allow

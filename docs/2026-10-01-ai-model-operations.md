@@ -6,7 +6,7 @@ The prompt-management table stores the active record under `PK=CONFIG#AI`, `SK=S
 
 ## Supported models
 
-Updated October 2, 2026. `budget` models are candidates for everyday writing help; `premium` models for whole-board analysis. Opus-class models are intentionally excluded.
+Updated October 3, 2026. `budget` models are candidates for everyday writing help; `premium` models for whole-board analysis. Opus-class models are intentionally excluded.
 
 | Registry ID | Provider model ID | Tier | Input / output USD per million tokens | Notes |
 |---|---|---|---|---|
@@ -15,12 +15,12 @@ Updated October 2, 2026. `budget` models are candidates for everyday writing hel
 | nova-2-lite | us.amazon.nova-2-lite-v1:0 | budget | ≈0.30 / 2.50 | Price not confirmed on the AWS pricing page; shown with ≈ in admin |
 | qwen3-next-80b | qwen.qwen3-next-80b-a3b | budget | 0.15 / 1.20 | In-region only (no `us.` profile) |
 | gpt-oss-120b | openai.gpt-oss-120b-1:0 | budget | 0.15 / 0.60 | In-region only; sends `reasoning_effort: low`; +1,500 output tokens for reasoning |
+| kimi-k2.5 | moonshotai.kimi-k2.5 | budget | 0.60 / 3.00 | In-region only; +1,000 output tokens. Best grounded answer in the October 3 goals-advisor test |
 | gemini-flash-lite | gemini-2.5-flash-lite | budget | 0.10 / 0.40 | Needs the Gemini SSM parameter |
 | claude-haiku | us.anthropic.claude-haiku-4-5-20251001-v1:0 | premium | 1.10 / 5.50 | |
-| claude-sonnet-5-5 | us.anthropic.claude-sonnet-5-5 | premium | 2.20 / 11.00 | No temperature (non-default sampling is rejected); sends `output_config.effort: low`; +2,000 output tokens for adaptive thinking |
 | claude-sonnet | us.anthropic.claude-sonnet-4-6 | premium | 3.30 / 16.50 | Kept so existing saved settings stay valid |
 
-Prices are standard on-demand US rates; Claude rates include the US geographic-profile premium (first-party Sonnet 5.5 is $2 / $10). Reasoning tokens count as output and are billed; only visible text blocks are returned to users. Missing provider usage yields an unavailable estimate rather than zero. Sources: [AWS Bedrock model cards](https://docs.aws.amazon.com/bedrock/latest/userguide/model-cards.html), [AWS pricing](https://aws.amazon.com/bedrock/pricing/), [Google pricing](https://ai.google.dev/gemini-api/docs/pricing).
+Prices are standard on-demand US rates; Claude rates include the US geographic-profile premium. Claude Sonnet 5.5 / 5 and GPT-5.6 Luna were evaluated but are not offered: this account could not obtain access to them. Kimi K3 works but rejects `temperature` and spends most of its output budget on reasoning (22 s, truncated at 3,500 tokens), so it is not listed. Reasoning tokens count as output and are billed; only visible text blocks are returned to users. Missing provider usage yields an unavailable estimate rather than zero. Sources: [AWS Bedrock model cards](https://docs.aws.amazon.com/bedrock/latest/userguide/model-cards.html), [AWS pricing](https://aws.amazon.com/bedrock/pricing/), [Google pricing](https://ai.google.dev/gemini-api/docs/pricing).
 
 Per-model request differences live in each registry entry's `request` field (`omitTemperature`, `extraOutputTokens`, `fields` → Converse `additionalModelRequestFields`). If a comparison returns a validation error for one of these models, adjust that field rather than the shared adapter.
 
@@ -30,7 +30,7 @@ Per-model request differences live in each registry entry's `request` field (`om
 
 ## Deployment configuration
 
-The SAM template grants only the listed Bedrock inference profiles and corresponding foundation-model resources (US regions, plus Canada for the Sonnet 5.5 US profile). Third-party models (Anthropic, Qwen, OpenAI) are sold through AWS Marketplace: the first invocation in an account may need someone with Marketplace subscribe permission to enable the model once in the Bedrock console. Model access and regional quotas still need to be available in the deploying account; a registry entry is not proof of access. Use the admin comparison to verify each model before activation.
+The SAM template grants only the listed Bedrock inference profiles and corresponding foundation-model resources (US regions). Third-party models (Anthropic, Qwen, OpenAI) are sold through AWS Marketplace: the first invocation in an account may need someone with Marketplace subscribe permission to enable the model once in the Bedrock console. Model access and regional quotas still need to be available in the deploying account; a registry entry is not proof of access. Use the admin comparison to verify each model before activation.
 
 Gemini requires an existing SSM SecureString parameter. Supply its absolute parameter name through the optional `GeminiApiKeyParameter` SAM parameter. The API key is read server-side and sent only in the Google request header. No API key is exposed through the admin registry or browser. The provided IAM policy supports the default SSM KMS key; a customer-managed KMS key also requires an explicitly scoped decrypt grant. An empty parameter name disables Gemini activation. A nonempty parameter name means configured, not verified; comparison detects missing secrets or provider access failures. Keep this parameter out of frontend configuration and backups.
 

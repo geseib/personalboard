@@ -1,7 +1,7 @@
 // All browser features share this registry and routing policy. No client model overrides.
-const PRICING_DATE = '2026-10-02';
+const PRICING_DATE = '2026-10-03';
 // tier: 'budget' models are inexpensive candidates for everyday writing help; 'premium' for whole-board analysis.
-// request: per-model Converse quirks. omitTemperature for models that reject non-default sampling (Sonnet 5.5);
+// request: per-model Converse quirks. omitTemperature for models that reject a temperature field;
 // extraOutputTokens leaves room for reasoning tokens so visible answers are not truncated;
 // fields are sent as additionalModelRequestFields. priceVerified=false means the rate is a best estimate to confirm.
 const MODELS = [
@@ -10,8 +10,8 @@ const MODELS = [
  {id:'nova-2-lite',name:'Amazon Nova 2 Lite',tier:'budget',provider:'bedrock',modelId:'us.amazon.nova-2-lite-v1:0',inputPrice:0.30,outputPrice:2.50,priceVerified:false},
  {id:'qwen3-next-80b',name:'Qwen3 Next 80B A3B',tier:'budget',provider:'bedrock',modelId:'qwen.qwen3-next-80b-a3b',inputPrice:0.15,outputPrice:1.20},
  {id:'gpt-oss-120b',name:'OpenAI gpt-oss-120b',tier:'budget',provider:'bedrock',modelId:'openai.gpt-oss-120b-1:0',inputPrice:0.15,outputPrice:0.60,request:{extraOutputTokens:1500,fields:{reasoning_effort:'low'}}},
+ {id:'kimi-k2.5',name:'Kimi K2.5',tier:'budget',provider:'bedrock',modelId:'moonshotai.kimi-k2.5',inputPrice:0.60,outputPrice:3.00,request:{extraOutputTokens:1000}},
  {id:'claude-haiku',name:'Claude Haiku 4.5',tier:'premium',provider:'bedrock',modelId:'us.anthropic.claude-haiku-4-5-20251001-v1:0',inputPrice:1.1,outputPrice:5.5},
- {id:'claude-sonnet-5-5',name:'Claude Sonnet 5.5',tier:'premium',provider:'bedrock',modelId:'us.anthropic.claude-sonnet-5-5',inputPrice:2.2,outputPrice:11,request:{omitTemperature:true,extraOutputTokens:2000,fields:{output_config:{effort:'low'}}}},
  {id:'claude-sonnet',name:'Claude Sonnet 4.6',tier:'premium',provider:'bedrock',modelId:'us.anthropic.claude-sonnet-4-6',inputPrice:3.3,outputPrice:16.5},
  {id:'gemini-flash-lite',name:'Gemini 2.5 Flash-Lite',tier:'budget',provider:'gemini',modelId:'gemini-2.5-flash-lite',inputPrice:0.10,outputPrice:0.40}
 ].map(model=>Object.freeze({priceVerified:true,request:{},...model,pricingDate:PRICING_DATE,currency:'USD',priceUnit:'per million tokens'}));

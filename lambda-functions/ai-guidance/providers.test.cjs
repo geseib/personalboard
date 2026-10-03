@@ -36,14 +36,14 @@ test('registry returns only public metadata and rejects unsupported internal act
  await assert.rejects(internalAction({internalAction:'unknown'}));
 });
 
-test('Sonnet 5.5 omits sampling, requests low effort, and drops reasoning blocks',async()=>{
- settings={defaultModel:'claude-sonnet-5-5'};converseContent=[{reasoningContent:{reasoningText:{text:'private'}}},{text:'Visible'}];
+test('Kimi K2.5 gets extra output room and reasoning blocks are never returned',async()=>{
+ settings={defaultModel:'kimi-k2.5'};converseContent=[{reasoningContent:{reasoningText:{text:'private'}}},{text:'Visible'}];
  try{
   const result=await bedrockChat({user:'Prompt',max_tokens:1200});
-  assert.equal(converse.modelId,'us.anthropic.claude-sonnet-5-5');
-  assert.equal('temperature' in converse.inferenceConfig,false);
-  assert.equal(converse.inferenceConfig.maxTokens,3200);
-  assert.deepEqual(converse.additionalModelRequestFields,{output_config:{effort:'low'}});
+  assert.equal(converse.modelId,'moonshotai.kimi-k2.5');
+  assert.equal(converse.inferenceConfig.temperature,0.3);
+  assert.equal(converse.inferenceConfig.maxTokens,2200);
+  assert.equal(converse.additionalModelRequestFields,undefined);
   assert.equal(result.text,'Visible');
  }finally{converseContent=[{text:'One'},{text:'Two'}];}
 });
