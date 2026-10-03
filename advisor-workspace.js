@@ -1,7 +1,7 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {getAIGuidance} from './ai-client.js';
 import {SafeMarkdown} from './editing-workspace.js';
-import {adviceFields,buildAdvisorRequest,parseAdvice} from './advisor-utils.js';
+import {adviceFields,buildAdvisorRequest,parseAdvice,ideaText} from './advisor-utils.js';
 
 export function AdvisorWorkspace({open,onClose,type,form,boardData,entryIndex,onApply}) {
  const [question,setQuestion]=useState('');
@@ -40,7 +40,7 @@ export function AdvisorWorkspace({open,onClose,type,form,boardData,entryIndex,on
   }catch(e){if(request===sequence.current&&e.name!=='AbortError')setError(e.message||'Advice could not be prepared. Your draft is safe.');}
   finally{if(request===sequence.current){setBusy(false);dialog.current?.focus();}}
  };
- const choose=(content)=>{setDraft(content.replace(/\*\*/g,''));setField('notes');setStage('adapt');setNotice('');};
+ const choose=(content)=>{setDraft(ideaText(content));setField('notes');setStage('adapt');setNotice('');};
  const apply=()=>{if(!draft.trim())return;onApply(draft.trim(),field);setNotice(`Added to ${fields.find(f=>f.key===field)?.label.toLowerCase()}. Save your entry when you are ready.`);setStage('read');};
  const keyDown=e=>{
   if(e.key==='Escape'){e.stopPropagation();close();}
