@@ -1873,3 +1873,7 @@ button:active {
   .actions, .board-actions { top: 72px; max-width: calc(100vw - 24px); gap: 8px; }
   .actions button, .board-actions button { padding: 8px 14px !important; font-size: 13px !important; white-space: nowrap; }
 }
+/* Corner quotes are fixed over the page; on phones they land on top of the cards, so keep them for wider screens. */
+@media (max-width: 600px) {
+  .quote-bottom-right, .quote-bottom-left { display: none; }
+}
