@@ -179,6 +179,7 @@ function App() {
     return savedData;
   });
   const [pdfExporting, setPdfExporting] = useState(false);
+  const [wordExporting, setWordExporting] = useState(false);
   const [showLearn, setShowLearn] = useState(false);
   const [showIntroLearn, setShowIntroLearn] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -619,6 +620,24 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
       setPdfExporting(false);
     }
   };
+
+  // Editable copy of the same report for Word, Pages or Google Docs. Never invokes AI.
+  const downloadWord = async () => {
+    if (wordExporting) return;
+    setWordExporting(true);
+    try {
+      const { boardReportDocxBlob } = await import('./board-report-docx.js');
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(await boardReportDocxBlob(data, boardAdvice));
+      a.download = 'personal-board.docx';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    } catch {
+      alert('The Word document could not be created. Your board is safe. Please try again.');
+    } finally {
+      setWordExporting(false);
+    }
+  };
   
   // Helper function to calculate meeting months based on cadence
   const getMeetingMonths = (cadence) => {
@@ -811,6 +830,9 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
           </BottomTooltip>
           <BottomTooltip text="Generate a PDF report of your board and goals">
             <button onClick={downloadPDF} disabled={pdfExporting} aria-busy={pdfExporting}>{pdfExporting ? 'Preparing PDF…' : 'Download PDF'}</button>
+          </BottomTooltip>
+          <BottomTooltip text="Download an editable Word version of the report">
+            <button onClick={downloadWord} disabled={wordExporting} aria-busy={wordExporting}>{wordExporting ? 'Preparing Word…' : 'Download Word'}</button>
           </BottomTooltip>
         </div>
       )}
