@@ -76,7 +76,7 @@ async function getActivePromptConfig(category) {
  * Replace variables in prompt template
  */
 const PROMPT_VARIABLES = new Set(['currentFields', 'goals', 'mentees', 'memberType', 'relationship', 'connection', 'expertise',
-    'value', 'contact', 'cadence', 'lastContact', 'notes', 'boardMembers', 'skills', 'memberName', 'memberRole',
+    'value', 'contact', 'cadence', 'lastContact', 'notes', 'whatToLearn', 'whatTheyGet', 'boardMembers', 'skills', 'memberName', 'memberRole',
     'currentRelationship', 'completeProfile', 'my_current_situation', 'fullBoardData']);
 
 function replacePromptVariables(template, data, context) {
@@ -138,7 +138,9 @@ function replacePromptVariables(template, data, context) {
         contact: form.contact || form.email,
         cadence: form.cadence,
         lastContact: form.lastContact,
-        notes: form.notes
+        notes: form.notes,
+        whatToLearn: form.whatToLearn,
+        whatTheyGet: form.whatTheyGet
     };
     for (const [name, value] of Object.entries(memberFields)) {
         prompt = prompt.replace(new RegExp(`\\{${name}\\}`, 'g'), () => value ? String(value) : 'Not provided');
@@ -171,6 +173,15 @@ function replacePromptVariables(template, data, context) {
             completeUserData.you.superpowers.forEach(skill => {
                 profileText += `- ${skill.name || skill.title}: ${skill.description || ''}\n`;
                 if (skill.notes) profileText += `  ${skill.notes}\n`;
+            });
+            profileText += '\n';
+        }
+
+        // People they mentor (a chance to give back)
+        if (Array.isArray(completeUserData.you?.mentees) && completeUserData.you.mentees.length > 0) {
+            profileText += 'People I mentor:\n';
+            completeUserData.you.mentees.forEach(mentee => {
+                profileText += `- ${mentee.name || 'Unnamed'}${mentee.role ? ` (${mentee.role})` : ''}\n`;
             });
             profileText += '\n';
         }
@@ -338,7 +349,9 @@ exports.handler = async (event) => {
     } else if (type.endsWith('_advisor')) {
       // Handle specific advisor types like mentors_advisor, coaches_advisor, etc.
       const advisorType = type.replace('_advisor', '');
-      category = advisorType; // mentors_advisor -> mentors, coaches_advisor -> coaches, etc.
+      // Admin stores these under different category names than the request types.
+      const aliases = { superpowers: 'skills', board_analysis: 'overall' };
+      category = aliases[advisorType] || advisorType; // mentors_advisor -> mentors, superpowers_advisor -> skills
     } else {
       // Map other guidance types to appropriate categories
       const categoryMap = {

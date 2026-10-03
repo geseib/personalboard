@@ -43,3 +43,19 @@ test('empty board roles are named so advice can point out gaps',async()=>{
  await handler(request({type:'goals_advisor',data:{allGoals:[],boardData:{goals:[],mentors:[{name:'Dana'}],sponsors:[],coaches:[]}},context:{}}));
  assert.match(calls.at(-1).user,/Current mentors:\n- Dana/);assert.match(calls.at(-1).user,/Current sponsors: none yet/);assert.match(calls.at(-1).user,/Current coaches: none yet/);
 });
+test('mentees appear in the profile the prompts see',async()=>{
+ activate('skills','skills_v2','SYS','{completeProfile}');
+ await handler(request({type:'superpowers_advisor',data:{boardData:{goals:[],you:{superpowers:[],mentees:[{name:'Sam',role:'Junior developer'}]}}},context:{}}));
+ assert.match(calls.at(-1).user,/People I mentor:\n- Sam \(Junior developer\)/);
+});
+test('every grounded prompt definition only uses placeholders the Lambda fills',()=>{
+ const fs=require('node:fs'),path=require('node:path');const dir=path.join(__dirname,'../../prompts');
+ const files=fs.readdirSync(dir).filter(f=>f.endsWith('-grounded-v1.json'));assert.equal(files.length,9);
+ const src=fs.readFileSync(path.join(__dirname,'ai-guidance.js'),'utf8');const known=new Set(src.match(/const PROMPT_VARIABLES = new Set\(\[([\s\S]*?)\]\)/)[1].match(/'(\w+)'/g).map(s=>s.slice(1,-1)));
+ for(const f of files){const p=JSON.parse(fs.readFileSync(path.join(dir,f),'utf8'));for(const [,name] of p.userPromptTemplate.matchAll(/\{(\w+)\}/g))assert.ok(known.has(name),`${f} uses unfilled {${name}}`);assert.doesNotMatch(p.systemPrompt+p.userPromptTemplate,/completion score|alignment score|data-driven/i,f);}
+});
+test('superpowers and board analysis requests use the skills and overall prompts',async()=>{
+ activate('overall','overall_v2','OVERALL SYS','{completeProfile}');
+ await handler(request({type:'board_analysis_advisor',data:{boardData:{goals:[]}},context:{}}));
+ assert.equal(calls.at(-1).system,'OVERALL SYS');
+});
