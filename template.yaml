@@ -185,14 +185,13 @@ Resources:
       - AdminTokensStatsOptionsMethod
       - AdminTokensGeneratePostMethod
       - AdminTokensGenerateOptionsMethod
+    # Rename this logical ID whenever routes change so API Gateway publishes them. StageName points the
+    # existing stage at the new deployment. Do not add StageDescription: it is only accepted when the
+    # stage does not exist yet, so a renamed deployment fails with "stage ... already exists".
     Properties:
       RestApiId: !Ref RestApi
       StageName: !Ref Environment
-      StageDescription:
-        Description: !Sub 'Personal Board API - ${Environment}'
-        Variables:
-          environment: !Ref Environment
-          deploymentId: "2025-09-09-auth"
+      Description: !Sub 'Personal Board API - ${Environment}'
 
   # AI Guidance Lambda Function
   AIGuidanceFunction:
