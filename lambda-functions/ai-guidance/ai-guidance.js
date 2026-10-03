@@ -56,11 +56,11 @@ async function getActivePromptConfig(category) {
             TableName: PROMPT_TABLE,
             Key: {
                 PK: `PROMPT#${activePromptId}`,
-                SK: 'CONFIG'
+                SK: 'PROMPT' // admin-data stores every prompt under SK 'PROMPT'
             }
         }), {abortSignal: AbortSignal.timeout(2000)});
 
-        if (!promptResult.Item) {
+        if (!promptResult.Item?.systemPrompt || !promptResult.Item?.userPromptTemplate) {
             console.log(`Prompt configuration not found for ID: ${activePromptId}`);
             return null;
         }
@@ -75,8 +75,14 @@ async function getActivePromptConfig(category) {
 /**
  * Replace variables in prompt template
  */
+const PROMPT_VARIABLES = new Set(['currentFields', 'goals', 'mentees', 'memberType', 'relationship', 'connection', 'expertise',
+    'value', 'contact', 'cadence', 'lastContact', 'notes', 'boardMembers', 'skills', 'memberName', 'memberRole',
+    'currentRelationship', 'completeProfile', 'my_current_situation', 'fullBoardData']);
+
 function replacePromptVariables(template, data, context) {
-    let prompt = template;
+    // Never send a raw {placeholder} to the model: names this function does not fill mean the data was not supplied.
+    // Done on the template first so braces inside the user's own text are left alone.
+    let prompt = template.replace(/\{([A-Za-z_]\w*)\}/g, (match, name) => PROMPT_VARIABLES.has(name) ? match : 'Not provided');
 
     // Handle complete user data (new format)
     let completeUserData = null;
@@ -118,7 +124,25 @@ function replacePromptVariables(template, data, context) {
 
     // Replace standard variables
     prompt = prompt.replace(/\{currentFields\}/g, JSON.stringify(data.currentFields || data.currentFormData || {}));
-    prompt = prompt.replace(/\{goals\}/g, JSON.stringify(data.goals || []));
+    prompt = prompt.replace(/\{goals\}/g, JSON.stringify(data.goals || data.allGoals || []));
+    prompt = prompt.replace(/\{mentees\}/g, JSON.stringify(completeUserData?.you?.mentees || []));
+    prompt = prompt.replace(/\{memberType\}/g, data.memberType || '');
+
+    // Board-member form fields, under the names the stored prompts use.
+    const form = data.currentFormData || {};
+    const memberFields = {
+        relationship: form.relationship || form.connection,
+        connection: form.connection,
+        expertise: form.expertise || form.role,
+        value: form.value || form.whatTheyGet,
+        contact: form.contact || form.email,
+        cadence: form.cadence,
+        lastContact: form.lastContact,
+        notes: form.notes
+    };
+    for (const [name, value] of Object.entries(memberFields)) {
+        prompt = prompt.replace(new RegExp(`\\{${name}\\}`, 'g'), () => value ? String(value) : 'Not provided');
+    }
     prompt = prompt.replace(/\{boardMembers\}/g, JSON.stringify(context.boardMembers || []));
     prompt = prompt.replace(/\{skills\}/g, JSON.stringify(data.skills || []));
 
@@ -167,16 +191,20 @@ function replacePromptVariables(template, data, context) {
                     if (member.notes) profileText += `  Notes: ${member.notes}\n`;
                 });
                 profileText += '\n';
+            } else if (Array.isArray(completeUserData[type])) {
+                profileText += `Current ${type}: none yet\n\n`; // lets the model see gaps instead of guessing
             }
         });
 
         // Replace placeholder for complete profile - handle common template patterns
         prompt = prompt.replace(/\{completeProfile\}/g, profileText);
+        prompt = prompt.replace(/\{fullBoardData\}/g, profileText || 'No board information provided yet');
         prompt = prompt.replace(/\{my_current_situation\}/g, profileText);
         prompt = prompt.replace(/\{\}/g, profileText); // Handle empty placeholder
     } else {
         // Fallback if no complete data
         prompt = prompt.replace(/\{completeProfile\}/g, 'No additional profile information available');
+        prompt = prompt.replace(/\{fullBoardData\}/g, 'No board information provided yet');
         prompt = prompt.replace(/\{my_current_situation\}/g, 'No additional profile information available');
         prompt = prompt.replace(/\{\}/g, 'No additional profile information available');
     }

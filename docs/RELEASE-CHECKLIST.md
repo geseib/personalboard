@@ -15,6 +15,7 @@ Deployments are run by hand (see `CLAUDE.md`). Work through this list for each e
 - [ ] `npm run deploy:boarddev` (backend), then `npm run deploy:boarddevfront`.
 - [ ] Enable any third-party models not yet used in this account (Bedrock console → Model catalog). The first call to an Anthropic, Qwen or OpenAI model can need a one-time Marketplace subscription.
 - [ ] `ADMIN_PASSWORD=… npm run smoke:models -- --host board.dev.seibtribe.us` — every model you plan to use must PASS. A FAIL for a model you do not intend to activate is fine.
+- [ ] Install any new prompt definitions: `node scripts/install-prompt.cjs prompts/<file>.json --stack <stack> --activate` (the previous prompt stays available in admin → Prompts).
 - [ ] In admin → **AI models**, compare the candidate models on two or three realistic (fictional) prompts for both *Writing assistance* and *Board analysis*. Note quality, latency and estimated cost.
 - [ ] Activate the chosen routing on dev. Leave **Show the model name to site users** off unless you are deliberately testing.
 - [ ] On the dev site, run one writing refinement and one board analysis end to end; confirm no model name appears in the advice panel.
