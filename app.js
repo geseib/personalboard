@@ -632,7 +632,8 @@ Your Personal Board of Directors is only as valuable as the relationships you cu
       a.download = 'personal-board.docx';
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 10000);
-    } catch {
+    } catch (error) {
+      console.error('Word export failed', error);
       alert('The Word document could not be created. Your board is safe. Please try again.');
     } finally {
       setWordExporting(false);
