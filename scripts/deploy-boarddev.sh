@@ -57,7 +57,7 @@ sam build --config-env $SAM_CONFIG_ENV
 # Deploy the infrastructure
 echo -e "${YELLOW}🚀 Deploying infrastructure...${NC}"
 # Command-line overrides replace samconfig.toml's list, so pass every parameter explicitly.
-sam deploy --config-env $SAM_CONFIG_ENV \
+sam deploy --config-env $SAM_CONFIG_ENV --no-fail-on-empty-changeset \
     --parameter-overrides \
     "GitHubToken=$GITHUB_TOKEN" \
     "AdminPassword=$ADMIN_PASSWORD" \

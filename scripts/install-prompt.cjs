@@ -30,7 +30,8 @@ const table = JSON.parse(aws(['cloudformation', 'describe-stack-resource', '--st
   .StackResourceDetail.PhysicalResourceId;
 console.log(`${dryRun ? 'DRY RUN - nothing will be written. ' : ''}Stack ${stack} → table ${table}\n`);
 const now = new Date().toISOString();
-const getItem = (pk) => JSON.parse(aws(['dynamodb', 'get-item', '--table-name', table, '--key', JSON.stringify({PK: {S: pk}, SK: {S: 'PROMPT'}})])).Item;
+// get-item prints nothing at all when the item does not exist.
+const getItem = (pk) => { const out = aws(['dynamodb', 'get-item', '--table-name', table, '--key', JSON.stringify({PK: {S: pk}, SK: {S: 'PROMPT'}})]).trim(); return out ? JSON.parse(out).Item : undefined; };
 
 for (const file of files) {
 const prompt = JSON.parse(fs.readFileSync(file, 'utf8'));
