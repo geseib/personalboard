@@ -24,7 +24,8 @@
     "test:unit": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
     "test:backend": "node --test tests/*.test.cjs lambda-functions/ai-guidance/*.test.cjs",
     "prebuild": "node scripts/prepare-build.cjs",
-    "smoke:models": "node scripts/smoke-models.cjs"
+    "smoke:models": "node scripts/smoke-models.cjs",
+    "prompts:install": "node scripts/install-prompt.cjs prompts/goals-grounded-v1.json prompts/skills-grounded-v1.json prompts/overall-grounded-v1.json prompts/mentors-grounded-v1.json prompts/coaches-grounded-v1.json prompts/sponsors-grounded-v1.json prompts/connectors-grounded-v1.json prompts/peers-grounded-v1.json prompts/board-members-grounded-v1.json --activate"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.896.0",
