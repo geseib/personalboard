@@ -91,6 +91,12 @@ aws s3 cp dist/ s3://$BUCKET_NAME/ --recursive \
     --include "enhanced-advisor-modal.js" --include "slides/*" \
     --cache-control "no-cache, max-age=0, must-revalidate"
 
+# "/admin" has no file extension, so CloudFront would fall through to the app's index.html.
+# Publish the admin page under that exact key too.
+aws s3 cp dist/admin.html s3://$BUCKET_NAME/admin \
+    --content-type "text/html" \
+    --cache-control "no-cache, no-store, must-revalidate"
+
 # Sync images with medium cache
 aws s3 sync dist/ s3://$BUCKET_NAME/ \
     --exclude "*" \
